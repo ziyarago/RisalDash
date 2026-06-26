@@ -4,6 +4,17 @@
 #include <DNSServer.h>
 #include "RisalWidget.h"
 
+// Optional MQTT export — opt in with -D RISAL_ENABLE_MQTT and add the PubSubClient
+// dependency. Kept out of the default build so it never costs flash unless used.
+#ifdef RISAL_ENABLE_MQTT
+  #if defined(ESP32)
+    #include <WiFi.h>
+  #else
+    #include <ESP8266WiFi.h>
+  #endif
+  #include <PubSubClient.h>
+#endif
+
 // RisalDash — beautiful real-time web dashboards for ESP32/ESP8266.
 // https://dash.risal.io
 //
@@ -38,6 +49,11 @@ class RisalUI {
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
   // Over-the-air firmware update at GET/POST /update. Call before begin().
   RisalUI& enableOTA() { _ota = true; return *this; }
+#ifdef RISAL_ENABLE_MQTT
+  // Mirror widget state to MQTT: publishes <baseTopic>/<key> (retained) on change and
+  // subscribes to <baseTopic>/<key>/set for inbound commands. STA mode only.
+  RisalUI& mqtt(const char* host, uint16_t port = 1883, const char* baseTopic = "risaldash");
+#endif
 
   // Widget factories — return the concrete widget so config chains (e.g. .decimals(1)).
   MetricWidget& metric(const char* name, float* val, const char* unit = "");
@@ -89,6 +105,18 @@ class RisalUI {
   void _handleConnect(AsyncWebServerRequest* req);
   bool _loadCreds(String& ssid, String& pass);
   void _saveCreds(const char* ssid, const char* pass);
+#ifdef RISAL_ENABLE_MQTT
+  void _mqttLoop();
+  void _mqttPublish(Widget* w);
+  static void _mqttCb(char* topic, uint8_t* payload, unsigned int len);
+  WiFiClient _mqttNet;
+  PubSubClient _mqtt{_mqttNet};
+  const char* _mqttHost = nullptr;
+  uint16_t _mqttPort = 1883;
+  const char* _mqttBase = "risaldash";
+  uint32_t _mqttRetry = 0;
+  static RisalUI* _self;
+#endif
 
   const char* _title;
   Theme _theme = DARK;

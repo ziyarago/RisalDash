@@ -47,6 +47,9 @@ void setup() {
   dash.led("B flag", &linkUp);
   dash.enableMCP("risal_pat_demo");
   dash.enableOTA();
+#ifdef RISAL_ENABLE_MQTT
+  dash.mqtt("192.168.1.10", 1883, "greenhouse");
+#endif
   dash.beginAP("RisalDash-Demo", "12345678");
 }
 

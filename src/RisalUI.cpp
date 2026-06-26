@@ -616,6 +616,9 @@ void RisalUI::update() {
     return;
   }
   if (!_running) return;
+#ifdef RISAL_ENABLE_MQTT
+  _mqttLoop();  // connection management + inbound, every call (not throttled)
+#endif
   uint32_t now = millis();
   if (now - _lastPush < _interval) return;
   _lastPush = now;
@@ -627,8 +630,67 @@ void RisalUI::update() {
     if (any) s += ',';
     any = true;
     _widgets[i]->writeKV(s);
+#ifdef RISAL_ENABLE_MQTT
+    if (_mqttHost && _mqtt.connected()) _mqttPublish(_widgets[i]);
+#endif
   }
   s += "}";
   if (any) _ws.textAll(s);
   _ws.cleanupClients();
 }
+
+#ifdef RISAL_ENABLE_MQTT
+RisalUI* RisalUI::_self = nullptr;
+
+RisalUI& RisalUI::mqtt(const char* host, uint16_t port, const char* baseTopic) {
+  _mqttHost = host;
+  _mqttPort = port;
+  _mqttBase = baseTopic;
+  _self = this;
+  return *this;
+}
+
+// Inbound: <base>/<key>/set -> applyCommand(payload).
+void RisalUI::_mqttCb(char* topic, uint8_t* payload, unsigned int len) {
+  if (!_self) return;
+  String t(topic);
+  String base = String(_self->_mqttBase) + "/";
+  if (!t.startsWith(base) || !t.endsWith("/set")) return;
+  String key = t.substring(base.length(), t.length() - 4);  // strip base.../ and /set
+  String val;
+  for (unsigned int i = 0; i < len; i++) val += (char)payload[i];
+  for (uint8_t i = 0; i < _self->_count; i++)
+    if (key == _self->_widgets[i]->key()) { _self->_widgets[i]->applyCommand(val); break; }
+}
+
+// Outbound: publish a widget's current value (retained) to <base>/<key>.
+void RisalUI::_mqttPublish(Widget* w) {
+  if (!w->hasState()) return;
+  String kv;
+  w->writeKV(kv);  // "key":value or "key":"value"
+  int c = kv.indexOf(':');
+  if (c < 0) return;
+  String val = kv.substring(c + 1);
+  if (val.length() && val[0] == '"') val = val.substring(1, val.length() - 1);  // unquote strings
+  String topic = String(_mqttBase) + "/" + w->key();
+  _mqtt.publish(topic.c_str(), val.c_str(), true);
+}
+
+void RisalUI::_mqttLoop() {
+  if (!_mqttHost) return;
+  if (_mqtt.connected()) { _mqtt.loop(); return; }
+  if (millis() < _mqttRetry) return;
+  _mqttRetry = millis() + 3000;  // throttle reconnects
+  _mqtt.setServer(_mqttHost, _mqttPort);
+  _mqtt.setCallback(_mqttCb);
+  String cid = "risaldash-" + WiFi.macAddress();
+  if (!_mqtt.connect(cid.c_str())) return;
+  for (uint8_t i = 0; i < _count; i++) {
+    if (_widgets[i]->hasState()) {
+      String sub = String(_mqttBase) + "/" + _widgets[i]->key() + "/set";
+      _mqtt.subscribe(sub.c_str());
+      _mqttPublish(_widgets[i]);  // seed retained state
+    }
+  }
+}
+#endif
