@@ -80,6 +80,7 @@ class RisalUI {
   RadioWidget&  radio(const char* name, const char* csvOptions, int* idx, RadioWidget::Cb cb = nullptr);
   SeparatorWidget& separator(const char* title);
   TabWidget&    tab(const char* title);
+  AiWidget&     ai(const char* name, String* note);
 
   // Sensor preset (quantity-based): expands a known sensor into the right widgets.
   // e.g. dash.sensor("bme280", &temp, &hum, &pres);

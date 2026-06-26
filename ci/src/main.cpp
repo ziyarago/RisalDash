@@ -40,6 +40,8 @@ void setup() {
   dash.table("System").row("CPU", &cpu, "%").row("Voltage", &volts, "V", 1);
   dash.sensor("bme280", &temp, &hum, &pres);
   dash.separator("Layout");
+  dash.ai("Assistant", &statusMsg).span(2);
+  dash.chart("Temp wide", &temp, "C").span(2);
   dash.radio("Fan", "Low,Mid,High", &fanLvl);
   dash.tab("Tab A");
   dash.stat("A value", &cpu, "%").decimals(0);

@@ -357,6 +357,12 @@ TabWidget& RisalUI::tab(const char* title) {
   return *w;
 }
 
+AiWidget& RisalUI::ai(const char* name, String* note) {
+  AiWidget* w = new AiWidget(name, name, note);
+  _add(w);
+  return *w;
+}
+
 // Full current state as JSON (shared by the WS connect snapshot and GET /api/state).
 String RisalUI::_stateJson() {
   String s = "{";

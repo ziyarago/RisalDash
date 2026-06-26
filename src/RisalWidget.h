@@ -56,10 +56,17 @@ class Widget {
 
   const char* key() const { return _key; }
 
+  // Make the card span 2 or 3 grid columns on wide screens (collapses on mobile).
+  // Returns the base type; call it last in a chain, e.g. dash.chart(...).span(2).
+  Widget& span(uint8_t n) { _span = n; return *this; }
+
  protected:
   virtual void extraAttrs(Print& out) { (void)out; }    // extra data-* on the card
   void cardOpen(Print& out) {
-    out.print(F("<section class=\"card\" data-type=\""));
+    out.print(F("<section class=\"card"));
+    if (_span == 2) out.print(F(" sp2"));
+    else if (_span >= 3) out.print(F(" sp3"));
+    out.print(F("\" data-type=\""));
     out.print(typeId());
     out.print(F("\" data-key=\""));
     out.print(_key);
@@ -73,6 +80,7 @@ class Widget {
 
   const char* _key;
   const char* _title;
+  uint8_t _span = 1;
 };
 
 // ── Display: metric (big number + bar) ──
@@ -877,4 +885,33 @@ class TabWidget : public Widget {
   const char* css() const override { return RW_TAB_CSS; }
   const char* js() const override { return RW_TAB_JS; }
   void card(Print&) override {}  // handled by RisalUI::_handleRoot
+};
+
+// ── Display: AI note plate (a short assistant message bound to a String) ──
+static const char RW_AI_CSS[] PROGMEM =
+  ".ai{display:flex;gap:11px;align-items:flex-start}"
+  ".ai .ic{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--acc-ink);background:var(--grad)}"
+  ".ai p{font-size:13px;line-height:1.5;color:var(--ink2);margin:0}";
+static const char RW_AI_JS[] PROGMEM =
+  "R.W.ai={update:function(el,v){var p=el.querySelector('.ai p');if(p)p.textContent=v;}};";
+
+class AiWidget : public Widget {
+ public:
+  AiWidget(const char* key, const char* title, String* note) : Widget(key, title), _note(note) {}
+  const char* typeId() const override { return "ai"; }
+  const char* css() const override { return RW_AI_CSS; }
+  const char* js() const override { return RW_AI_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"ai\"><span class=\"ic\"><svg viewBox=\"0 0 24 24\" width=\"17\" height=\"17\" fill=\"currentColor\">"
+                "<path d=\"M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9z\"/></svg></span><p>"));
+    if (_note) out.print(*_note);
+    out.print(F("</p></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _note ? *_note : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_note ? *_note : String()); out += '"'; }
+ private:
+  String* _note; String _last; bool _seen = false;
 };

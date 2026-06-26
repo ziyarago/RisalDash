@@ -38,6 +38,7 @@ static const char RISAL_CSS[] PROGMEM =
   ".lng{display:flex;gap:3px}.lng a{font:600 11px var(--font);padding:6px 9px;border-radius:8px;color:var(--ink3);"
   "text-decoration:none;border:1px solid transparent}.lng a.on{color:var(--acc-ink);background:var(--grad)}"
   ".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:15px;align-items:start}"
+  ".sp2{grid-column:span 2}.sp3{grid-column:span 3}@media(max-width:560px){.sp2,.sp3{grid-column:auto}}"
   ".card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:17px;display:flex;flex-direction:column;gap:12px}"
   ".card h3{font:700 11px/1 var(--font);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center}"
   ".eb{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--acc);margin-inline-end:6px}"
