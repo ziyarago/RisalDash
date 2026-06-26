@@ -109,8 +109,9 @@ dash.sensor("bme280", &temp, &hum, &pres);  // gauge °C + metric % + chart hPa
 dash.sensor("ina219", &volts, &cur, &pwr);  // V / A / W
 ```
 
-Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `ina219`,
-`hcsr04`, `ccs811`. The widget is chosen by the **quantity**, not the sensor model.
+Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `ccs811`,
+`ina219`, `acs712`, `pzem004t`, `hcsr04`, `vl53l0x`, `mq135`, `soil`, `mpu6050`, `mpu9250`.
+The widget is chosen by the **quantity**, not the sensor model.
 
 ## Languages
 
