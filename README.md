@@ -1,6 +1,13 @@
 # RisalDash
 
+[![build](https://github.com/ziyarago/RisalDash/actions/workflows/ci.yml/badge.svg)](https://github.com/ziyarago/RisalDash/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![platform: ESP32 | ESP8266](https://img.shields.io/badge/platform-ESP32%20%7C%20ESP8266-informational)
+![arduino + platformio](https://img.shields.io/badge/Arduino-PlatformIO-success)
+
 **Beautiful real-time web dashboards for ESP32 / ESP8266 — in a few lines of C++.**
+
+<p align="center"><img src="assets/hero.png" alt="RisalDash dashboard served by an ESP" width="820"></p>
 
 Describe widgets; RisalDash generates the HTML, CSS, JS and the WebSocket protocol for you.
 The dashboard is served by the device itself in the Risal brand style (dark-first, glass,
@@ -142,8 +149,9 @@ dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + 
 | `GET /api/mcp/manifest?token=` | widgets as MCP tools (token-guarded) |
 | `GET/POST /update` | OTA firmware upload (when `enableOTA()`) |
 
-**MCP bridge** — [`tools/risal-mcp-bridge`](tools/risal-mcp-bridge) is a standalone Node server
-(`npx risal-dash-mcp`) that turns a device into AI tools for Claude Desktop / Claude Code.
+**MCP** — `enableMCP(token)` exposes `GET /api/mcp/manifest`, turning every widget into an AI
+tool (read sensors, drive controls). A standalone MCP bridge for Claude Desktop / Claude Code
+ships separately.
 
 ## Examples
 

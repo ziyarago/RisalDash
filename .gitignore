@@ -18,3 +18,6 @@ web/
 # dev harness + internal docs — not part of the distributable library
 dev/
 docs/
+
+# MCP bridge will live in its own repo / npm package
+tools/risal-mcp-bridge/
