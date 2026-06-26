@@ -11,3 +11,6 @@ dist/
 .DS_Store
 *.log
 .claude/
+
+# website lives in its own project, not in the public library repo
+web/
