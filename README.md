@@ -38,8 +38,12 @@ void loop() {
   (system fonts, everything served from flash).
 - **Real-time** — values are pushed over WebSocket only when they change; controls send commands
   back to your callbacks.
-- **Widgets for everything** — metric, gauge, chart, stat, progress, badge, led, toggle, slider,
-  button (more on the way), plus one-line **sensor presets**.
+- **Widgets for everything** — 25 types: displays, controls, layout (tabs/groups/span), plus
+  one-line **sensor presets**.
+- **Multilingual + RTL** — `dash.lang("en"|"ru"|"ar")` with a live in-appbar switcher; Arabic
+  flips the layout to RTL. Only the chosen language ships to flash.
+- **Integrations** — REST, Prometheus `/metrics`, optional MQTT, OTA firmware update, and **MCP**
+  so an AI agent can read sensors and drive controls (every widget becomes a tool).
 - **Brand-consistent** — same Risal design system as the app and [dash.risal.io](https://dash.risal.io),
   dark/light with an in-UI toggle.
 
@@ -85,6 +89,16 @@ All widgets bind to a variable by pointer and update live.
 | `toggle(name, &bool, cb)` | `bool*` | switch → `cb(bool)` |
 | `slider(name, &int, min, max, cb)` | `int*` | range → `cb(int)` |
 | `button(name, label, cb)` | — | momentary action → `cb()` |
+| `number(name, &int, min, max, step, cb)` | `int*` | stepper |
+| `select(name, "a,b,c", &int, cb)` | `int*` | dropdown → index |
+| `radio(name, "a,b,c", &int, cb)` | `int*` | segmented → index |
+| `text` / `password` / `time` / `color`(name, &String, cb) | `String*` | text & native inputs |
+| `label(name, &String)` · `log(name, lines)` | `String*` | read-only text / event log |
+| `image(name, &String)` · `ai(name, &String)` | `String*` | image URL / assistant note |
+| `table(title).row(label, &float, unit, dec)` | `float*` | key/value rows |
+
+**Layout:** `group(title)`, `separator(title)`, `tab(title)` (switchable panels), and
+`.span(2)` / `.span(3)` to widen any card (collapses on mobile).
 
 ## Sensor presets
 
@@ -98,10 +112,39 @@ dash.sensor("ina219", &volts, &cur, &pwr);  // V / A / W
 Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `ina219`,
 `hcsr04`, `ccs811`. The widget is chosen by the **quantity**, not the sensor model.
 
+## Languages
+
+```cpp
+dash.lang("ar");   // "en" (default) | "ru" | "ar"  — "ar" switches to RTL
+```
+
+The appbar also has a live **EN / RU / AR** switcher. Only the languages you reference are
+compiled in (Zero-Waste); widget titles stay yours, the library chrome is translated.
+
+## Integrations & control
+
+```cpp
+dash.enableMCP("risal_pat_token");   // GET /api/mcp/manifest → AI tools (see tools/risal-mcp-bridge)
+dash.enableOTA();                    // GET/POST /update → firmware update over the air
+dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + PubSubClient
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/state` | full state as JSON |
+| `GET /api/set?key=value` | set a control |
+| `GET /metrics` | Prometheus exposition |
+| `GET /api/mcp/manifest?token=` | widgets as MCP tools (token-guarded) |
+| `GET/POST /update` | OTA firmware upload (when `enableOTA()`) |
+
+**MCP bridge** — [`tools/risal-mcp-bridge`](tools/risal-mcp-bridge) is a standalone Node server
+(`npx risal-dash-mcp`) that turns a device into AI tools for Claude Desktop / Claude Code.
+
 ## Examples
 
 - **Minimal** — a few widgets over an access point.
 - **FirstBoot** — captive-portal Wi-Fi provisioning, then the dashboard on your network.
+- **AllWidgets** — every widget type, a sensor preset, tabs and integrations.
 
 ## Footprint
 
@@ -110,9 +153,8 @@ dashboard (a handful of widgets) is a few KB of RisalDash on top of the web stac
 
 ## Roadmap
 
-More controls (select, color, time, d-pad…), layout (tabs/groups), MDI icons, MQTT/Prometheus
-export, OTA, and **MCP** (control the device from an AI agent — every widget becomes a tool).
-See [dash.risal.io](https://dash.risal.io).
+MDI icon set, a mobile drawer/nav built from groups & tabs, richer charts (multi-series/area/bar),
+more sensor presets, and CSS/JS minify + gzip-in-PROGMEM. See [dash.risal.io](https://dash.risal.io).
 
 ## License
 
