@@ -5,7 +5,7 @@
   "keywords": "esp32, esp8266, dashboard, ui, web, websocket, iot, sensors, mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/risal-io/RisalDash.git"
+    "url": "https://github.com/ziyarago/RisalDash.git"
   },
   "authors": [
     { "name": "Shaxzod Ahmedov", "maintainer": true }
