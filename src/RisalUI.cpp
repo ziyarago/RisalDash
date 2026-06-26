@@ -149,6 +149,11 @@ void RisalUI::_startPortal() {
 void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
   int n = WiFi.scanNetworks();
   AsyncResponseStream* res = req->beginResponseStream("text/html");
+  res->print(F("<!DOCTYPE html><html class=\"dark\" lang=\""));
+  res->print(_langCode);
+  res->print(F("\" dir=\""));
+  res->print(_rtl ? "rtl" : "ltr");
+  res->print(F("\">"));
   res->print(FPSTR(RISAL_HEAD));
   res->print(FPSTR(RISAL_CSS));
   res->print(FPSTR(RISAL_PORTAL_CSS));
@@ -509,6 +514,11 @@ void RisalUI::_onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* da
 // emitted once — Zero-Waste, since unused widget classes are dropped by the linker.
 void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   AsyncResponseStream* res = req->beginResponseStream("text/html");
+  res->print(F("<!DOCTYPE html><html class=\"dark\" lang=\""));
+  res->print(_langCode);
+  res->print(F("\" dir=\""));
+  res->print(_rtl ? "rtl" : "ltr");
+  res->print(F("\">"));
   res->print(FPSTR(RISAL_HEAD));
   res->print(FPSTR(RISAL_CSS));
 
@@ -581,6 +591,9 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   // Client runtime + each widget type's JS (once) + init.
   res->print(FPSTR(RISAL_SCRIPT_OPEN));
   res->print(FPSTR(RISAL_RUNTIME_JS));
+  res->print(F("R.L={on:'On',off:'Off'};"));
+  if (strcmp(_langCode, "ru") == 0) res->print(F("R.L.on='Вкл';R.L.off='Выкл';"));
+  else if (strcmp(_langCode, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();

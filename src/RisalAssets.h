@@ -5,8 +5,9 @@
 // glass card grid). Ported from the dev/ mock. Per-widget CSS/JS get appended to this
 // core in P2 (Zero-Waste aggregation); the WebSocket runtime arrives in P3.
 
+// The <!DOCTYPE><html lang dir> open is printed by RisalUI (language/RTL aware).
 static const char RISAL_HEAD[] PROGMEM =
-  "<!DOCTYPE html><html lang=\"en\" class=\"dark\"><head><meta charset=\"UTF-8\">"
+  "<head><meta charset=\"UTF-8\">"
   "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
   "<meta name=\"theme-color\" content=\"#0F1115\"><title>RisalDash</title><style>";
 

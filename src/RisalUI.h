@@ -31,6 +31,8 @@ class RisalUI {
   void beginAP(const char* ssid, const char* pass = nullptr);  // dashboard over a plain access point
   RisalUI& theme(Theme t);
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
+  // UI language: "en" (default), "ru", "ar". "ar" switches the layout to RTL.
+  RisalUI& lang(const char* code) { _langCode = code; _rtl = (code[0] == 'a' && code[1] == 'r'); return *this; }
   // Expose widgets to an AI agent via MCP: GET /api/mcp/manifest lists each widget as a
   // get_*/set_* tool (the risal-mcp-server bridge reads it). Token-guarded.
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
@@ -97,6 +99,8 @@ class RisalUI {
   bool _portal = false;
   const char* _apSsid = nullptr;
   const char* _mcpToken = nullptr;
+  const char* _langCode = "en";
+  bool _rtl = false;
   bool _ota = false;
   uint32_t _rebootAt = 0;
   Widget* _widgets[RISAL_MAX_WIDGETS];

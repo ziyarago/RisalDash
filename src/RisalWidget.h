@@ -37,7 +37,7 @@ static const char RW_TOGGLE_JS[] PROGMEM =
   "R.W.toggle={init:function(el){var s=el.querySelector('.sw');"
   "if(s)s.addEventListener('click',function(){R.send(el.dataset.key,!s.classList.contains('on'));});},"
   "update:function(el,v){var s=el.querySelector('.sw');if(s)s.classList.toggle('on',!!v);"
-  "var t=el.querySelector('.tg span');if(t)t.textContent=v?'On':'Off';}};";
+  "var t=el.querySelector('.tg span');if(t)t.textContent=v?R.L.on:R.L.off;}};";
 
 class Widget {
  public:
@@ -239,7 +239,7 @@ static const char RW_BADGE_JS[] PROGMEM =
   "b.className='badge '+c;var t=el.dataset['l'+v];if(t!=null)b.textContent=t;}};";
 static const char RW_LED_JS[] PROGMEM =
   "R.W.led={update:function(el,v){var i=el.querySelector('.led i');if(i)i.classList.toggle('on',!!v);"
-  "var b=el.querySelector('.led b');if(b)b.textContent=v?'on':'off';}};";
+  "var b=el.querySelector('.led b');if(b)b.textContent=v?R.L.on:R.L.off;}};";
 static const char RW_PROGRESS_JS[] PROGMEM =
   "R.W.progress={update:function(el,v){var b=el.querySelector('.big');if(b)b.textContent=v;"
   "var i=el.querySelector('.bar>i');if(i)i.style.width=Math.max(0,Math.min(100,v))+'%';}};";
