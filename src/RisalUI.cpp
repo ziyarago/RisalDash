@@ -567,9 +567,17 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     if (!dup) { seen[sc++] = c; res->print(FPSTR(c)); }
   }
 
+  uint8_t groups = 0;
+  for (uint8_t i = 0; i < _count; i++)
+    if (strcmp(_widgets[i]->typeId(), "group") == 0) groups++;
+
   res->print(FPSTR(RISAL_BODY_OPEN));
   res->print(_title);
   res->print(FPSTR(RISAL_BODY_MID));
+  // Hamburger → opens the nav drawer (mobile only; only when there are groups to jump to).
+  if (groups)
+    res->print(F("<button class=\"burg\" onclick=\"R.openNav(true)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
+                "stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button>"));
   // Language switcher (active = effective language); reloads with ?lang=.
   {
     static const char* const codes[3] = {"en", "ru", "ar"};
@@ -585,6 +593,21 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     res->print(F("</div>"));
   }
   res->print(FPSTR(RISAL_APPBAR_END));
+  // Nav drawer: scrim + off-canvas list of groups (anchors to each section header).
+  if (groups) {
+    res->print(F("<div class=\"scrim\" onclick=\"R.openNav(false)\"></div><aside class=\"drawer\"><h4>"));
+    res->print(_title);
+    res->print(F("</h4>"));
+    for (uint8_t i = 0; i < _count; i++) {
+      if (strcmp(_widgets[i]->typeId(), "group") != 0) continue;
+      res->print(F("<a href=\"#g-"));
+      rwSlug(*res, _widgets[i]->key());
+      res->print(F("\" onclick=\"R.openNav(false)\">"));
+      res->print(_widgets[i]->key());
+      res->print(F("</a>"));
+    }
+    res->print(F("</aside>"));
+  }
   res->print(FPSTR(RISAL_DEFS));
 
   bool hasTabs = false;
@@ -645,6 +668,8 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   res->print(F("R.L={on:'On',off:'Off'};"));
   if (strcmp(eff, "ru") == 0) res->print(F("R.L.on='Вкл';R.L.off='Выкл';"));
   else if (strcmp(eff, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
+  res->print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
+              "if(s)s.classList.toggle('open',o);if(d)d.classList.toggle('open',o);};"));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();

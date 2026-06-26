@@ -453,13 +453,28 @@ static const char RW_SELECT_JS[] PROGMEM =
   "R.W.select={init:function(el){var s=el.querySelector('select');if(s)s.addEventListener('change',function(){R.send(el.dataset.key,s.selectedIndex);});},"
   "update:function(el,v){var s=el.querySelector('select');if(s)s.selectedIndex=v;}};";
 
-// ── Layout: group / section header (spans the grid) ──
+// Lowercase, non-alphanumeric → '-'. Used to anchor groups for the nav drawer.
+inline void rwSlug(Print& out, const char* s) {
+  for (; s && *s; s++) {
+    char c = *s;
+    if (c >= 'A' && c <= 'Z') c += 32;
+    out.print((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ? c : '-');
+  }
+}
+
+// ── Layout: group / section header (spans the grid; anchors the nav drawer) ──
 class GroupWidget : public Widget {
  public:
   explicit GroupWidget(const char* title) : Widget(title, title) {}
   const char* typeId() const override { return "group"; }
   const char* css() const override { return RW_GROUP_CSS; }
-  void card(Print& out) override { out.print(F("<div class=\"group\">")); out.print(_title); out.print(F("</div>")); }
+  void card(Print& out) override {
+    out.print(F("<div class=\"group\" id=\"g-"));
+    rwSlug(out, _title);
+    out.print(F("\">"));
+    out.print(_title);
+    out.print(F("</div>"));
+  }
 };
 
 // ── Control: number input (int) ──
