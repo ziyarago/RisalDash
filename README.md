@@ -45,7 +45,7 @@ void loop() {
   (system fonts, everything served from flash).
 - **Real-time** — values are pushed over WebSocket only when they change; controls send commands
   back to your callbacks.
-- **Widgets for everything** — 25 types: displays, controls, layout (tabs/groups/span), plus
+- **Widgets for everything** — 26 types: displays, controls, layout (tabs/groups/span), plus
   one-line **sensor presets**.
 - **Multilingual + RTL** — `dash.lang("en"|"ru"|"ar")` with a live in-appbar switcher; Arabic
   flips the layout to RTL. Only the chosen language ships to flash.
@@ -100,6 +100,7 @@ All widgets bind to a variable by pointer and update live.
 | `select(name, "a,b,c", &int, cb)` | `int*` | dropdown → index |
 | `radio(name, "a,b,c", &int, cb)` | `int*` | segmented → index |
 | `text` / `password` / `time` / `color`(name, &String, cb) | `String*` | text & native inputs |
+| `date(name, &String, cb)` | `String*` | custom calendar popover (no native input) |
 | `label(name, &String)` · `log(name, lines)` | `String*` | read-only text / event log |
 | `image(name, &String)` · `ai(name, &String)` | `String*` | image URL / assistant note |
 | `table(title).row(label, &float, unit, dec)` | `float*` | key/value rows |

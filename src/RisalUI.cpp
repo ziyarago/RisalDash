@@ -337,6 +337,12 @@ TimeWidget& RisalUI::time(const char* name, String* val, TimeWidget::Cb cb) {
   return *w;
 }
 
+DateWidget& RisalUI::date(const char* name, String* val, DateWidget::Cb cb) {
+  DateWidget* w = new DateWidget(name, name, val, cb);
+  _add(w);
+  return *w;
+}
+
 ColorWidget& RisalUI::color(const char* name, String* val, ColorWidget::Cb cb) {
   ColorWidget* w = new ColorWidget(name, name, val, cb);
   _add(w);

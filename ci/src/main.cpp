@@ -10,7 +10,7 @@ int   ram = 60, bright = 128, setpoint = 24, mode = 0, fanLvl = 1;
 bool  pump = false, linkUp = true;
 int   pumpState = 0;
 String statusMsg = "All systems nominal", devName = "greenhouse";
-String wifiPass = "secret", alarmTime = "08:00", ledColor = "#22d3ee", camUrl = "/snapshot.jpg";
+String wifiPass = "secret", alarmTime = "08:00", dateVal = "2026-06-26", ledColor = "#22d3ee", camUrl = "/snapshot.jpg";
 LogWidget* evlog = nullptr;
 
 void setup() {
@@ -37,6 +37,7 @@ void setup() {
   evlog->print("system started");
   dash.password("Wi-Fi pass", &wifiPass);
   dash.time("Alarm", &alarmTime);
+  dash.date("Date", &dateVal);
   dash.color("LED color", &ledColor);
   dash.image("Camera", &camUrl);
   dash.table("System").row("CPU", &cpu, "%").row("Voltage", &volts, "V", 1);

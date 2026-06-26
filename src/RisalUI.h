@@ -77,6 +77,7 @@ class RisalUI {
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);
+  DateWidget&   date(const char* name, String* val, DateWidget::Cb cb = nullptr);
   ColorWidget&  color(const char* name, String* val, ColorWidget::Cb cb = nullptr);
   ImageWidget&  image(const char* name, String* url);
   TableWidget&  table(const char* title);
