@@ -35,4 +35,15 @@ jobs:
         run: |
           cp "examples/${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
           cd ci
-          pio run
+          pio run 2>&1 | tee build.log
+
+      - name: Size report — ${{ matrix.example }}
+        if: always()
+        run: |
+          cd ci
+          {
+            echo "### Footprint — ${{ matrix.example }}"
+            echo '```'
+            grep -E 'Environment|RAM:|Flash:' build.log || echo 'no size lines'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
