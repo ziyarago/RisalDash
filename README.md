@@ -150,8 +150,9 @@ dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + 
 | `GET/POST /update` | OTA firmware upload (when `enableOTA()`) |
 
 **MCP** — `enableMCP(token)` exposes `GET /api/mcp/manifest`, turning every widget into an AI
-tool (read sensors, drive controls). A standalone MCP bridge for Claude Desktop / Claude Code
-ships separately.
+tool (read sensors, drive controls). The companion
+[**risal-dash-mcp**](https://github.com/ziyarago/risal-dash-mcp) bridge connects a device to
+Claude Desktop / Claude Code.
 
 ## Examples
 
