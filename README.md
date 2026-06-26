@@ -100,6 +100,10 @@ All widgets bind to a variable by pointer and update live.
 **Layout:** `group(title)`, `separator(title)`, `tab(title)` (switchable panels), and
 `.span(2)` / `.span(3)` to widen any card (collapses on mobile).
 
+**Icons:** `.icon(RICON_THERMOMETER)` puts an IoT glyph in the card header. Built-in set:
+thermometer, water, flash, bulb, power, gauge, home, wifi, clock, signal, leaf, motion —
+or pass any 24×24 SVG path. Only the icons you use are linked into flash.
+
 ## Sensor presets
 
 One line drops the right widgets, units and ranges for a known sensor:

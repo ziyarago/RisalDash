@@ -19,8 +19,8 @@ void setup() {
   dash.effects(true);
   dash.group("System");
   dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
-  dash.gauge("Voltage", &volts, 0, 14, "V");
-  dash.chart("Temperature", &temp, "C");
+  dash.gauge("Voltage", &volts, 0, 14, "V").icon(RICON_FLASH);
+  dash.chart("Temperature", &temp, "C").icon(RICON_THERMOMETER);
   dash.stat("RSSI", &rssi, "dBm").decimals(0);
   dash.progress("RAM", &ram, "%");
   dash.badge("Pump state", &pumpState).labels("running", "idle", "fault");

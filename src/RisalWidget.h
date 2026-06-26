@@ -39,6 +39,22 @@ static const char RW_TOGGLE_JS[] PROGMEM =
   "update:function(el,v){var s=el.querySelector('.sw');if(s)s.classList.toggle('on',!!v);"
   "var t=el.querySelector('.tg span');if(t)t.textContent=v?R.L.on:R.L.off;}};";
 
+// Curated IoT icon set (MDI-style 24×24 path data). Each is its own PROGMEM symbol, so
+// --gc-sections keeps only the ones a widget actually references (Zero-Waste). Pass any
+// other path string to .icon() to use a different glyph.
+static const char RICON_THERMOMETER[] PROGMEM = "M12 3a3 3 0 0 0-3 3v7.1a4 4 0 1 0 6 0V6a3 3 0 0 0-3-3zm0 16a2 2 0 0 1-1-3.7V6a1 1 0 0 1 2 0v9.3A2 2 0 0 1 12 19z";
+static const char RICON_WATER[] PROGMEM = "M12 3c-3.2 4.2-6 7.3-6 10.2A6 6 0 0 0 18 13.2C18 10.3 15.2 7.2 12 3z";
+static const char RICON_FLASH[] PROGMEM = "M13 2L4 14h6l-1 8 9-12h-6l1-8z";
+static const char RICON_BULB[] PROGMEM = "M9 21h6v-1H9v1zm3-19a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z";
+static const char RICON_POWER[] PROGMEM = "M11 3h2v10h-2V3zm5.6 3.6 1.4 1.4a8 8 0 1 1-12 0L7.4 6.6a6 6 0 1 0 9.2 0z";
+static const char RICON_GAUGE[] PROGMEM = "M12 4a8 8 0 0 0-8 8h3a5 5 0 0 1 9.6-2l-2.3 2.3 1.4 1.4 4.3-4.3A8 8 0 0 0 12 4z";
+static const char RICON_HOME[] PROGMEM = "M12 3 3 11h3v9h5v-6h2v6h5v-9h3L12 3z";
+static const char RICON_WIFI[] PROGMEM = "M12 18l3-3a4.2 4.2 0 0 0-6 0l3 3zM5 11a10 10 0 0 1 14 0l-2 2a7 7 0 0 0-10 0l-2-2z";
+static const char RICON_CLOCK[] PROGMEM = "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5h-2v6l5 3 1-1.7-4-2.3V7z";
+static const char RICON_SIGNAL[] PROGMEM = "M4 20h3v-7H4v7zm6.5 0h3V8h-3v12zm6.5 0h3V4h-3v16z";
+static const char RICON_LEAF[] PROGMEM = "M17 8C8 10 6 16 5 21c0 0 8.5 1 12.5-6 1.6-2.8 1-7-.5-7z";
+static const char RICON_MOTION[] PROGMEM = "M13 4a2 2 0 1 0 0 .01zM7 9l3 2 2-1 4 2-1 2-3-1.5-3 1.5L6 20H4l3-7-2-3 2-1z";
+
 class Widget {
  public:
   Widget(const char* key, const char* title) : _key(key), _title(title) {}
@@ -60,6 +76,10 @@ class Widget {
   // Returns the base type; call it last in a chain, e.g. dash.chart(...).span(2).
   Widget& span(uint8_t n) { _span = n; return *this; }
 
+  // Show an icon in the card header instead of the accent dot. Pass a RICON_* path
+  // (or any 24×24 SVG path string). Returns the base type — call it last in a chain.
+  Widget& icon(const char* svgPath) { _icon = svgPath; return *this; }
+
  protected:
   virtual void extraAttrs(Print& out) { (void)out; }    // extra data-* on the card
   void cardOpen(Print& out) {
@@ -72,7 +92,14 @@ class Widget {
     out.print(_key);
     out.print('"');
     extraAttrs(out);
-    out.print(F("><h3><i class=\"eb\"></i>"));
+    out.print(F("><h3>"));
+    if (_icon) {
+      out.print(F("<svg class=\"ic\" viewBox=\"0 0 24 24\"><path d=\""));
+      out.print(FPSTR(_icon));
+      out.print(F("\"/></svg>"));
+    } else {
+      out.print(F("<i class=\"eb\"></i>"));
+    }
     out.print(_title);
     out.print(F("</h3>"));
   }
@@ -80,6 +107,7 @@ class Widget {
 
   const char* _key;
   const char* _title;
+  const char* _icon = nullptr;
   uint8_t _span = 1;
 };
 

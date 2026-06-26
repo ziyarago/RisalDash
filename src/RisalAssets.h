@@ -57,6 +57,7 @@ static const char RISAL_CSS[] PROGMEM =
   ".card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:17px;display:flex;flex-direction:column;gap:12px}"
   ".card h3{font:700 11px/1 var(--font);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center}"
   ".eb{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--acc);margin-inline-end:6px}"
+  ".card h3 .ic{width:14px;height:14px;margin-inline-end:6px;fill:var(--acc);flex:none}"
   ".row{display:flex;align-items:baseline;gap:7px}"
   ".big{font:800 34px/1 var(--font);font-variant-numeric:tabular-nums;letter-spacing:-.03em}"
   ".unit{font-size:13px;color:var(--ink3);font-weight:500}"
