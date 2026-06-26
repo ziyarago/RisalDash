@@ -431,3 +431,203 @@ class ChartWidget : public Widget {
  private:
   float* _val; const char* _unit; float _last = NAN;
 };
+
+static const char RW_GROUP_CSS[] PROGMEM =
+  ".group{grid-column:1/-1;margin:8px 2px 0;font:700 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}";
+static const char RW_NUMBER_CSS[] PROGMEM =
+  ".ninp{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:16px var(--font);padding:0 12px}";
+static const char RW_SELECT_CSS[] PROGMEM =
+  ".rsel{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 12px;cursor:pointer}";
+static const char RW_NUMBER_JS[] PROGMEM =
+  "R.W.number={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,+i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
+static const char RW_SELECT_JS[] PROGMEM =
+  "R.W.select={init:function(el){var s=el.querySelector('select');if(s)s.addEventListener('change',function(){R.send(el.dataset.key,s.selectedIndex);});},"
+  "update:function(el,v){var s=el.querySelector('select');if(s)s.selectedIndex=v;}};";
+
+// ── Layout: group / section header (spans the grid) ──
+class GroupWidget : public Widget {
+ public:
+  explicit GroupWidget(const char* title) : Widget(title, title) {}
+  const char* typeId() const override { return "group"; }
+  const char* css() const override { return RW_GROUP_CSS; }
+  void card(Print& out) override { out.print(F("<div class=\"group\">")); out.print(_title); out.print(F("</div>")); }
+};
+
+// ── Control: number input (int) ──
+class NumberWidget : public Widget {
+ public:
+  using Cb = std::function<void(int)>;
+  NumberWidget(const char* key, const char* title, int* val, int mn, int mx, int step, Cb cb)
+      : Widget(key, title), _val(val), _lo(mn), _hi(mx), _step(step), _cb(cb) {}
+  const char* typeId() const override { return "number"; }
+  const char* css() const override { return RW_NUMBER_CSS; }
+  const char* js() const override { return RW_NUMBER_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<input class=\"ninp\" type=\"number\" min=\""));
+    out.print(_lo);
+    out.print(F("\" max=\""));
+    out.print(_hi);
+    out.print(F("\" step=\""));
+    out.print(_step);
+    out.print(F("\" value=\""));
+    out.print(_val ? *_val : 0);
+    out.print(F("\">"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { int v = _val ? *_val : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_val ? *_val : 0); }
+  void applyCommand(const String& v) override { int n = v.toInt(); if (_val) *_val = n; if (_cb) _cb(n); }
+ private:
+  int* _val; int _lo, _hi, _step; Cb _cb; int _last = 0; bool _seen = false;
+};
+
+// ── Control: select / dropdown (CSV options, bound to a selected index) ──
+class SelectWidget : public Widget {
+ public:
+  using Cb = std::function<void(int)>;
+  SelectWidget(const char* key, const char* title, const char* options, int* idx, Cb cb)
+      : Widget(key, title), _opts(options), _idx(idx), _cb(cb) {}
+  const char* typeId() const override { return "select"; }
+  const char* css() const override { return RW_SELECT_CSS; }
+  const char* js() const override { return RW_SELECT_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<select class=\"rsel\">"));
+    int cur = _idx ? *_idx : 0, i = 0;
+    for (const char* p = _opts; p && *p;) {
+      const char* q = p;
+      while (*q && *q != ',') q++;
+      out.print(F("<option"));
+      if (i == cur) out.print(F(" selected"));
+      out.print('>');
+      for (const char* c = p; c < q; c++) out.print(*c);
+      out.print(F("</option>"));
+      i++;
+      p = (*q) ? q + 1 : q;
+    }
+    out.print(F("</select>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { int v = _idx ? *_idx : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
+  void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
+ private:
+  const char* _opts; int* _idx; Cb _cb; int _last = 0; bool _seen = false;
+};
+
+// String helpers for the string-valued widgets below.
+inline String rwJsonEsc(const String& s) {
+  String o; o.reserve(s.length() + 6);
+  for (uint16_t i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if (c == '"' || c == '\\') { o += '\\'; o += c; }
+    else if (c == '\n') { o += "\\n"; }
+    else if (c != '\r') { o += c; }
+  }
+  return o;
+}
+inline void rwAttr(Print& out, const String& s) {
+  for (uint16_t i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if (c == '&') out.print(F("&amp;"));
+    else if (c == '"') out.print(F("&quot;"));
+    else if (c == '<') out.print(F("&lt;"));
+    else out.print(c);
+  }
+}
+
+static const char RW_LABEL_CSS[] PROGMEM = ".lbl{font:600 16px var(--font);color:var(--ink1);word-break:break-word}";
+static const char RW_TEXT_CSS[] PROGMEM =
+  ".tinp{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 12px}";
+static const char RW_LOG_CSS[] PROGMEM =
+  ".log{font:11.5px/1.8 var(--mono);color:var(--ink3);background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:10px;height:96px;overflow:hidden}";
+static const char RW_LABEL_JS[] PROGMEM =
+  "R.W.label={update:function(el,v){var e=el.querySelector('.lbl');if(e)e.textContent=v;}};";
+static const char RW_TEXT_JS[] PROGMEM =
+  "R.W.text={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
+static const char RW_LOG_JS[] PROGMEM =
+  "R.W.log={update:function(el,v){var e=el.querySelector('.log');if(e)e.innerHTML=v;}};";
+
+// ── Display: text label (bound to a String) ──
+class LabelWidget : public Widget {
+ public:
+  LabelWidget(const char* key, const char* title, String* val) : Widget(key, title), _val(val) {}
+  const char* typeId() const override { return "label"; }
+  const char* css() const override { return RW_LABEL_CSS; }
+  const char* js() const override { return RW_LABEL_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"lbl\">"));
+    if (_val) rwAttr(out, *_val);
+    out.print(F("</div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+ private:
+  String* _val; String _last; bool _seen = false;
+};
+
+// ── Control: text input (bound to a String) ──
+class TextWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  TextWidget(const char* key, const char* title, String* val, Cb cb) : Widget(key, title), _val(val), _cb(cb) {}
+  const char* typeId() const override { return "text"; }
+  const char* css() const override { return RW_TEXT_CSS; }
+  const char* js() const override { return RW_TEXT_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<input class=\"tinp\" type=\"text\" value=\""));
+    if (_val) rwAttr(out, *_val);
+    out.print(F("\">"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+  void applyCommand(const String& v) override { if (_val) *_val = v; if (_cb) _cb(v); }
+ private:
+  String* _val; Cb _cb; String _last; bool _seen = false;
+};
+
+// ── Display: scrolling log / console ──
+class LogWidget : public Widget {
+ public:
+  LogWidget(const char* key, const char* title, uint8_t maxLines) : Widget(key, title), _cap(maxLines > 8 ? 8 : maxLines) {}
+  const char* typeId() const override { return "log"; }
+  const char* css() const override { return RW_LOG_CSS; }
+  const char* js() const override { return RW_LOG_JS; }
+  LogWidget& print(const String& line) {
+    for (int i = _cap - 1; i > 0; i--) _arr[i] = _arr[i - 1];
+    _arr[0] = line;
+    if (_n < _cap) _n++;
+    _dirty = true;
+    return *this;
+  }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"log\">"));
+    out.print(_joined());
+    out.print(F("</div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { if (_dirty) { _dirty = false; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_joined()); out += '"'; }
+ private:
+  String _joined() {
+    String j;
+    for (uint8_t i = 0; i < _n; i++) { if (i) j += "<br>"; j += _arr[i]; }
+    return j;
+  }
+  String _arr[8];
+  uint8_t _cap, _n = 0;
+  bool _dirty = false;
+};

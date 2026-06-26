@@ -31,6 +31,11 @@ class RisalUI {
   void beginAP(const char* ssid, const char* pass = nullptr);  // dashboard over a plain access point
   RisalUI& theme(Theme t);
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
+  // Expose widgets to an AI agent via MCP: GET /api/mcp/manifest lists each widget as a
+  // get_*/set_* tool (the risal-mcp-server bridge reads it). Token-guarded.
+  RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
+  // Over-the-air firmware update at GET/POST /update. Call before begin().
+  RisalUI& enableOTA() { _ota = true; return *this; }
 
   // Widget factories — return the concrete widget so config chains (e.g. .decimals(1)).
   MetricWidget& metric(const char* name, float* val, const char* unit = "");
@@ -43,6 +48,12 @@ class RisalUI {
   ProgressWidget& progress(const char* name, int* val, const char* unit = "%");
   StatWidget&   stat(const char* name, float* val, const char* unit = "");
   ChartWidget&  chart(const char* name, float* val, const char* unit = "");
+  NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
+  SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
+  GroupWidget&  group(const char* title);
+  LabelWidget&  label(const char* name, String* val);
+  TextWidget&   text(const char* name, String* val, TextWidget::Cb cb = nullptr);
+  LogWidget&    log(const char* name, uint8_t lines = 5);
 
   // Sensor preset (quantity-based): expands a known sensor into the right widgets.
   // e.g. dash.sensor("bme280", &temp, &hum, &pres);
@@ -56,6 +67,10 @@ class RisalUI {
   void _startServer();
   void _handleRoot(AsyncWebServerRequest* req);
   void _onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* data, size_t len);
+  void _handleSet(AsyncWebServerRequest* req);
+  void _handleMetrics(AsyncWebServerRequest* req);
+  void _handleManifest(AsyncWebServerRequest* req);
+  String _stateJson();
   void _add(Widget* w);
   // Provisioning (P4).
   bool _tryStation(const char* ssid, const char* pass, uint32_t timeoutMs);
@@ -73,6 +88,8 @@ class RisalUI {
   bool _running = false;
   bool _portal = false;
   const char* _apSsid = nullptr;
+  const char* _mcpToken = nullptr;
+  bool _ota = false;
   uint32_t _rebootAt = 0;
   Widget* _widgets[RISAL_MAX_WIDGETS];
   uint8_t _count = 0;

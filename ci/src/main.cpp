@@ -6,11 +6,14 @@ RisalUI dash("Showcase");
 
 float cpu = 42, volts = 12.1, temp = 24.3, rssi = -52;
 float hum = 55, pres = 1013;
-int   ram = 60, bright = 128;
+int   ram = 60, bright = 128, setpoint = 24, mode = 0;
 bool  pump = false, linkUp = true;
 int   pumpState = 0;
+String statusMsg = "All systems nominal", devName = "greenhouse";
+LogWidget* evlog = nullptr;
 
 void setup() {
+  dash.group("System");
   dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
   dash.gauge("Voltage", &volts, 0, 14, "V");
   dash.chart("Temperature", &temp, "C");
@@ -21,7 +24,16 @@ void setup() {
   dash.toggle("Pump", &pump, [](bool on) { pumpState = on ? 0 : 1; });
   dash.slider("Brightness", &bright, 0, 255, [](int v) { (void)v; });
   dash.button("Reboot", "Restart", []() { ESP.restart(); });
+  dash.group("Settings");
+  dash.number("Setpoint", &setpoint, 10, 35, 1);
+  dash.select("Mode", "Auto,Manual,Off", &mode);
+  dash.label("Status", &statusMsg);
+  dash.text("Device name", &devName);
+  evlog = &dash.log("Events", 5);
+  evlog->print("system started");
   dash.sensor("bme280", &temp, &hum, &pres);
+  dash.enableMCP("risal_pat_demo");
+  dash.enableOTA();
   dash.beginAP("RisalDash-Demo", "12345678");
 }
 
