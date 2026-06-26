@@ -73,8 +73,10 @@ static const char RISAL_DEFS[] PROGMEM =
 static const char RISAL_EMPTY[] PROGMEM =
   "<div class=\"empty\">No widgets declared yet &mdash; add dash.metric(&hellip;), dash.toggle(&hellip;) in setup().</div>";
 
+// Footer: "served by ESP" tail is localized by RisalUI between these two.
 static const char RISAL_BODY_FOOT[] PROGMEM =
-  "<footer class=\"foot\">RisalDash v" RISALDASH_VERSION " &middot; served by ESP</footer>";
+  "<footer class=\"foot\">RisalDash v" RISALDASH_VERSION " &middot; ";
+static const char RISAL_FOOT_END[] PROGMEM = "</footer>";
 
 static const char RISAL_SCRIPT_OPEN[] PROGMEM = "<script>";
 
@@ -105,12 +107,17 @@ static const char RISAL_PORTAL_CSS[] PROGMEM =
   ".pc select,.pc input{height:46px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 12px}"
   ".pc .act{height:48px;border:none;border-radius:13px;background:var(--grad);color:var(--acc-ink);font:700 15px var(--font);cursor:pointer}";
 
+// Portal chrome strings (subtitle / password placeholder / connect) are localized by
+// RisalUI between these segments.
 static const char RISAL_PORTAL_OPEN[] PROGMEM =
   "</style></head><body><div class=\"orbs\"><i class=\"orb a\"></i><i class=\"orb b\"></i></div>"
   "<div class=\"wrap\"><div class=\"card pc\"><h2><span class=\"brand\"><b>Risal</b></span>Dash</h2>"
-  "<p class=\"s\">Wi-Fi setup &middot; choose your network</p>"
-  "<form action=\"/connect\" method=\"get\"><select name=\"ssid\">";
-
-static const char RISAL_PORTAL_CLOSE[] PROGMEM =
-  "</select><input type=\"password\" name=\"pass\" placeholder=\"Password\" autocomplete=\"off\">"
-  "<button class=\"act\" type=\"submit\">Connect</button></form></div></div></body></html>";
+  "<p class=\"s\">";
+static const char RISAL_PORTAL_FORM[] PROGMEM =
+  "</p><form action=\"/connect\" method=\"get\"><select name=\"ssid\">";
+static const char RISAL_PORTAL_PASS[] PROGMEM =
+  "</select><input type=\"password\" name=\"pass\" placeholder=\"";
+static const char RISAL_PORTAL_BTN[] PROGMEM =
+  "\" autocomplete=\"off\"><button class=\"act\" type=\"submit\">";
+static const char RISAL_PORTAL_END[] PROGMEM =
+  "</button></form></div></div></body></html>";

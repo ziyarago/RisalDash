@@ -146,6 +146,22 @@ void RisalUI::_startPortal() {
   _portal = true;
 }
 
+// Localized library chrome (portal + footer). Kept tiny; widget titles are the dev's own.
+namespace {
+enum RLoc { L_SUBTITLE, L_PASSWORD, L_CONNECT, L_SERVED };
+const char* rloc(RLoc k, const char* lang) {
+  bool ru = lang[0] == 'r';
+  bool ar = lang[0] == 'a';
+  switch (k) {
+    case L_SUBTITLE: return ar ? "إعداد Wi-Fi · اختر الشبكة" : ru ? "Настройка Wi-Fi · выберите сеть" : "Wi-Fi setup · choose your network";
+    case L_PASSWORD: return ar ? "كلمة المرور" : ru ? "Пароль" : "Password";
+    case L_CONNECT:  return ar ? "اتصال" : ru ? "Подключить" : "Connect";
+    case L_SERVED:   return ar ? "يخدمها ESP" : ru ? "обслуживается ESP" : "served by ESP";
+  }
+  return "";
+}
+}  // namespace
+
 void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
   int n = WiFi.scanNetworks();
   AsyncResponseStream* res = req->beginResponseStream("text/html");
@@ -158,12 +174,18 @@ void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
   res->print(FPSTR(RISAL_CSS));
   res->print(FPSTR(RISAL_PORTAL_CSS));
   res->print(FPSTR(RISAL_PORTAL_OPEN));
+  res->print(rloc(L_SUBTITLE, _langCode));
+  res->print(FPSTR(RISAL_PORTAL_FORM));
   for (int i = 0; i < n; i++) {
     res->print(F("<option>"));
     res->print(WiFi.SSID(i));
     res->print(F("</option>"));
   }
-  res->print(FPSTR(RISAL_PORTAL_CLOSE));
+  res->print(FPSTR(RISAL_PORTAL_PASS));
+  res->print(rloc(L_PASSWORD, _langCode));
+  res->print(FPSTR(RISAL_PORTAL_BTN));
+  res->print(rloc(L_CONNECT, _langCode));
+  res->print(FPSTR(RISAL_PORTAL_END));
   req->send(res);
   WiFi.scanDelete();
 }
@@ -608,6 +630,8 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     }
   }
   res->print(FPSTR(RISAL_BODY_FOOT));
+  res->print(rloc(L_SERVED, eff));
+  res->print(FPSTR(RISAL_FOOT_END));
 
   // Client runtime + each widget type's JS (once) + init.
   res->print(FPSTR(RISAL_SCRIPT_OPEN));
