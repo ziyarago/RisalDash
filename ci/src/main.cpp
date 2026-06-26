@@ -15,6 +15,7 @@ LogWidget* evlog = nullptr;
 
 void setup() {
   dash.lang("ru");
+  dash.theme(RisalUI::AUTO);
   dash.group("System");
   dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
   dash.gauge("Voltage", &volts, 0, 14, "V");

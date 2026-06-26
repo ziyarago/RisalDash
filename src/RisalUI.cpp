@@ -582,6 +582,12 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     if (strcmp(_widgets[i]->typeId(), "group") == 0) groups++;
 
   res->print(FPSTR(RISAL_BODY_OPEN));
+  // Resolve theme before paint: saved choice → configured mode → prefers-color-scheme (AUTO).
+  res->print(F("<script>(function(){var m='"));
+  res->print(_theme == LIGHT ? "light" : _theme == AUTO ? "auto" : "dark");
+  res->print(F("';var s=localStorage.getItem('rd-th');var d=s?s==='dark':(m==='auto'?matchMedia('(prefers-color-scheme:dark)').matches:m!=='light');"
+               "var c=document.documentElement.classList;c.toggle('light',!d);c.toggle('dark',d);})();</script>"));
+  res->print(FPSTR(RISAL_BODY_CHROME));
   res->print(_title);
   res->print(FPSTR(RISAL_BODY_MID));
   // Hamburger → opens the nav drawer (mobile only; only when there are groups to jump to).
@@ -680,6 +686,8 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   else if (strcmp(eff, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
   res->print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
               "if(s)s.classList.toggle('open',o);if(d)d.classList.toggle('open',o);};"));
+  res->print(F("R.theme=function(){var c=document.documentElement.classList;var l=c.toggle('light');"
+              "c.toggle('dark',!l);localStorage.setItem('rd-th',l?'light':'dark');};"));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();

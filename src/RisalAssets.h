@@ -63,9 +63,11 @@ static const char RISAL_CSS[] PROGMEM =
   ".foot{margin-top:22px;text-align:center;color:var(--ink3);font:12px ui-monospace,Consolas,monospace}"
   ".foot b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}";
 
-// </style></head><body> + orbs + appbar opening up to where the title goes.
-static const char RISAL_BODY_OPEN[] PROGMEM =
-  "</style></head><body><div class=\"orbs\"><i class=\"orb a\"></i><i class=\"orb b\"></i></div>"
+// </style></head><body>; the theme-resolve script is printed by RisalUI between
+// OPEN and CHROME (first body child → applies the saved/auto theme before paint).
+static const char RISAL_BODY_OPEN[] PROGMEM = "</style></head><body>";
+static const char RISAL_BODY_CHROME[] PROGMEM =
+  "<div class=\"orbs\"><i class=\"orb a\"></i><i class=\"orb b\"></i></div>"
   "<header class=\"appbar\"><div class=\"brand\"><b>RisalDash</b> &middot; ";
 
 // title is printed between OPEN and MID. The language switcher + theme toggle
@@ -74,7 +76,7 @@ static const char RISAL_BODY_MID[] PROGMEM =
   "</div><span class=\"sp\"></span>";
 
 static const char RISAL_APPBAR_END[] PROGMEM =
-  "<button class=\"pill\" onclick=\"document.documentElement.classList.toggle('light')\">Theme</button></header>";
+  "<button class=\"pill\" onclick=\"R.theme()\">Theme</button></header>";
 
 // Global SVG gradient defs (shared by gauge arc + chart line/fill). Printed once, hidden.
 static const char RISAL_DEFS[] PROGMEM =
