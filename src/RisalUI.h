@@ -54,6 +54,11 @@ class RisalUI {
   LabelWidget&  label(const char* name, String* val);
   TextWidget&   text(const char* name, String* val, TextWidget::Cb cb = nullptr);
   LogWidget&    log(const char* name, uint8_t lines = 5);
+  PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
+  TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);
+  ColorWidget&  color(const char* name, String* val, ColorWidget::Cb cb = nullptr);
+  ImageWidget&  image(const char* name, String* url);
+  TableWidget&  table(const char* title);
 
   // Sensor preset (quantity-based): expands a known sensor into the right widgets.
   // e.g. dash.sensor("bme280", &temp, &hum, &pres);

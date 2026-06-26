@@ -631,3 +631,172 @@ class LogWidget : public Widget {
   uint8_t _cap, _n = 0;
   bool _dirty = false;
 };
+
+// ════════ password / color / time / image / table ════════
+
+static const char RW_COLOR_CSS[] PROGMEM =
+  ".col{display:flex;align-items:center;gap:12px}.col input{width:40px;height:40px;border:none;border-radius:10px;background:none;cursor:pointer}"
+  ".col b{font:600 14px var(--mono);color:var(--ink2)}";
+static const char RW_IMAGE_CSS[] PROGMEM =
+  ".imgw{border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/10;background:var(--bg2)}"
+  ".imgw img{width:100%;height:100%;object-fit:cover;display:block}";
+static const char RW_TABLE_CSS[] PROGMEM =
+  ".kv{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)}"
+  ".kv:last-child{border-bottom:none}.kv span:first-child{color:var(--ink3)}"
+  ".kv span:last-child{font-family:var(--mono);color:var(--ink2)}";
+static const char RW_PASSWORD_JS[] PROGMEM =
+  "R.W.password={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
+static const char RW_TIME_JS[] PROGMEM =
+  "R.W.time={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
+static const char RW_COLOR_JS[] PROGMEM =
+  "R.W.color={init:function(el){var i=el.querySelector('input');if(!i)return;"
+  "i.addEventListener('input',function(){var b=el.querySelector('b');if(b)b.textContent=i.value;});"
+  "i.addEventListener('change',function(){R.send(el.dataset.key,i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;var b=el.querySelector('b');if(b)b.textContent=v;}};";
+static const char RW_IMAGE_JS[] PROGMEM =
+  "R.W.image={update:function(el,v){var i=el.querySelector('img');if(i&&v)i.src=v;}};";
+static const char RW_TABLE_JS[] PROGMEM =
+  "R.W.table={update:function(el,v){var e=el.querySelector('.kvb');if(e)e.innerHTML=v;}};";
+
+// ── Control: password input (String, masked) ──
+class PasswordWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  PasswordWidget(const char* key, const char* title, String* val, Cb cb) : Widget(key, title), _val(val), _cb(cb) {}
+  const char* typeId() const override { return "password"; }
+  const char* css() const override { return RW_TEXT_CSS; }
+  const char* js() const override { return RW_PASSWORD_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<input class=\"tinp\" type=\"password\" value=\""));
+    if (_val) rwAttr(out, *_val);
+    out.print(F("\">"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+  void applyCommand(const String& v) override { if (_val) *_val = v; if (_cb) _cb(v); }
+ private:
+  String* _val; Cb _cb; String _last; bool _seen = false;
+};
+
+// ── Control: time input (String "HH:MM") ──
+class TimeWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  TimeWidget(const char* key, const char* title, String* val, Cb cb) : Widget(key, title), _val(val), _cb(cb) {}
+  const char* typeId() const override { return "time"; }
+  const char* css() const override { return RW_TEXT_CSS; }
+  const char* js() const override { return RW_TIME_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<input class=\"tinp\" type=\"time\" value=\""));
+    if (_val) rwAttr(out, *_val);
+    out.print(F("\">"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+  void applyCommand(const String& v) override { if (_val) *_val = v; if (_cb) _cb(v); }
+ private:
+  String* _val; Cb _cb; String _last; bool _seen = false;
+};
+
+// ── Control: color picker (String hex "#rrggbb") ──
+class ColorWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  ColorWidget(const char* key, const char* title, String* val, Cb cb) : Widget(key, title), _val(val), _cb(cb) {}
+  const char* typeId() const override { return "color"; }
+  const char* css() const override { return RW_COLOR_CSS; }
+  const char* js() const override { return RW_COLOR_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    String hex = _val && _val->length() ? *_val : String("#22d3ee");
+    out.print(F("<div class=\"col\"><input type=\"color\" value=\""));
+    rwAttr(out, hex);
+    out.print(F("\"><b>"));
+    out.print(hex);
+    out.print(F("</b></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+  void applyCommand(const String& v) override { if (_val) *_val = v; if (_cb) _cb(v); }
+ private:
+  String* _val; Cb _cb; String _last; bool _seen = false;
+};
+
+// ── Display: image (String URL) ──
+class ImageWidget : public Widget {
+ public:
+  ImageWidget(const char* key, const char* title, String* url) : Widget(key, title), _url(url) {}
+  const char* typeId() const override { return "image"; }
+  const char* css() const override { return RW_IMAGE_CSS; }
+  const char* js() const override { return RW_IMAGE_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"imgw\"><img src=\""));
+    if (_url) rwAttr(out, *_url);
+    out.print(F("\" alt=\"\"></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _url ? *_url : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_url ? *_url : String()); out += '"'; }
+ private:
+  String* _url; String _last; bool _seen = false;
+};
+
+// ── Display: key/value table (rows bound to float vars) ──
+class TableWidget : public Widget {
+ public:
+  TableWidget(const char* key, const char* title) : Widget(key, title) {}
+  const char* typeId() const override { return "table"; }
+  const char* css() const override { return RW_TABLE_CSS; }
+  const char* js() const override { return RW_TABLE_JS; }
+  TableWidget& row(const char* label, float* val, const char* unit = "", uint8_t dec = 0) {
+    if (_n < 8) { _rl[_n] = label; _rv[_n] = val; _ru[_n] = unit; _rd[_n] = dec; _last[_n] = NAN; _n++; }
+    return *this;
+  }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"kvb\">"));
+    out.print(_joined());
+    out.print(F("</div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override {
+    bool ch = false;
+    for (uint8_t i = 0; i < _n; i++) { float v = _rv[i] ? *_rv[i] : 0; if (v != _last[i]) { _last[i] = v; ch = true; } }
+    return ch;
+  }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_joined()); out += '"'; }
+ private:
+  String _joined() {
+    String j;
+    char b[16];
+    for (uint8_t i = 0; i < _n; i++) {
+      dtostrf(_rv[i] ? *_rv[i] : 0.0f, 0, _rd[i], b);
+      j += "<div class='kv'><span>";
+      j += _rl[i];
+      j += "</span><span>";
+      j += b;
+      if (_ru[i] && _ru[i][0]) { j += ' '; j += _ru[i]; }
+      j += "</span></div>";
+    }
+    return j;
+  }
+  const char* _rl[8];
+  float* _rv[8];
+  const char* _ru[8];
+  uint8_t _rd[8];
+  float _last[8];
+  uint8_t _n = 0;
+};

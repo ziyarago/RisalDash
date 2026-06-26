@@ -282,6 +282,36 @@ LogWidget& RisalUI::log(const char* name, uint8_t lines) {
   return *w;
 }
 
+PasswordWidget& RisalUI::password(const char* name, String* val, PasswordWidget::Cb cb) {
+  PasswordWidget* w = new PasswordWidget(name, name, val, cb);
+  _add(w);
+  return *w;
+}
+
+TimeWidget& RisalUI::time(const char* name, String* val, TimeWidget::Cb cb) {
+  TimeWidget* w = new TimeWidget(name, name, val, cb);
+  _add(w);
+  return *w;
+}
+
+ColorWidget& RisalUI::color(const char* name, String* val, ColorWidget::Cb cb) {
+  ColorWidget* w = new ColorWidget(name, name, val, cb);
+  _add(w);
+  return *w;
+}
+
+ImageWidget& RisalUI::image(const char* name, String* url) {
+  ImageWidget* w = new ImageWidget(name, name, url);
+  _add(w);
+  return *w;
+}
+
+TableWidget& RisalUI::table(const char* title) {
+  TableWidget* w = new TableWidget(title, title);
+  _add(w);
+  return *w;
+}
+
 // Full current state as JSON (shared by the WS connect snapshot and GET /api/state).
 String RisalUI::_stateJson() {
   String s = "{";
