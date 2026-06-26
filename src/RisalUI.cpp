@@ -175,7 +175,9 @@ const char* rloc(RLoc k, const char* lang) {
 void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
   int n = WiFi.scanNetworks();
   AsyncResponseStream* res = req->beginResponseStream("text/html");
-  res->print(F("<!DOCTYPE html><html class=\"dark\" lang=\""));
+  res->print(F("<!DOCTYPE html><html class=\""));
+  res->print(_effects ? "dark" : "dark flat");
+  res->print(F("\" lang=\""));
   res->print(_langCode);
   res->print(F("\" dir=\""));
   res->print(_rtl ? "rtl" : "ltr");
@@ -558,7 +560,9 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   bool rtl = false;
   if (want == "ru") eff = "ru";
   else if (want == "ar") { eff = "ar"; rtl = true; }
-  res->print(F("<!DOCTYPE html><html class=\"dark\" lang=\""));
+  res->print(F("<!DOCTYPE html><html class=\""));
+  res->print(_effects ? "dark" : "dark flat");
+  res->print(F("\" lang=\""));
   res->print(eff);
   res->print(F("\" dir=\""));
   res->print(rtl ? "rtl" : "ltr");

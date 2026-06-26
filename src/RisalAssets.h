@@ -24,6 +24,9 @@ static const char RISAL_CSS[] PROGMEM =
   "body{background:var(--bg0);color:var(--ink1);font-family:var(--font);min-height:100vh;letter-spacing:-.01em;"
   "padding:clamp(14px,3vw,30px);background-image:radial-gradient(1100px 600px at 50% -10%,rgba(34,211,238,.06),transparent),"
   "radial-gradient(900px 500px at 80% 110%,rgba(52,211,153,.05),transparent);background-attachment:fixed}"
+  // effects(false) → .flat: drop orbs + appbar blur, keep the palette.
+  ".flat .orbs{display:none}.flat body,html.flat body{background-image:none}"
+  ".flat .appbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--bg2)}"
   ".orbs{position:fixed;inset:0;z-index:-1;overflow:hidden;background:var(--bg0)}"
   ".orb{position:absolute;border-radius:50%;filter:blur(70px)}"
   ".orb.a{width:460px;height:460px;top:-120px;right:-90px;background:rgba(34,211,238,.22)}"
