@@ -9,7 +9,11 @@
   #include <ESP8266WiFi.h>
   #include <EEPROM.h>
 #endif
-#include <Update.h>
+#if defined(ESP32)
+  #include <Update.h>
+#elif defined(ESP8266)
+  #include <Updater.h>
+#endif
 
 // ── Saved Wi-Fi credentials (ESP32: NVS via Preferences; ESP8266: EEPROM) ──
 bool RisalUI::_loadCreds(String& ssid, String& pass) {

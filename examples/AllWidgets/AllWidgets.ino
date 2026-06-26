@@ -7,7 +7,7 @@ RisalUI dash("Showcase");
 float cpu = 42, volts = 12.1, temp = 24.3, rssi = -52;
 float hum = 55, pres = 1013;
 int   ram = 60, bright = 128;
-bool  pump = false, link = true;
+bool  pump = false, linkUp = true;
 int   pumpState = 0;  // 0 ok, 1 warn, 2 bad
 
 void setup() {
@@ -18,7 +18,7 @@ void setup() {
   dash.stat("RSSI", &rssi, "dBm").decimals(0);
   dash.progress("RAM", &ram, "%");
   dash.badge("Pump state", &pumpState).labels("running", "idle", "fault");
-  dash.led("Link", &link);
+  dash.led("Link", &linkUp);
 
   // Control
   dash.toggle("Pump", &pump, [](bool on) { pumpState = on ? 0 : 1; });
