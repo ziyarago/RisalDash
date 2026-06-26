@@ -14,3 +14,7 @@ dist/
 
 # website lives in its own project, not in the public library repo
 web/
+
+# dev harness + internal docs — not part of the distributable library
+dev/
+docs/
