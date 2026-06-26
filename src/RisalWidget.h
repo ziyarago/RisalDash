@@ -233,7 +233,9 @@ static const char RW_LED_CSS[] PROGMEM =
 static const char RW_CHART_CSS[] PROGMEM =
   ".spark{width:100%;height:62px;display:block}"
   ".spark .ln{fill:none;stroke:url(#rg);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}"
-  ".spark .fl{fill:url(#rgf);stroke:none}";
+  ".spark .fl{fill:url(#rgf);stroke:none}"
+  ".cstat{display:flex;justify-content:space-between;font:600 11px var(--mono);color:var(--ink3);margin-top:4px}"
+  ".cstat b{color:var(--ink2);font-weight:700}";
 
 static const char RW_SLIDER_JS[] PROGMEM =
   "R.W.slider={init:function(el){var i=el.querySelector('input');if(!i)return;"
@@ -259,7 +261,11 @@ static const char RW_CHART_JS[] PROGMEM =
   "var w=300,ht=62,mn=Math.min.apply(0,h),mx=Math.max.apply(0,h),r=(mx-mn)||1,st=w/(h.length-1);"
   "var p=h.map(function(y,i){return (i*st).toFixed(1)+' '+(ht-((y-mn)/r)*(ht-8)-4).toFixed(1);});"
   "var ln='M'+p.join(' L');var L=el.querySelector('.ln');if(L)L.setAttribute('d',ln);"
-  "var F=el.querySelector('.fl');if(F)F.setAttribute('d',ln+' L'+w+' '+ht+' L0 '+ht+' Z');}};";
+  "var F=el.querySelector('.fl');if(F)F.setAttribute('d',ln+' L'+w+' '+ht+' L0 '+ht+' Z');"
+  "var sum=0;for(var i=0;i<h.length;i++)sum+=h[i];var av=sum/h.length;"
+  "var m=el.querySelector('.cmn');if(m)m.textContent=mn.toFixed(1);"
+  "var a=el.querySelector('.cav');if(a)a.textContent=av.toFixed(1);"
+  "var x=el.querySelector('.cmx');if(x)x.textContent=mx.toFixed(1);}};";
 
 // ── Control: slider (int range) ──
 class SliderWidget : public Widget {
@@ -430,7 +436,9 @@ class ChartWidget : public Widget {
     out.print(F("</span><span class=\"unit\">"));
     out.print(_unit ? _unit : "");
     out.print(F("</span></div><svg class=\"spark\" viewBox=\"0 0 300 62\" preserveAspectRatio=\"none\">"
-                "<path class=\"fl\"></path><path class=\"ln\"></path></svg>"));
+                "<path class=\"fl\"></path><path class=\"ln\"></path></svg>"
+                "<div class=\"cstat\"><span>min <b class=\"cmn\">-</b></span>"
+                "<span>avg <b class=\"cav\">-</b></span><span>max <b class=\"cmx\">-</b></span></div>"));
     cardClose(out);
   }
   bool hasState() const override { return true; }
