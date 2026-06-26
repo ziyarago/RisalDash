@@ -514,10 +514,16 @@ void RisalUI::_onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* da
 // emitted once — Zero-Waste, since unused widget classes are dropped by the linker.
 void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   AsyncResponseStream* res = req->beginResponseStream("text/html");
+  // Effective language: ?lang= overrides the configured default (live appbar switcher).
+  String want = req->hasParam("lang") ? req->getParam("lang")->value() : String(_langCode);
+  const char* eff = "en";
+  bool rtl = false;
+  if (want == "ru") eff = "ru";
+  else if (want == "ar") { eff = "ar"; rtl = true; }
   res->print(F("<!DOCTYPE html><html class=\"dark\" lang=\""));
-  res->print(_langCode);
+  res->print(eff);
   res->print(F("\" dir=\""));
-  res->print(_rtl ? "rtl" : "ltr");
+  res->print(rtl ? "rtl" : "ltr");
   res->print(F("\">"));
   res->print(FPSTR(RISAL_HEAD));
   res->print(FPSTR(RISAL_CSS));
@@ -536,6 +542,21 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   res->print(FPSTR(RISAL_BODY_OPEN));
   res->print(_title);
   res->print(FPSTR(RISAL_BODY_MID));
+  // Language switcher (active = effective language); reloads with ?lang=.
+  {
+    static const char* const codes[3] = {"en", "ru", "ar"};
+    static const char* const labels[3] = {"EN", "RU", "AR"};
+    res->print(F("<div class=\"lng\">"));
+    for (uint8_t i = 0; i < 3; i++) {
+      res->print(F("<a href=\"?lang="));
+      res->print(codes[i]);
+      res->print(strcmp(eff, codes[i]) == 0 ? F("\" class=\"on\">") : F("\">"));
+      res->print(labels[i]);
+      res->print(F("</a>"));
+    }
+    res->print(F("</div>"));
+  }
+  res->print(FPSTR(RISAL_APPBAR_END));
   res->print(FPSTR(RISAL_DEFS));
 
   bool hasTabs = false;
@@ -592,8 +613,8 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   res->print(FPSTR(RISAL_SCRIPT_OPEN));
   res->print(FPSTR(RISAL_RUNTIME_JS));
   res->print(F("R.L={on:'On',off:'Off'};"));
-  if (strcmp(_langCode, "ru") == 0) res->print(F("R.L.on='Вкл';R.L.off='Выкл';"));
-  else if (strcmp(_langCode, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
+  if (strcmp(eff, "ru") == 0) res->print(F("R.L.on='Вкл';R.L.off='Выкл';"));
+  else if (strcmp(eff, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();

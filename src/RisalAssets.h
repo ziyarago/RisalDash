@@ -35,6 +35,8 @@ static const char RISAL_CSS[] PROGMEM =
   ".brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}"
   ".sp{flex:1}.pill{font:600 12.5px var(--font);padding:7px 12px;border-radius:999px;color:var(--ink2);"
   "border:1px solid var(--line2);cursor:pointer;background:transparent}"
+  ".lng{display:flex;gap:3px}.lng a{font:600 11px var(--font);padding:6px 9px;border-radius:8px;color:var(--ink3);"
+  "text-decoration:none;border:1px solid transparent}.lng a.on{color:var(--acc-ink);background:var(--grad)}"
   ".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:15px;align-items:start}"
   ".card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:17px;display:flex;flex-direction:column;gap:12px}"
   ".card h3{font:700 11px/1 var(--font);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center}"
@@ -53,9 +55,12 @@ static const char RISAL_BODY_OPEN[] PROGMEM =
   "</style></head><body><div class=\"orbs\"><i class=\"orb a\"></i><i class=\"orb b\"></i></div>"
   "<header class=\"appbar\"><div class=\"brand\"><b>RisalDash</b> &middot; ";
 
-// title is printed between OPEN and MID.
+// title is printed between OPEN and MID. The language switcher + theme toggle
+// (RISAL_APPBAR_END) are printed by RisalUI after MID, so the active language can be marked.
 static const char RISAL_BODY_MID[] PROGMEM =
-  "</div><span class=\"sp\"></span>"
+  "</div><span class=\"sp\"></span>";
+
+static const char RISAL_APPBAR_END[] PROGMEM =
   "<button class=\"pill\" onclick=\"document.documentElement.classList.toggle('light')\">Theme</button></header>";
 
 // Global SVG gradient defs (shared by gauge arc + chart line/fill). Printed once, hidden.
