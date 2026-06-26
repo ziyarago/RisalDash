@@ -1,0 +1,13 @@
+# PlatformIO
+.pio/
+ci/.pio/
+
+# Node / web
+node_modules/
+dist/
+.astro/
+
+# misc
+.DS_Store
+*.log
+.claude/

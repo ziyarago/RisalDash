@@ -1,0 +1,28 @@
+# RisalDash — Arduino IDE syntax highlighting
+
+RisalUI	KEYWORD1
+
+begin	KEYWORD2
+beginAP	KEYWORD2
+update	KEYWORD2
+theme	KEYWORD2
+metric	KEYWORD2
+gauge	KEYWORD2
+chart	KEYWORD2
+toggle	KEYWORD2
+slider	KEYWORD2
+button	KEYWORD2
+badge	KEYWORD2
+led	KEYWORD2
+progress	KEYWORD2
+table	KEYWORD2
+log	KEYWORD2
+sensor	KEYWORD2
+group	KEYWORD2
+tab	KEYWORD2
+lang	KEYWORD2
+enableMCP	KEYWORD2
+
+DARK	LITERAL1
+LIGHT	LITERAL1
+AUTO	LITERAL1

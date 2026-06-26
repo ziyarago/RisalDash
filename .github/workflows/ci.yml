@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+# Compile every example for ESP32 and ESP8266 via PlatformIO. Each example is dropped into
+# the ci/ project (which links the library through symlink://..) and built for both envs.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [Minimal, FirstBoot, AllWidgets]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('library.json') }}
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build ${{ matrix.example }} (ESP32 + ESP8266)
+        run: |
+          cp "examples/${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
+          cd ci
+          pio run

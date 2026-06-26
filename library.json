@@ -1,0 +1,26 @@
+{
+  "name": "RisalDash",
+  "version": "0.1.0",
+  "description": "Beautiful real-time web dashboards for ESP32/ESP8266 in a few lines of C++ — Zero-Waste UI (the linker strips unused widgets), offline-first AP + captive portal, WebSocket, i18n (EN/RU/AR + RTL) and AI control via MCP.",
+  "keywords": "esp32, esp8266, dashboard, ui, web, websocket, iot, sensors, mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/risal-io/RisalDash.git"
+  },
+  "authors": [
+    { "name": "Shaxzod Ahmedov", "maintainer": true }
+  ],
+  "license": "MIT",
+  "homepage": "https://dash.risal.io",
+  "frameworks": "arduino",
+  "platforms": ["espressif32", "espressif8266"],
+  "headers": "RisalUI.h",
+  "export": {
+    "include": ["src", "examples", "library.json", "library.properties", "keywords.txt", "LICENSE", "README.md"]
+  },
+  "dependencies": [
+    { "owner": "esp32async", "name": "ESPAsyncWebServer" },
+    { "owner": "esp32async", "name": "AsyncTCP", "platforms": "espressif32" },
+    { "owner": "esp32async", "name": "ESPAsyncTCP", "platforms": "espressif8266" }
+  ]
+}
