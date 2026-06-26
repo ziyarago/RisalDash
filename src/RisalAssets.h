@@ -55,8 +55,7 @@ static const char RISAL_BODY_OPEN[] PROGMEM =
 // title is printed between OPEN and MID.
 static const char RISAL_BODY_MID[] PROGMEM =
   "</div><span class=\"sp\"></span>"
-  "<button class=\"pill\" onclick=\"document.documentElement.classList.toggle('light')\">Theme</button></header>"
-  "<main class=\"grid\">";
+  "<button class=\"pill\" onclick=\"document.documentElement.classList.toggle('light')\">Theme</button></header>";
 
 // Global SVG gradient defs (shared by gauge arc + chart line/fill). Printed once, hidden.
 static const char RISAL_DEFS[] PROGMEM =
@@ -69,7 +68,7 @@ static const char RISAL_EMPTY[] PROGMEM =
   "<div class=\"empty\">No widgets declared yet &mdash; add dash.metric(&hellip;), dash.toggle(&hellip;) in setup().</div>";
 
 static const char RISAL_BODY_FOOT[] PROGMEM =
-  "</main><footer class=\"foot\">RisalDash v" RISALDASH_VERSION " &middot; served by ESP</footer>";
+  "<footer class=\"foot\">RisalDash v" RISALDASH_VERSION " &middot; served by ESP</footer>";
 
 static const char RISAL_SCRIPT_OPEN[] PROGMEM = "<script>";
 

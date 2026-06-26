@@ -312,6 +312,24 @@ TableWidget& RisalUI::table(const char* title) {
   return *w;
 }
 
+RadioWidget& RisalUI::radio(const char* name, const char* csvOptions, int* idx, RadioWidget::Cb cb) {
+  RadioWidget* w = new RadioWidget(name, name, csvOptions, idx, cb);
+  _add(w);
+  return *w;
+}
+
+SeparatorWidget& RisalUI::separator(const char* title) {
+  SeparatorWidget* w = new SeparatorWidget(title);
+  _add(w);
+  return *w;
+}
+
+TabWidget& RisalUI::tab(const char* title) {
+  TabWidget* w = new TabWidget(title);
+  _add(w);
+  return *w;
+}
+
 // Full current state as JSON (shared by the WS connect snapshot and GET /api/state).
 String RisalUI::_stateJson() {
   String s = "{";
@@ -509,10 +527,55 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   res->print(_title);
   res->print(FPSTR(RISAL_BODY_MID));
   res->print(FPSTR(RISAL_DEFS));
-  if (_count == 0)
+
+  bool hasTabs = false;
+  for (uint8_t i = 0; i < _count; i++)
+    if (strcmp(_widgets[i]->typeId(), "tab") == 0) { hasTabs = true; break; }
+
+  if (_count == 0) {
+    res->print(F("<main class=\"grid\">"));
     res->print(FPSTR(RISAL_EMPTY));
-  else
+    res->print(F("</main>"));
+  } else if (!hasTabs) {
+    res->print(F("<main class=\"grid\">"));
     for (uint8_t i = 0; i < _count; i++) _widgets[i]->card(*res);
+    res->print(F("</main>"));
+  } else {
+    // Cards before the first tab are always visible.
+    uint8_t i = 0;
+    res->print(F("<main class=\"grid\">"));
+    for (; i < _count && strcmp(_widgets[i]->typeId(), "tab") != 0; i++) _widgets[i]->card(*res);
+    res->print(F("</main>"));
+    // Tab bar.
+    res->print(F("<div class=\"tabbar\">"));
+    uint8_t ti = 0;
+    for (uint8_t j = i; j < _count; j++)
+      if (strcmp(_widgets[j]->typeId(), "tab") == 0) {
+        res->print(F("<button class=\"tabbtn"));
+        if (ti == 0) res->print(F(" on"));
+        res->print(F("\" data-tab=\""));
+        res->print(ti);
+        res->print(F("\">"));
+        res->print(_widgets[j]->key());
+        res->print(F("</button>"));
+        ti++;
+      }
+    res->print(F("</div>"));
+    // One switchable panel per tab.
+    ti = 0;
+    uint8_t j = i;
+    while (j < _count) {
+      res->print(F("<main class=\"grid tabpanel"));
+      if (ti == 0) res->print(F(" on"));
+      res->print(F("\" data-panel=\""));
+      res->print(ti);
+      res->print(F("\">"));
+      j++;  // skip the tab marker
+      for (; j < _count && strcmp(_widgets[j]->typeId(), "tab") != 0; j++) _widgets[j]->card(*res);
+      res->print(F("</main>"));
+      ti++;
+    }
+  }
   res->print(FPSTR(RISAL_BODY_FOOT));
 
   // Client runtime + each widget type's JS (once) + init.

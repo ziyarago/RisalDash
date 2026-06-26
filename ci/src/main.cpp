@@ -6,7 +6,7 @@ RisalUI dash("Showcase");
 
 float cpu = 42, volts = 12.1, temp = 24.3, rssi = -52;
 float hum = 55, pres = 1013;
-int   ram = 60, bright = 128, setpoint = 24, mode = 0;
+int   ram = 60, bright = 128, setpoint = 24, mode = 0, fanLvl = 1;
 bool  pump = false, linkUp = true;
 int   pumpState = 0;
 String statusMsg = "All systems nominal", devName = "greenhouse";
@@ -38,6 +38,12 @@ void setup() {
   dash.image("Camera", &camUrl);
   dash.table("System").row("CPU", &cpu, "%").row("Voltage", &volts, "V", 1);
   dash.sensor("bme280", &temp, &hum, &pres);
+  dash.separator("Layout");
+  dash.radio("Fan", "Low,Mid,High", &fanLvl);
+  dash.tab("Tab A");
+  dash.stat("A value", &cpu, "%").decimals(0);
+  dash.tab("Tab B");
+  dash.led("B flag", &linkUp);
   dash.enableMCP("risal_pat_demo");
   dash.enableOTA();
   dash.beginAP("RisalDash-Demo", "12345678");

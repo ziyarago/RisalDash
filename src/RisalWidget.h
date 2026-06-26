@@ -800,3 +800,81 @@ class TableWidget : public Widget {
   float _last[8];
   uint8_t _n = 0;
 };
+
+// ════════ radio / separator / tab (controls & layout) ════════
+
+static const char RW_RADIO_CSS[] PROGMEM =
+  ".seg{display:flex;gap:4px;background:var(--bg3);border-radius:12px;padding:4px}"
+  ".seg button{flex:1;height:34px;border:none;border-radius:9px;background:transparent;color:var(--ink2);font:600 13px var(--font);cursor:pointer}"
+  ".seg button.on{background:var(--grad);color:var(--acc-ink)}";
+static const char RW_SEP_CSS[] PROGMEM =
+  ".sep{grid-column:1/-1;display:flex;align-items:center;gap:12px;margin:10px 2px 2px;color:var(--ink3);font:700 11px var(--font);letter-spacing:.14em;text-transform:uppercase}"
+  ".sep::after{content:'';flex:1;height:1px;background:var(--line)}";
+static const char RW_TAB_CSS[] PROGMEM =
+  ".tabbar{display:flex;gap:8px;margin:14px 0 4px;flex-wrap:wrap}"
+  ".tabbtn{padding:9px 16px;border-radius:999px;border:1px solid var(--line2);background:transparent;color:var(--ink2);font:600 13px var(--font);cursor:pointer}"
+  ".tabbtn.on{background:var(--grad);color:var(--acc-ink);border-color:transparent}"
+  ".tabpanel{display:none}.tabpanel.on{display:grid}";
+static const char RW_RADIO_JS[] PROGMEM =
+  "R.W.radio={init:function(el){var b=el.querySelectorAll('button');for(var i=0;i<b.length;i++)(function(j){"
+  "b[j].addEventListener('click',function(){R.send(el.dataset.key,j);});})(i);},"
+  "update:function(el,v){var b=el.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i==v);}};";
+static const char RW_TAB_JS[] PROGMEM =
+  "R.W.tab={};document.addEventListener('DOMContentLoaded',function(){var b=document.querySelectorAll('.tabbtn');"
+  "for(var i=0;i<b.length;i++)b[i].addEventListener('click',function(){var t=this.getAttribute('data-tab');"
+  "var a=document.querySelectorAll('.tabbtn');for(var j=0;j<a.length;j++)a[j].classList.toggle('on',a[j].getAttribute('data-tab')===t);"
+  "var p=document.querySelectorAll('.tabpanel');for(var j=0;j<p.length;j++)p[j].classList.toggle('on',p[j].getAttribute('data-panel')===t);});});";
+
+// ── Control: segmented radio (CSV options → bound index) ──
+class RadioWidget : public Widget {
+ public:
+  using Cb = std::function<void(int)>;
+  RadioWidget(const char* key, const char* title, const char* options, int* idx, Cb cb)
+      : Widget(key, title), _opts(options), _idx(idx), _cb(cb) {}
+  const char* typeId() const override { return "radio"; }
+  const char* css() const override { return RW_RADIO_CSS; }
+  const char* js() const override { return RW_RADIO_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"seg\">"));
+    int cur = _idx ? *_idx : 0, i = 0;
+    for (const char* p = _opts; p && *p;) {
+      const char* q = p;
+      while (*q && *q != ',') q++;
+      out.print(F("<button"));
+      if (i == cur) out.print(F(" class=\"on\""));
+      out.print('>');
+      for (const char* c = p; c < q; c++) out.print(*c);
+      out.print(F("</button>"));
+      i++;
+      p = (*q) ? q + 1 : q;
+    }
+    out.print(F("</div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { int v = _idx ? *_idx : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
+  void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
+ private:
+  const char* _opts; int* _idx; Cb _cb; int _last = 0; bool _seen = false;
+};
+
+// ── Layout: labelled divider (spans the grid) ──
+class SeparatorWidget : public Widget {
+ public:
+  explicit SeparatorWidget(const char* title) : Widget(title, title) {}
+  const char* typeId() const override { return "separator"; }
+  const char* css() const override { return RW_SEP_CSS; }
+  void card(Print& out) override { out.print(F("<div class=\"sep\">")); out.print(_title); out.print(F("</div>")); }
+};
+
+// ── Layout: tab boundary (widgets after it, until the next tab, form a panel). Rendered by RisalUI. ──
+class TabWidget : public Widget {
+ public:
+  explicit TabWidget(const char* title) : Widget(title, title) {}
+  const char* typeId() const override { return "tab"; }
+  const char* css() const override { return RW_TAB_CSS; }
+  const char* js() const override { return RW_TAB_JS; }
+  void card(Print&) override {}  // handled by RisalUI::_handleRoot
+};
