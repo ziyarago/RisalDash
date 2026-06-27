@@ -10,9 +10,10 @@
 <p align="center"><img src="assets/hero.png" alt="RisalDash dashboard served by an ESP" width="820"></p>
 
 Describe widgets; RisalDash generates the HTML, CSS, JS and the WebSocket protocol for you.
-The dashboard is served by the device itself in the Risal brand style (dark-first, glass,
-cyan→emerald), updates live over WebSocket, and works **offline-first** — including a captive
-portal for first-boot Wi-Fi setup. Zero front-end code.
+The dashboard is served by the device itself in an **OKLCH "liquid glass"** style (translucent
+cards, iOS-like status bar, a Settings gear for language/theme/accent, swipe-up multi-page
+layouts), updates live over WebSocket, and works **offline-first** — including a captive portal
+for first-boot Wi-Fi setup. Zero front-end code.
 
 🌐 **[dash.risal.io](https://dash.risal.io)** · MIT · ESP32 + ESP8266
 
@@ -47,12 +48,13 @@ void loop() {
   back to your callbacks.
 - **Widgets for everything** — 26 types: displays, controls, layout (tabs/groups/span), plus
   one-line **sensor presets**.
-- **Multilingual + RTL** — `dash.lang("en"|"ru"|"ar")` with a live in-appbar switcher; Arabic
-  flips the layout to RTL. Only the chosen language ships to flash.
+- **Multi-page + native chrome** — `dash.layout()` splits the UI into pages switched by a
+  swipe-up sheet of icon tiles; an iOS-style status bar (clock, Wi-Fi, battery) sits on top.
+- **Settings on the device** — a gear in the appbar opens **Language / Theme / Accent**, applied
+  live and remembered per browser. `dash.lang("en"|"ru"|"ar")` sets the default; Arabic flips to RTL.
 - **Integrations** — REST, Prometheus `/metrics`, optional MQTT, OTA firmware update, and **MCP**
   so an AI agent can read sensors and drive controls (every widget becomes a tool).
-- **Brand-consistent** — same Risal design system as the app and [dash.risal.io](https://dash.risal.io),
-  dark/light with an in-UI toggle.
+- **Brand-consistent** — the same OKLCH design system as the app and [dash.risal.io](https://dash.risal.io).
 
 ## Install
 
@@ -112,6 +114,27 @@ All widgets bind to a variable by pointer and update live.
 thermometer, water, flash, bulb, power, gauge, home, wifi, clock, signal, leaf, motion —
 or pass any 24×24 SVG path. Only the icons you use are linked into flash.
 
+## Pages, status bar & appearance
+
+Split the dashboard into **pages** — each `dash.layout()` starts one; the widgets after it
+belong to that page, and a swipe-up sheet of icon tiles (or the bottom handle) switches pages:
+
+```cpp
+dash.layout("Overview", RICON_HOME);
+dash.metric("CPU", &cpu, "%");
+dash.layout("Climate", RICON_THERMOMETER);
+dash.slider("Target", &target, 16, 30);
+```
+
+Every page carries an iOS-style **status bar** (clock, Wi-Fi, battery) and an appbar **Settings**
+gear (Language / Theme / Accent, remembered per browser). Set the defaults from the sketch:
+
+```cpp
+dash.timezone(180);          // status-bar clock & portal default, minutes from UTC (+03:00)
+dash.accent(2);              // 0 Aqua · 1 Blue · 2 Violet · 3 Amber · 4 Rose
+dash.theme(RisalUI::DARK);   // DARK (default) | LIGHT | AUTO
+```
+
 ## Sensor presets
 
 One line drops the right widgets, units and ranges for a known sensor:
@@ -128,11 +151,12 @@ The widget is chosen by the **quantity**, not the sensor model.
 ## Languages
 
 ```cpp
-dash.lang("ar");   // "en" (default) | "ru" | "ar"  — "ar" switches to RTL
+dash.lang("ar");   // default: "en" | "ru" | "ar"  — "ar" switches to RTL
 ```
 
-The appbar also has a live **EN / RU / AR** switcher. Only the languages you reference are
-compiled in (Zero-Waste); widget titles stay yours, the library chrome is translated.
+The appbar **Settings** gear lets the user switch language (EN / RU / AR) live too. Only the
+languages you reference are compiled in (Zero-Waste); widget titles stay yours, the library
+chrome is translated.
 
 ## Integrations & control
 
@@ -158,8 +182,9 @@ Claude Desktop / Claude Code.
 ## Examples
 
 - **Minimal** — a few widgets over an access point.
-- **FirstBoot** — captive-portal Wi-Fi provisioning, then the dashboard on your network.
-- **AllWidgets** — every widget type, a sensor preset, tabs and integrations.
+- **FirstBoot** — captive-portal Wi-Fi provisioning (signal levels, timezone), then your network.
+- **Layouts** — multi-page dashboard with the swipe-up page switcher + `accent()`/`timezone()`.
+- **AllWidgets** — every widget type, grouped by purpose, plus a sensor preset.
 
 ## Footprint
 
@@ -168,8 +193,8 @@ dashboard (a handful of widgets) is a few KB of RisalDash on top of the web stac
 
 ## Roadmap
 
-MDI icon set, a mobile drawer/nav built from groups & tabs, richer charts (multi-series/area/bar),
-more sensor presets, and CSS/JS minify + gzip-in-PROGMEM. See [dash.risal.io](https://dash.risal.io).
+Richer charts (multi-series / area / bar), more sensor presets, CSS/JS minify + gzip-in-PROGMEM,
+Home Assistant auto-discovery, and a Wokwi simulation link. See [dash.risal.io](https://dash.risal.io).
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "name": "RisalDash",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beautiful real-time web dashboards for ESP32/ESP8266 in a few lines of C++ — Zero-Waste UI (the linker strips unused widgets), offline-first AP + captive portal, WebSocket, i18n (EN/RU/AR + RTL) and AI control via MCP.",
   "keywords": "esp32, esp8266, dashboard, ui, web, websocket, iot, sensors, mcp",
   "repository": {

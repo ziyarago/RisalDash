@@ -3,6 +3,36 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.2.0] — 2026-06-27
+
+A design + structure release: the firmware now serves the same OKLCH "liquid glass" UI as the
+web emulator, with multi-page layouts, an OS-style status bar and a global Settings modal.
+
+### Redesign
+- New **OKLCH liquid-glass** design system: translucent glass cards (`backdrop-filter` blur),
+  vibrant gradient background, and accent-following SVG (gauge arc / chart line track the accent).
+
+### Pages & chrome
+- **Multi-page layouts** — `dash.layout("Name", RICON_*)` splits the dashboard into switchable
+  pages; a swipe-up sheet of icon tiles (or the bottom handle) switches them.
+- **iOS-style status bar** inside the page — timezone-aware clock, Wi-Fi/GSM/Bluetooth, battery.
+- **Settings modal** (appbar gear) — Language / Theme / Accent, applied live and persisted
+  per-browser. Replaces the old appbar language switcher + theme pill.
+
+### New APIs
+- `dash.timezone(minutes)` — status-bar clock and the portal's default timezone (saved to NVS).
+- `dash.accent(0..4)` — default accent color: Aqua · Blue · Violet · Amber · Rose.
+
+### Portal
+- Redesigned Wi-Fi setup: networks show signal strength + a lock; a custom timezone picker;
+  the chosen network and timezone are saved to NVS.
+
+### Examples
+- New **Layouts** example; **AllWidgets** regrouped by purpose. All four examples build for
+  ESP32 and ESP8266 in CI.
+
+[0.2.0]: https://github.com/ziyarago/RisalDash/releases/tag/v0.2.0
+
 ## [0.1.0] — 2026-06-26
 
 First public release.

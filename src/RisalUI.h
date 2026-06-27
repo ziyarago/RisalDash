@@ -22,7 +22,7 @@
 // Each widget type's CSS is emitted once (Zero-Waste). Live WebSocket updates (P3),
 // the full widget set + sensor presets (P2), and AP captive-portal provisioning (P4)
 // follow — all prototyped in dev/.
-#define RISALDASH_VERSION "0.1.0"
+#define RISALDASH_VERSION "0.2.0"
 
 #ifndef RISAL_MAX_WIDGETS
 #define RISAL_MAX_WIDGETS 32
@@ -47,6 +47,12 @@ class RisalUI {
   // Visual effects (orbs + appbar backdrop-blur) — on by default. effects(false) flattens
   // them for weak boards / lower GPU load, keeping the same colors.
   RisalUI& effects(bool on) { _effects = on; return *this; }
+  // Status-bar timezone, in minutes from UTC (e.g. 180 = +03:00). Default Riyadh.
+  // Normally chosen on the first-boot portal and saved; this sets the default.
+  RisalUI& timezone(int minutes) { _tz = minutes; return *this; }
+  // Default accent: 0 Aqua · 1 Blue · 2 Violet · 3 Amber · 4 Rose. The user can change it
+  // live in Settings (persists per-browser); this sets the out-of-the-box color.
+  RisalUI& accent(int idx) { _accent = idx; return *this; }
   // Expose widgets to an AI agent via MCP: GET /api/mcp/manifest lists each widget as a
   // get_*/set_* tool (the risal-mcp-server bridge reads it). Token-guarded.
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
@@ -72,6 +78,9 @@ class RisalUI {
   NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
   SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
   GroupWidget&  group(const char* title);
+  // Start a new switchable page. Widgets declared after it belong to this layout; a swipe-up
+  // sheet lets the user switch pages. icon = a RICON_* glyph for the sheet tile.
+  LayoutWidget& layout(const char* name, const char* icon = nullptr);
   LabelWidget&  label(const char* name, String* val);
   TextWidget&   text(const char* name, String* val, TextWidget::Cb cb = nullptr);
   LogWidget&    log(const char* name, uint8_t lines = 5);
@@ -135,6 +144,8 @@ class RisalUI {
   const char* _langCode = "en";
   bool _rtl = false;
   bool _effects = true;
+  int _tz = 180;
+  int _accent = 0;
   bool _ota = false;
   uint32_t _rebootAt = 0;
   Widget* _widgets[RISAL_MAX_WIDGETS];

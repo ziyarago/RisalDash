@@ -22,16 +22,17 @@ bool RisalUI::_loadCreds(String& ssid, String& pass) {
   pr.begin("risaldash", true);
   ssid = pr.getString("ssid", "");
   pass = pr.getString("pass", "");
+  _tz = pr.getInt("tz", _tz);  // portal-chosen timezone (falls back to the configured default)
   pr.end();
   return ssid.length() > 0;
 #elif defined(ESP8266)
-  struct { uint32_t magic; char s[33]; char p[65]; } c;
+  struct { uint32_t magic; char s[33]; char p[65]; int tz; } c;
   EEPROM.begin(sizeof(c));
   EEPROM.get(0, c);
   EEPROM.end();
-  if (c.magic != 0x52534C31UL) return false;
+  if (c.magic != 0x52534C32UL) return false;
   c.s[32] = 0; c.p[64] = 0;
-  ssid = c.s; pass = c.p;
+  ssid = c.s; pass = c.p; _tz = c.tz;
   return ssid.length() > 0;
 #else
   return false;
@@ -44,12 +45,14 @@ void RisalUI::_saveCreds(const char* ssid, const char* pass) {
   pr.begin("risaldash", false);
   pr.putString("ssid", ssid);
   pr.putString("pass", pass ? pass : "");
+  pr.putInt("tz", _tz);
   pr.end();
 #elif defined(ESP8266)
-  struct { uint32_t magic; char s[33]; char p[65]; } c = {};
-  c.magic = 0x52534C31UL;
+  struct { uint32_t magic; char s[33]; char p[65]; int tz; } c = {};
+  c.magic = 0x52534C32UL;
   strncpy(c.s, ssid, 32);
   strncpy(c.p, pass ? pass : "", 64);
+  c.tz = _tz;
   EEPROM.begin(sizeof(c));
   EEPROM.put(0, c);
   EEPROM.commit();
@@ -162,15 +165,17 @@ void RisalUI::_startPortal() {
 
 // Localized library chrome (portal + footer). Kept tiny; widget titles are the dev's own.
 namespace {
-enum RLoc { L_SUBTITLE, L_PASSWORD, L_CONNECT, L_SERVED };
+enum RLoc { L_SUBTITLE, L_PASSWORD, L_CONNECT, L_SERVED, L_NETWORKS, L_TIMEZONE };
 const char* rloc(RLoc k, const char* lang) {
   bool ru = lang[0] == 'r';
   bool ar = lang[0] == 'a';
   switch (k) {
     case L_SUBTITLE: return ar ? "إعداد Wi-Fi · اختر الشبكة" : ru ? "Настройка Wi-Fi · выберите сеть" : "Wi-Fi setup · choose your network";
     case L_PASSWORD: return ar ? "كلمة المرور" : ru ? "Пароль" : "Password";
-    case L_CONNECT:  return ar ? "اتصال" : ru ? "Подключить" : "Connect";
+    case L_CONNECT:  return ar ? "اتصال وحفظ" : ru ? "Подключить и сохранить" : "Connect & save";
     case L_SERVED:   return ar ? "يخدمها ESP" : ru ? "обслуживается ESP" : "served by ESP";
+    case L_NETWORKS: return ar ? "الشبكات" : ru ? "Сети" : "Networks";
+    case L_TIMEZONE: return ar ? "المنطقة الزمنية" : ru ? "Часовой пояс" : "Timezone";
   }
   return "";
 }
@@ -189,19 +194,52 @@ void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
   res->print(FPSTR(RISAL_HEAD));
   res->print(FPSTR(RISAL_CSS));
   res->print(FPSTR(RISAL_PORTAL_CSS));
-  res->print(FPSTR(RISAL_PORTAL_OPEN));
+  res->print(F("</style></head><body><div class=\"wrap\"><div class=\"card pc\">"
+               "<h2><b>Risal</b>Dash</h2><p class=\"s\">"));
   res->print(rloc(L_SUBTITLE, _langCode));
-  res->print(FPSTR(RISAL_PORTAL_FORM));
+  res->print(F("</p><form action=\"/connect\" method=\"get\">"
+               "<input type=\"hidden\" name=\"ssid\" id=\"ssid\" value=\""));
+  if (n > 0) res->print(WiFi.SSID(0));
+  res->print(F("\"><div class=\"l\">"));
+  res->print(rloc(L_NETWORKS, _langCode));
+  res->print(F("</div><div class=\"nets\">"));
   for (int i = 0; i < n; i++) {
-    res->print(F("<option>"));
+    int rssi = WiFi.RSSI(i);
+    int lvl = rssi > -60 ? 3 : rssi > -72 ? 2 : 1;
+#if defined(ESP32)
+    bool open = WiFi.encryptionType(i) == WIFI_AUTH_OPEN;
+#else
+    bool open = WiFi.encryptionType(i) == ENC_TYPE_NONE;
+#endif
+    res->print(F("<button type=\"button\" class=\"net"));
+    if (i == 0) res->print(F(" on"));
+    res->print(F("\" data-s=\""));
     res->print(WiFi.SSID(i));
-    res->print(F("</option>"));
+    res->print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\"M4 11a13 13 0 0 1 16 0\""));
+    if (lvl < 3) res->print(F(" opacity=\".28\""));
+    res->print(F("/><path d=\"M7.5 14.5a8 8 0 0 1 9 0\""));
+    if (lvl < 2) res->print(F(" opacity=\".28\""));
+    res->print(F("/><path d=\"M11 18a3 3 0 0 1 2 0\"/></svg><span class=\"nm\">"));
+    res->print(WiFi.SSID(i));
+    res->print(F("</span>"));
+    if (!open)
+      res->print(F("<svg class=\"lock\" viewBox=\"0 0 24 24\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/>"
+                   "<path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/></svg>"));
+    res->print(F("<span class=\"check\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 13l4 4 10-11\"/></svg></span></button>"));
   }
-  res->print(FPSTR(RISAL_PORTAL_PASS));
+  res->print(F("</div><input class=\"inp\" type=\"password\" name=\"pass\" placeholder=\""));
   res->print(rloc(L_PASSWORD, _langCode));
-  res->print(FPSTR(RISAL_PORTAL_BTN));
+  res->print(F("\" autocomplete=\"off\"><div class=\"l\">"));
+  res->print(rloc(L_TIMEZONE, _langCode));
+  res->print(F("</div><div class=\"tzc\" id=\"tzc\"><div class=\"tzsel\"><span id=\"tzval\">+03:00</span>"
+               "<svg viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\"/></svg></div><div class=\"tzpop\" id=\"tzpop\"></div></div>"
+               "<input type=\"hidden\" name=\"tz\" id=\"tzv\" value=\""));
+  res->print(_tz);
+  res->print(F("\"><button class=\"act\" type=\"submit\">"));
   res->print(rloc(L_CONNECT, _langCode));
-  res->print(FPSTR(RISAL_PORTAL_END));
+  res->print(F("</button></form></div></div><script>"));
+  res->print(FPSTR(RISAL_PORTAL_JS));
+  res->print(F("</script></body></html>"));
   req->send(res);
   WiFi.scanDelete();
 }
@@ -210,6 +248,7 @@ void RisalUI::_handleConnect(AsyncWebServerRequest* req) {
   String ssid = req->hasParam("ssid") ? req->getParam("ssid")->value() : "";
   String pass = req->hasParam("pass") ? req->getParam("pass")->value() : "";
   if (!ssid.length()) { req->redirect("/"); return; }
+  if (req->hasParam("tz")) _tz = req->getParam("tz")->value().toInt();  // persisted with the creds
   _saveCreds(ssid.c_str(), pass.c_str());
   String html = F("<!DOCTYPE html><meta name=viewport content=\"width=device-width,initial-scale=1\">"
                   "<body style=\"font-family:sans-serif;background:#0F1115;color:#F2F4F8;text-align:center;padding:48px\">"
@@ -303,6 +342,13 @@ SelectWidget& RisalUI::select(const char* name, const char* csvOptions, int* idx
 
 GroupWidget& RisalUI::group(const char* title) {
   GroupWidget* w = new GroupWidget(title);
+  _add(w);
+  return *w;
+}
+
+LayoutWidget& RisalUI::layout(const char* name, const char* icon) {
+  LayoutWidget* w = new LayoutWidget(name);
+  if (icon) w->icon(icon);
   _add(w);
   return *w;
 }
@@ -599,7 +645,8 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   // Resolve theme before paint: saved choice → configured mode → prefers-color-scheme (AUTO).
   res->print(F("<script>(function(){var m='"));
   res->print(_theme == LIGHT ? "light" : _theme == AUTO ? "auto" : "dark");
-  res->print(F("';var s=localStorage.getItem('rd-th');var d=s?s==='dark':(m==='auto'?matchMedia('(prefers-color-scheme:dark)').matches:m!=='light');"
+  res->print(F("';var s=localStorage.getItem('rd-th')||m;"
+               "var d=s==='dark'?true:s==='light'?false:matchMedia('(prefers-color-scheme:dark)').matches;"
                "var c=document.documentElement.classList;c.toggle('light',!d);c.toggle('dark',d);})();</script>"));
   res->print(FPSTR(RISAL_BODY_CHROME));
   res->print(_title);
@@ -608,20 +655,7 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   if (groups)
     res->print(F("<button class=\"burg\" onclick=\"R.openNav(true)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
                 "stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button>"));
-  // Language switcher (active = effective language); reloads with ?lang=.
-  {
-    static const char* const codes[3] = {"en", "ru", "ar"};
-    static const char* const labels[3] = {"EN", "RU", "AR"};
-    res->print(F("<div class=\"lng\">"));
-    for (uint8_t i = 0; i < 3; i++) {
-      res->print(F("<a href=\"?lang="));
-      res->print(codes[i]);
-      res->print(strcmp(eff, codes[i]) == 0 ? F("\" class=\"on\">") : F("\">"));
-      res->print(labels[i]);
-      res->print(F("</a>"));
-    }
-    res->print(F("</div>"));
-  }
+  // Language / theme / accent now live in the Settings modal (appbar gear → RISAL_APPBAR_END).
   res->print(FPSTR(RISAL_APPBAR_END));
   // Nav drawer: scrim + off-canvas list of groups (anchors to each section header).
   if (groups) {
@@ -641,13 +675,65 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   res->print(FPSTR(RISAL_DEFS));
 
   bool hasTabs = false;
-  for (uint8_t i = 0; i < _count; i++)
-    if (strcmp(_widgets[i]->typeId(), "tab") == 0) { hasTabs = true; break; }
+  uint8_t layCount = 0;
+  for (uint8_t i = 0; i < _count; i++) {
+    if (strcmp(_widgets[i]->typeId(), "tab") == 0) hasTabs = true;
+    if (strcmp(_widgets[i]->typeId(), "layout") == 0) layCount++;
+  }
 
   if (_count == 0) {
     res->print(F("<main class=\"grid\">"));
     res->print(FPSTR(RISAL_EMPTY));
     res->print(F("</main>"));
+  } else if (layCount > 0) {
+    // Multi-page mode: one switchable grid per layout() + a swipe-up sheet of icon tiles.
+    int active = req->hasParam("layout") ? req->getParam("layout")->value().toInt() : 0;
+    uint8_t i = 0;
+    // Cards before the first layout() are pinned (visible on every page).
+    if (strcmp(_widgets[0]->typeId(), "layout") != 0) {
+      res->print(F("<main class=\"grid\">"));
+      for (; i < _count && strcmp(_widgets[i]->typeId(), "layout") != 0; i++) _widgets[i]->card(*res);
+      res->print(F("</main>"));
+    }
+    int li = -1;
+    bool open = false;
+    for (; i < _count; i++) {
+      if (strcmp(_widgets[i]->typeId(), "layout") == 0) {
+        if (open) res->print(F("</main>"));
+        li++;
+        res->print(F("<main class=\"grid lay"));
+        if (li == active) res->print(F(" on"));
+        res->print(F("\" data-lay=\""));
+        res->print(li);
+        res->print(F("\">"));
+        open = true;
+      } else {
+        _widgets[i]->card(*res);
+      }
+    }
+    if (open) res->print(F("</main>"));
+    // Bottom handle (current page) + scrim + sheet of tiles.
+    res->print(F("<button class=\"lhandle\" onclick=\"RL.open(1)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
+                 "stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+                 "<path d=\"M18 15l-6-6-6 6\"/></svg><span></span></button>"
+                 "<div class=\"lscrim\" onclick=\"RL.open(0)\"></div><div class=\"lsheet\"><div class=\"lgrip\"></div>"
+                 "<div class=\"ltiles\">"));
+    li = -1;
+    for (uint8_t k = 0; k < _count; k++) {
+      if (strcmp(_widgets[k]->typeId(), "layout") != 0) continue;
+      li++;
+      LayoutWidget* lw = static_cast<LayoutWidget*>(_widgets[k]);
+      res->print(F("<button class=\"ltile"));
+      if (li == active) res->print(F(" on"));
+      res->print(F("\" data-lay=\""));
+      res->print(li);
+      res->print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\""));
+      res->print(FPSTR(lw->iconPath() ? lw->iconPath() : RICON_HOME));
+      res->print(F("\"/></svg><span>"));
+      res->print(_widgets[k]->key());
+      res->print(F("</span></button>"));
+    }
+    res->print(F("</div></div>"));
   } else if (!hasTabs) {
     res->print(F("<main class=\"grid\">"));
     for (uint8_t i = 0; i < _count; i++) _widgets[i]->card(*res);
@@ -700,8 +786,22 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   else if (strcmp(eff, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
   res->print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
               "if(s)s.classList.toggle('open',o);if(d)d.classList.toggle('open',o);};"));
-  res->print(F("R.theme=function(){var c=document.documentElement.classList;var l=c.toggle('light');"
-              "c.toggle('dark',!l);localStorage.setItem('rd-th',l?'light':'dark');};"));
+  res->print(F("window.RSB_TZ="));
+  res->print(_tz);
+  res->print(F(";"));
+  res->print(FPSTR(RISAL_STATUSBAR_JS));
+  // Settings modal: localized labels (window.RSL) + default accent (window.RSACC) + the JS.
+  if (strcmp(eff, "ru") == 0)
+    res->print(F("window.RSL={set:'Настройки',lang:'Язык',theme:'Тема',accent:'Акцент',"
+                 "note:'Сохранено \\u00b7 на всех экранах',dark:'Тёмная',light:'Светлая',auto:'Авто'};"));
+  else if (strcmp(eff, "ar") == 0)
+    res->print(F("window.RSL={set:'الإعدادات',lang:'اللغة',theme:'السمة',accent:'اللون',"
+                 "note:'محفوظ \\u00b7 في كل الشاشات',dark:'داكن',light:'فاتح',auto:'تلقائي'};"));
+  res->print(F("window.RSACC="));
+  res->print(_accent);
+  res->print(F(";"));
+  res->print(FPSTR(RISAL_SETTINGS_JS));
+  if (layCount > 0) res->print(FPSTR(RISAL_LAYOUTS_JS));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();

@@ -513,6 +513,18 @@ class GroupWidget : public Widget {
   }
 };
 
+// ── Layout: a full switchable page. With layouts declared, the dashboard shows one page at
+// a time; a swipe-up sheet lists each as an icon tile. The marker itself renders nothing —
+// RisalUI partitions the widgets that follow it into that page. Set the tile glyph via the
+// second arg (a RICON_* path); falls back to a generic icon. ──
+class LayoutWidget : public Widget {
+ public:
+  explicit LayoutWidget(const char* title) : Widget(title, title) {}
+  const char* typeId() const override { return "layout"; }
+  void card(Print& out) override { (void)out; }  // a boundary marker, not a card
+  const char* iconPath() const { return _icon; }
+};
+
 // ── Control: number input (int) ──
 class NumberWidget : public Widget {
  public:
