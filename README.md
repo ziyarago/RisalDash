@@ -39,8 +39,8 @@ void loop() {
 
 ## Why RisalDash
 
-- **Zero-Waste UI** — the linker (`--gc-sections`) strips widgets you don't use. Each widget
-  type ships its own CSS/JS only when instantiated (~1–1.5 KB each).
+- **Zero-Waste UI** — the linker (`--gc-sections`) strips widget types you don't use (0 bytes).
+  A type you do use adds its own C++ + CSS + JS once (~1.3–3.4 KB, measured on ESP32).
 - **Offline-first first boot** — `begin()` raises a Wi-Fi access point with a **captive portal**;
   the user picks a network and the credentials are saved to NVS. No internet, no app, no CDN
   (system fonts, everything served from flash).
@@ -235,8 +235,20 @@ one device. No YAML.
 
 ## Footprint
 
-Empty web core ≈ the ESPAsyncWebServer stack; each widget type adds ~1–1.5 KB flash. A typical
-dashboard (a handful of widgets) is a few KB of RisalDash on top of the web stack.
+RisalDash is **Zero-Waste**: a widget type you never call is stripped by the linker, so it costs
+nothing. Measured on ESP32 (Arduino) — flash added by the *first* use of each type (its C++ + CSS
++ JS), over the bare ESPAsyncWebServer baseline:
+
+| Widget | + flash | Widget | + flash |
+|---|---|---|---|
+| `led` | ~1.3 KB | `metric` | ~2.3 KB |
+| `badge` | ~1.6 KB | `table` | ~2.4 KB |
+| `ai` | ~1.8 KB | `slider` | ~2.4 KB |
+| `number` | ~1.8 KB | `gauge` | ~3.1 KB |
+| `toggle` | ~2.0 KB | `chart` | ~3.4 KB |
+
+Extra instances of a type you already use are a few bytes each. Unused types: **0 bytes** — that's
+the point.
 
 ## Roadmap
 
