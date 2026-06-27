@@ -56,6 +56,48 @@ void loop() {
   so an AI agent can read sensors and drive controls (every widget becomes a tool).
 - **Brand-consistent** — the same OKLCH design system as the app and [dash.risal.io](https://dash.risal.io).
 
+## Before / After
+
+A browser UI for an ESP usually means hand-writing HTML + CSS + JS **and** a WebSocket
+protocol — easily 100+ lines for a couple of gauges. RisalDash is just the declaration.
+
+<details>
+<summary><b>Before</b> — raw ESPAsyncWebServer (abridged; the real thing is longer)</summary>
+
+```cpp
+server.on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
+  r->send(200, "text/html", R"HTML(
+    <div id="t">--</div><label><input type="checkbox" id="p"> Pump</label>
+    <script>
+      let ws; (function c(){ ws = new WebSocket('ws://'+location.host+'/ws');
+        ws.onmessage = e => { const s = JSON.parse(e.data); t.textContent = s.temp; p.checked = s.pump; };
+        ws.onclose = () => setTimeout(c, 800); })();
+      p.onchange = () => ws.send(JSON.stringify({ pump: p.checked }));
+    </script>
+    <style>/* gauge SVG, layout, theme, fonts, mobile… */</style>
+  )HTML");
+});
+ws.onEvent([](/*…*/ AwsEventType ty, uint8_t* d, size_t n) {
+  if (ty == WS_EVT_DATA) { /* parse JSON, find the key, apply to your var, call your callback */ }
+});
+void loop() {
+  if (millis() - last > 250) {                       // throttle by hand
+    String j = "{"; j += "\"temp\":" + String(temp) + ",\"pump\":" + (pump ? "true" : "false") + "}";
+    ws.textAll(j); last = millis();                  // build + broadcast JSON by hand
+  }
+  // …now repeat all of this for every new widget, plus the CSS and the protocol.
+}
+```
+</details>
+
+**After** — RisalDash:
+
+```cpp
+dash.gauge ("Temperature", &temp, 0, 50, "C");
+dash.toggle("Pump", &pump, [](bool on){ digitalWrite(PUMP, on); });
+dash.begin();                                        // + offline captive portal, i18n, OTA, MCP…
+```
+
 ## Install
 
 **Arduino IDE** — Library Manager → search **"RisalDash"**.
