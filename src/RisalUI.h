@@ -62,6 +62,10 @@ class RisalUI {
   // Mirror widget state to MQTT: publishes <baseTopic>/<key> (retained) on change and
   // subscribes to <baseTopic>/<key>/set for inbound commands. STA mode only.
   RisalUI& mqtt(const char* host, uint16_t port = 1883, const char* baseTopic = "risaldash");
+  // Home Assistant MQTT discovery: on connect, publish a retained config for each widget to
+  // homeassistant/<component>/<nodeId>/<key>/config, so HA auto-creates entities (sensors,
+  // switches, numbers, buttons). Requires mqtt(); HA must use the default discovery prefix.
+  RisalUI& enableHomeAssistant(const char* nodeId = "risaldash") { _ha = true; _haNode = nodeId; return *this; }
 #endif
 
   // Widget factories — return the concrete widget so config chains (e.g. .decimals(1)).
@@ -122,12 +126,15 @@ class RisalUI {
 #ifdef RISAL_ENABLE_MQTT
   void _mqttLoop();
   void _mqttPublish(Widget* w);
+  void _haDiscover(Widget* w);  // Home Assistant MQTT discovery config for one widget
   static void _mqttCb(char* topic, uint8_t* payload, unsigned int len);
   WiFiClient _mqttNet;
   PubSubClient _mqtt{_mqttNet};
   const char* _mqttHost = nullptr;
   uint16_t _mqttPort = 1883;
   const char* _mqttBase = "risaldash";
+  bool _ha = false;
+  const char* _haNode = "risaldash";
   uint32_t _mqttRetry = 0;
   static RisalUI* _self;
 #endif

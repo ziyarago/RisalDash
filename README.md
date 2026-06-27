@@ -206,6 +206,7 @@ chrome is translated.
 dash.enableMCP("risal_pat_token");   // GET /api/mcp/manifest → AI tools (see tools/risal-mcp-bridge)
 dash.enableOTA();                    // GET/POST /update → firmware update over the air
 dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + PubSubClient
+dash.enableHomeAssistant("greenhouse");          // Home Assistant MQTT auto-discovery (after mqtt())
 ```
 
 | Endpoint | Purpose |
@@ -220,6 +221,10 @@ dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + 
 tool (read sensors, drive controls). The companion
 [**risal-dash-mcp**](https://github.com/ziyarago/risal-dash-mcp) bridge connects a device to
 Claude Desktop / Claude Code.
+
+**Home Assistant** — after `mqtt()`, `enableHomeAssistant()` publishes MQTT discovery configs so
+HA auto-creates entities (sensors, switches, numbers, binary sensors, buttons), all grouped under
+one device. No YAML.
 
 ## Examples
 

@@ -3,6 +3,17 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Home Assistant MQTT discovery** — `dash.enableHomeAssistant("node")` (after `mqtt()`) publishes
+  retained discovery configs so HA auto-creates entities (sensor / switch / number / binary_sensor /
+  button), grouped under one device. Reuses the existing `<base>/<key>` topics.
+
+### Fixed
+- Redrew the `clock`, `gauge` and `motion` built-in icons with clean MDI paths (clock filled solid
+  before; motion was malformed).
+
 ## [0.2.0] — 2026-06-27
 
 A design + structure release: the firmware now serves the same OKLCH "liquid glass" UI as the
