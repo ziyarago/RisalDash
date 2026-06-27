@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [Minimal, FirstBoot, Layouts, AllWidgets]
+        example: [Minimal, FirstBoot, Layouts, Tabs, AllWidgets]
     steps:
       - uses: actions/checkout@v4
 
