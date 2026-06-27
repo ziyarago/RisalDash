@@ -3,16 +3,20 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] — 2026-06-27
 
 ### Added
 - **Home Assistant MQTT discovery** — `dash.enableHomeAssistant("node")` (after `mqtt()`) publishes
   retained discovery configs so HA auto-creates entities (sensor / switch / number / binary_sensor /
   button), grouped under one device. Reuses the existing `<base>/<key>` topics.
+- **Tabs example** — `dash.tab()` switchable panels (added to the CI matrix).
 
 ### Fixed
 - Redrew the `clock`, `gauge` and `motion` built-in icons with clean MDI paths (clock filled solid
   before; motion was malformed).
+
+### Docs
+- Measured per-widget flash footprint on ESP32 (README) — replaces the earlier optimistic estimate.
 
 ## [0.2.0] — 2026-06-27
 
@@ -42,6 +46,7 @@ web emulator, with multi-page layouts, an OS-style status bar and a global Setti
 - New **Layouts** example; **AllWidgets** regrouped by purpose. All four examples build for
   ESP32 and ESP8266 in CI.
 
+[0.2.1]: https://github.com/ziyarago/RisalDash/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ziyarago/RisalDash/releases/tag/v0.2.0
 
 ## [0.1.0] — 2026-06-26
