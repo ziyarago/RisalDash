@@ -198,4 +198,4 @@ Home Assistant auto-discovery, and a Wokwi simulation link. See [dash.risal.io](
 
 ## License
 
-MIT © Shaxzod Ahmedov. Brand: Risal.
+MIT © ZiyaraGo Technologies. Brand: Risal.
