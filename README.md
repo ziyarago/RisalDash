@@ -220,7 +220,7 @@ dash.enableHomeAssistant("greenhouse");          // Home Assistant MQTT auto-dis
 **MCP** — `enableMCP(token)` exposes `GET /api/mcp/manifest`, turning every widget into an AI
 tool (read sensors, drive controls). The companion
 [**risal-dash-mcp**](https://github.com/ziyarago/risal-dash-mcp) bridge connects a device to
-Claude Desktop / Claude Code.
+Claude Desktop / Claude Code. 📝 Walkthrough: [Control your ESP32 from an AI agent](https://dev.to/shaxzod_ahmedov_f81d92240/control-your-esp32-from-an-ai-agent-mcp-a-few-lines-of-c-2o87).
 
 **Home Assistant** — after `mqtt()`, `enableHomeAssistant()` publishes MQTT discovery configs so
 HA auto-creates entities (sensors, switches, numbers, binary sensors, buttons), all grouped under
