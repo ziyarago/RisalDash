@@ -63,7 +63,13 @@ void RisalUI::_saveCreds(const char* ssid, const char* pass) {
 }
 
 bool RisalUI::_tryStation(const char* ssid, const char* pass, uint32_t timeoutMs) {
+  // We persist credentials ourselves (NVS). Stop the ESP8266 SDK from auto-connecting to a stale
+  // cached AP (e.g. a neighbour's network it once saw) and clear any old STA config first, so only
+  // the SSID the user just picked is used.
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  delay(100);
   WiFi.begin(ssid, pass);
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < timeoutMs) delay(100);
@@ -149,10 +155,16 @@ void RisalUI::beginAP(const char* ssid, const char* pass) {
 
 // Raise a SoftAP with a captive portal: catch-all DNS + a Wi-Fi setup page.
 void RisalUI::_startPortal() {
-  WiFi.mode(WIFI_AP);
+  // AP_STA so the one-time scan below can run on the station interface without tearing down the
+  // access point. On ESP8266 a blocking scan inside the request handler (per page load) hops the
+  // radio and drops the connected client — so we scan ONCE here, before any client connects, and
+  // the portal handler renders that cached list. Networks are a snapshot from boot (reboot to
+  // refresh); this keeps the AP rock-stable while the user provisions.
+  WiFi.mode(WIFI_AP_STA);
   IPAddress apIP(192, 168, 4, 1);
   WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   WiFi.softAP(_apSsid ? _apSsid : "RisalDash-Setup");
+  _scanN = WiFi.scanNetworks();  // cached; results persist (never scanDelete'd) for the portal
   _dns.start(53, "*", apIP);  // resolve every domain to us -> captive portal
 
   _server.on("/connect", HTTP_GET, [this](AsyncWebServerRequest* req) { _handleConnect(req); });
@@ -181,29 +193,67 @@ const char* rloc(RLoc k, const char* lang) {
 }
 }  // namespace
 
-void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
-  int n = WiFi.scanNetworks();
-  AsyncResponseStream* res = req->beginResponseStream("text/html");
-  res->print(F("<!DOCTYPE html><html class=\""));
-  res->print(_effects ? "dark" : "dark flat");
-  res->print(F("\" lang=\""));
-  res->print(_langCode);
-  res->print(F("\" dir=\""));
-  res->print(_rtl ? "rtl" : "ltr");
-  res->print(F("\">"));
-  res->print(FPSTR(RISAL_HEAD));
-  res->print(FPSTR(RISAL_CSS));
-  res->print(FPSTR(RISAL_PORTAL_CSS));
-  res->print(F("</style></head><body><div class=\"wrap\"><div class=\"card pc\">"
+// Windowing Print sink for chunked streaming. The fill-callback re-runs the whole render on each
+// call and this keeps only the bytes of the current window [start, start+max) — flat RAM, no big
+// contiguous buffer to hit ESP8266 heap fragmentation (which capped AsyncResponseStream at ~15 KB
+// and silently dropped the rest, breaking every page's trailing <script>).
+namespace {
+class WindowPrint : public Print {
+  uint8_t* _buf;
+  size_t _cap, _start, _pos = 0, _n = 0;
+ public:
+  WindowPrint(uint8_t* buf, size_t maxLen, size_t start) : _buf(buf), _cap(maxLen), _start(start) {}
+  size_t produced() const { return _n; }
+  size_t write(uint8_t c) override {
+    if (_pos >= _start && _n < _cap) _buf[_n++] = c;
+    _pos++;
+    return 1;
+  }
+  size_t write(const uint8_t* data, size_t len) override {
+    size_t segStart = _pos;
+    _pos += len;
+    if (_n >= _cap || segStart + len <= _start || segStart >= _start + _cap) return len;
+    size_t from = segStart < _start ? _start - segStart : 0;
+    size_t to = segStart + len < _start + _cap ? len : _start + _cap - segStart;
+    size_t cpy = to - from;
+    if (cpy > _cap - _n) cpy = _cap - _n;
+    memcpy(_buf + _n, data + from, cpy);
+    _n += cpy;
+    return len;
+  }
+};
+}  // namespace
+
+void RisalUI::_renderPortal(Print& out) {
+  int n = _scanN;  // cached at portal start — never scan inside the async handler (drops the AP)
+  out.print(F("<!DOCTYPE html><html class=\""));
+  out.print(_effects ? "dark" : "dark flat");
+  out.print(F("\" lang=\""));
+  out.print(_langCode);
+  out.print(F("\" dir=\""));
+  out.print(_rtl ? "rtl" : "ltr");
+  out.print(F("\">"));
+  out.print(FPSTR(RISAL_HEAD));
+  out.print(FPSTR(RISAL_CSS));
+  out.print(FPSTR(RISAL_PORTAL_CSS));
+  out.print(F("</style></head><body><div class=\"wrap\"><div class=\"card pc\">"
                "<h2><b>Risal</b>Dash</h2><p class=\"s\">"));
-  res->print(rloc(L_SUBTITLE, _langCode));
-  res->print(F("</p><form action=\"/connect\" method=\"get\">"
-               "<input type=\"hidden\" name=\"ssid\" id=\"ssid\" value=\""));
-  if (n > 0) res->print(WiFi.SSID(0));
-  res->print(F("\"><div class=\"l\">"));
-  res->print(rloc(L_NETWORKS, _langCode));
-  res->print(F("</div><div class=\"nets\">"));
-  for (int i = 0; i < n; i++) {
+  out.print(rloc(L_SUBTITLE, _langCode));
+  out.print(F("</p><form action=\"/connect\" method=\"get\">"
+               "<input type=\"hidden\" name=\"ssid\" id=\"ssid\" value=\"\"><div class=\"l\">"));
+  out.print(rloc(L_NETWORKS, _langCode));
+  out.print(F("</div><div class=\"nets\">"));
+  // Order strongest-first (ESP8266 scan results aren't sorted) and drop hidden SSIDs. Nothing is
+  // pre-selected — the user must tap a network, so a wrong default can't be submitted by accident.
+  int order[24];
+  int m = 0;
+  for (int i = 0; i < n && m < (int)(sizeof(order) / sizeof(order[0])); i++)
+    if (WiFi.SSID(i).length()) order[m++] = i;
+  for (int a = 0; a < m; a++)
+    for (int b = a + 1; b < m; b++)
+      if (WiFi.RSSI(order[b]) > WiFi.RSSI(order[a])) { int t = order[a]; order[a] = order[b]; order[b] = t; }
+  for (int k = 0; k < m; k++) {
+    int i = order[k];
     int rssi = WiFi.RSSI(i);
     int lvl = rssi > -60 ? 3 : rssi > -72 ? 2 : 1;
 #if defined(ESP32)
@@ -211,37 +261,45 @@ void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
 #else
     bool open = WiFi.encryptionType(i) == ENC_TYPE_NONE;
 #endif
-    res->print(F("<button type=\"button\" class=\"net"));
-    if (i == 0) res->print(F(" on"));
-    res->print(F("\" data-s=\""));
-    res->print(WiFi.SSID(i));
-    res->print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\"M4 11a13 13 0 0 1 16 0\""));
-    if (lvl < 3) res->print(F(" opacity=\".28\""));
-    res->print(F("/><path d=\"M7.5 14.5a8 8 0 0 1 9 0\""));
-    if (lvl < 2) res->print(F(" opacity=\".28\""));
-    res->print(F("/><path d=\"M11 18a3 3 0 0 1 2 0\"/></svg><span class=\"nm\">"));
-    res->print(WiFi.SSID(i));
-    res->print(F("</span>"));
+    out.print(F("<button type=\"button\" class=\"net\" data-s=\""));
+    out.print(WiFi.SSID(i));
+    out.print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\"M4 11a13 13 0 0 1 16 0\""));
+    if (lvl < 3) out.print(F(" opacity=\".28\""));
+    out.print(F("/><path d=\"M7.5 14.5a8 8 0 0 1 9 0\""));
+    if (lvl < 2) out.print(F(" opacity=\".28\""));
+    out.print(F("/><path d=\"M11 18a3 3 0 0 1 2 0\"/></svg><span class=\"nm\">"));
+    out.print(WiFi.SSID(i));
+    out.print(F("</span>"));
     if (!open)
-      res->print(F("<svg class=\"lock\" viewBox=\"0 0 24 24\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/>"
+      out.print(F("<svg class=\"lock\" viewBox=\"0 0 24 24\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/>"
                    "<path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/></svg>"));
-    res->print(F("<span class=\"check\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 13l4 4 10-11\"/></svg></span></button>"));
+    out.print(F("<span class=\"check\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 13l4 4 10-11\"/></svg></span></button>"));
   }
-  res->print(F("</div><input class=\"inp\" type=\"password\" name=\"pass\" placeholder=\""));
-  res->print(rloc(L_PASSWORD, _langCode));
-  res->print(F("\" autocomplete=\"off\"><div class=\"l\">"));
-  res->print(rloc(L_TIMEZONE, _langCode));
-  res->print(F("</div><div class=\"tzc\" id=\"tzc\"><div class=\"tzsel\"><span id=\"tzval\">+03:00</span>"
+  out.print(F("</div><div class=\"pwrap\"><input class=\"inp\" id=\"pw\" type=\"password\" name=\"pass\" placeholder=\""));
+  out.print(rloc(L_PASSWORD, _langCode));
+  out.print(F("\" autocomplete=\"off\"><button type=\"button\" class=\"eye\" id=\"eye\" aria-label=\"show password\">"
+               "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\">"
+               "<path d=\"M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"
+               "<line class=\"sl\" x1=\"3.5\" y1=\"3.5\" x2=\"20.5\" y2=\"20.5\" style=\"display:none\"/></svg></button></div>"
+               "<div class=\"l\">"));
+  out.print(rloc(L_TIMEZONE, _langCode));
+  out.print(F("</div><div class=\"tzc\" id=\"tzc\"><div class=\"tzsel\"><span id=\"tzval\">+03:00</span>"
                "<svg viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\"/></svg></div><div class=\"tzpop\" id=\"tzpop\"></div></div>"
                "<input type=\"hidden\" name=\"tz\" id=\"tzv\" value=\""));
-  res->print(_tz);
-  res->print(F("\"><button class=\"act\" type=\"submit\">"));
-  res->print(rloc(L_CONNECT, _langCode));
-  res->print(F("</button></form></div></div><script>"));
-  res->print(FPSTR(RISAL_PORTAL_JS));
-  res->print(F("</script></body></html>"));
-  req->send(res);
-  WiFi.scanDelete();
+  out.print(_tz);
+  out.print(F("\"><button class=\"act\" type=\"submit\">"));
+  out.print(rloc(L_CONNECT, _langCode));
+  out.print(F("</button></form></div></div><script>"));
+  out.print(FPSTR(RISAL_PORTAL_JS));
+  out.print(F("</script></body></html>"));
+}
+
+void RisalUI::_handlePortal(AsyncWebServerRequest* req) {
+  req->sendChunked("text/html", [this](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+    WindowPrint w(buf, maxLen, index);
+    _renderPortal(w);
+    return w.produced();
+  });
 }
 
 void RisalUI::_handleConnect(AsyncWebServerRequest* req) {
@@ -609,22 +667,30 @@ void RisalUI::_onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* da
 // Stream the page in segments (no giant String in RAM). CSS for each widget type is
 // emitted once — Zero-Waste, since unused widget classes are dropped by the linker.
 void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
-  AsyncResponseStream* res = req->beginResponseStream("text/html");
   // Effective language: ?lang= overrides the configured default (live appbar switcher).
   String want = req->hasParam("lang") ? req->getParam("lang")->value() : String(_langCode);
   const char* eff = "en";
   bool rtl = false;
   if (want == "ru") eff = "ru";
   else if (want == "ar") { eff = "ar"; rtl = true; }
-  res->print(F("<!DOCTYPE html><html class=\""));
-  res->print(_effects ? "dark" : "dark flat");
-  res->print(F("\" lang=\""));
-  res->print(eff);
-  res->print(F("\" dir=\""));
-  res->print(rtl ? "rtl" : "ltr");
-  res->print(F("\">"));
-  res->print(FPSTR(RISAL_HEAD));
-  res->print(FPSTR(RISAL_CSS));
+  int active = req->hasParam("layout") ? req->getParam("layout")->value().toInt() : 0;
+  req->sendChunked("text/html", [this, eff, rtl, active](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+    WindowPrint w(buf, maxLen, index);
+    _renderRoot(w, eff, rtl, active);
+    return w.produced();
+  });
+}
+
+void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
+  out.print(F("<!DOCTYPE html><html class=\""));
+  out.print(_effects ? "dark" : "dark flat");
+  out.print(F("\" lang=\""));
+  out.print(eff);
+  out.print(F("\" dir=\""));
+  out.print(rtl ? "rtl" : "ltr");
+  out.print(F("\">"));
+  out.print(FPSTR(RISAL_HEAD));
+  out.print(FPSTR(RISAL_CSS));
 
   const char* seen[RISAL_MAX_WIDGETS];
   uint8_t sc = 0;
@@ -634,45 +700,45 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     bool dup = false;
     for (uint8_t j = 0; j < sc; j++)
       if (seen[j] == c) { dup = true; break; }
-    if (!dup) { seen[sc++] = c; res->print(FPSTR(c)); }
+    if (!dup) { seen[sc++] = c; out.print(FPSTR(c)); }
   }
 
   uint8_t groups = 0;
   for (uint8_t i = 0; i < _count; i++)
     if (strcmp(_widgets[i]->typeId(), "group") == 0) groups++;
 
-  res->print(FPSTR(RISAL_BODY_OPEN));
+  out.print(FPSTR(RISAL_BODY_OPEN));
   // Resolve theme before paint: saved choice → configured mode → prefers-color-scheme (AUTO).
-  res->print(F("<script>(function(){var m='"));
-  res->print(_theme == LIGHT ? "light" : _theme == AUTO ? "auto" : "dark");
-  res->print(F("';var s=localStorage.getItem('rd-th')||m;"
+  out.print(F("<script>(function(){var m='"));
+  out.print(_theme == LIGHT ? "light" : _theme == AUTO ? "auto" : "dark");
+  out.print(F("';var s=localStorage.getItem('rd-th')||m;"
                "var d=s==='dark'?true:s==='light'?false:matchMedia('(prefers-color-scheme:dark)').matches;"
                "var c=document.documentElement.classList;c.toggle('light',!d);c.toggle('dark',d);})();</script>"));
-  res->print(FPSTR(RISAL_BODY_CHROME));
-  res->print(_title);
-  res->print(FPSTR(RISAL_BODY_MID));
+  out.print(FPSTR(RISAL_BODY_CHROME));
+  out.print(_title);
+  out.print(FPSTR(RISAL_BODY_MID));
   // Hamburger → opens the nav drawer (mobile only; only when there are groups to jump to).
   if (groups)
-    res->print(F("<button class=\"burg\" onclick=\"R.openNav(true)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
+    out.print(F("<button class=\"burg\" onclick=\"R.openNav(true)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
                 "stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button>"));
   // Language / theme / accent now live in the Settings modal (appbar gear → RISAL_APPBAR_END).
-  res->print(FPSTR(RISAL_APPBAR_END));
+  out.print(FPSTR(RISAL_APPBAR_END));
   // Nav drawer: scrim + off-canvas list of groups (anchors to each section header).
   if (groups) {
-    res->print(F("<div class=\"scrim\" onclick=\"R.openNav(false)\"></div><aside class=\"drawer\"><h4>"));
-    res->print(_title);
-    res->print(F("</h4>"));
+    out.print(F("<div class=\"scrim\" onclick=\"R.openNav(false)\"></div><aside class=\"drawer\"><h4>"));
+    out.print(_title);
+    out.print(F("</h4>"));
     for (uint8_t i = 0; i < _count; i++) {
       if (strcmp(_widgets[i]->typeId(), "group") != 0) continue;
-      res->print(F("<a href=\"#g-"));
-      rwSlug(*res, _widgets[i]->key());
-      res->print(F("\" onclick=\"R.openNav(false)\">"));
-      res->print(_widgets[i]->key());
-      res->print(F("</a>"));
+      out.print(F("<a href=\"#g-"));
+      rwSlug(out, _widgets[i]->key());
+      out.print(F("\" onclick=\"R.openNav(false)\">"));
+      out.print(_widgets[i]->key());
+      out.print(F("</a>"));
     }
-    res->print(F("</aside>"));
+    out.print(F("</aside>"));
   }
-  res->print(FPSTR(RISAL_DEFS));
+  out.print(FPSTR(RISAL_DEFS));
 
   bool hasTabs = false;
   uint8_t layCount = 0;
@@ -682,126 +748,143 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   }
 
   if (_count == 0) {
-    res->print(F("<main class=\"grid\">"));
-    res->print(FPSTR(RISAL_EMPTY));
-    res->print(F("</main>"));
+    out.print(F("<main class=\"grid\">"));
+    out.print(FPSTR(RISAL_EMPTY));
+    out.print(F("</main>"));
   } else if (layCount > 0) {
-    // Multi-page mode: one switchable grid per layout() + a swipe-up sheet of icon tiles.
-    int active = req->hasParam("layout") ? req->getParam("layout")->value().toInt() : 0;
+    // Multi-page mode: swipe/arrow between pages. `active` (the selected page) is passed in — the
+    // request object isn't available during chunked rendering.
+    // Nav strip under the appbar: [‹]  PAGE NAME  [›]  (name taps open the tile sheet).
+    out.print(F("<nav class=\"lnav\"><button class=\"lnav-a\" id=\"lnavL\" aria-label=\"prev\" onclick=\"RL.go(RL.cur()-1)\">"
+                 "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 18l-6-6 6-6\"/></svg></button>"
+                 "<button class=\"lnav-name\" id=\"lnavN\" onclick=\"RL.open(1)\"></button>"
+                 "<button class=\"lnav-a\" id=\"lnavR\" aria-label=\"next\" onclick=\"RL.go(RL.cur()+1)\">"
+                 "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 6l6 6-6 6\"/></svg></button></nav>"));
     uint8_t i = 0;
     // Cards before the first layout() are pinned (visible on every page).
     if (strcmp(_widgets[0]->typeId(), "layout") != 0) {
-      res->print(F("<main class=\"grid\">"));
-      for (; i < _count && strcmp(_widgets[i]->typeId(), "layout") != 0; i++) _widgets[i]->card(*res);
-      res->print(F("</main>"));
+      out.print(F("<main class=\"grid\">"));
+      for (; i < _count && strcmp(_widgets[i]->typeId(), "layout") != 0; i++) _widgets[i]->card(out);
+      out.print(F("</main>"));
     }
+    out.print(F("<div class=\"lays\" data-active=\""));
+    out.print(active);
+    out.print(F("\">"));
     int li = -1;
     bool open = false;
     for (; i < _count; i++) {
       if (strcmp(_widgets[i]->typeId(), "layout") == 0) {
-        if (open) res->print(F("</main>"));
+        if (open) out.print(F("</main>"));
         li++;
-        res->print(F("<main class=\"grid lay"));
-        if (li == active) res->print(F(" on"));
-        res->print(F("\" data-lay=\""));
-        res->print(li);
-        res->print(F("\">"));
+        out.print(F("<main class=\"grid lay\" data-lay=\""));
+        out.print(li);
+        out.print(F("\">"));
         open = true;
       } else {
-        _widgets[i]->card(*res);
+        _widgets[i]->card(out);
       }
     }
-    if (open) res->print(F("</main>"));
-    // Bottom handle (current page) + scrim + sheet of tiles.
-    res->print(F("<button class=\"lhandle\" onclick=\"RL.open(1)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
-                 "stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-                 "<path d=\"M18 15l-6-6-6 6\"/></svg><span></span></button>"
-                 "<div class=\"lscrim\" onclick=\"RL.open(0)\"></div><div class=\"lsheet\"><div class=\"lgrip\"></div>"
+    if (open) out.print(F("</main>"));
+    out.print(F("</div>"));
+    // Tile sheet (opened by tapping the page name in the nav strip) + its scrim.
+    out.print(F("<div class=\"lscrim\" onclick=\"RL.open(0)\"></div><div class=\"lsheet\"><div class=\"lgrip\"></div>"
                  "<div class=\"ltiles\">"));
     li = -1;
     for (uint8_t k = 0; k < _count; k++) {
       if (strcmp(_widgets[k]->typeId(), "layout") != 0) continue;
       li++;
       LayoutWidget* lw = static_cast<LayoutWidget*>(_widgets[k]);
-      res->print(F("<button class=\"ltile"));
-      if (li == active) res->print(F(" on"));
-      res->print(F("\" data-lay=\""));
-      res->print(li);
-      res->print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\""));
-      res->print(FPSTR(lw->iconPath() ? lw->iconPath() : RICON_HOME));
-      res->print(F("\"/></svg><span>"));
-      res->print(_widgets[k]->key());
-      res->print(F("</span></button>"));
+      out.print(F("<button class=\"ltile"));
+      if (li == active) out.print(F(" on"));
+      out.print(F("\" data-lay=\""));
+      out.print(li);
+      out.print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\""));
+      out.print(FPSTR(lw->iconPath() ? lw->iconPath() : RICON_HOME));
+      out.print(F("\"/></svg><span>"));
+      out.print(_widgets[k]->key());
+      out.print(F("</span></button>"));
     }
-    res->print(F("</div></div>"));
+    out.print(F("</div></div>"));
   } else if (!hasTabs) {
-    res->print(F("<main class=\"grid\">"));
-    for (uint8_t i = 0; i < _count; i++) _widgets[i]->card(*res);
-    res->print(F("</main>"));
+    out.print(F("<main class=\"grid\">"));
+    for (uint8_t i = 0; i < _count; i++) _widgets[i]->card(out);
+    out.print(F("</main>"));
   } else {
     // Cards before the first tab are always visible.
     uint8_t i = 0;
-    res->print(F("<main class=\"grid\">"));
-    for (; i < _count && strcmp(_widgets[i]->typeId(), "tab") != 0; i++) _widgets[i]->card(*res);
-    res->print(F("</main>"));
+    out.print(F("<main class=\"grid\">"));
+    for (; i < _count && strcmp(_widgets[i]->typeId(), "tab") != 0; i++) _widgets[i]->card(out);
+    out.print(F("</main>"));
     // Tab bar.
-    res->print(F("<div class=\"tabbar\">"));
+    out.print(F("<div class=\"tabbar\">"));
     uint8_t ti = 0;
     for (uint8_t j = i; j < _count; j++)
       if (strcmp(_widgets[j]->typeId(), "tab") == 0) {
-        res->print(F("<button class=\"tabbtn"));
-        if (ti == 0) res->print(F(" on"));
-        res->print(F("\" data-tab=\""));
-        res->print(ti);
-        res->print(F("\">"));
-        res->print(_widgets[j]->key());
-        res->print(F("</button>"));
+        out.print(F("<button class=\"tabbtn"));
+        if (ti == 0) out.print(F(" on"));
+        out.print(F("\" data-tab=\""));
+        out.print(ti);
+        out.print(F("\">"));
+        out.print(_widgets[j]->key());
+        out.print(F("</button>"));
         ti++;
       }
-    res->print(F("</div>"));
+    out.print(F("</div>"));
     // One switchable panel per tab.
     ti = 0;
     uint8_t j = i;
     while (j < _count) {
-      res->print(F("<main class=\"grid tabpanel"));
-      if (ti == 0) res->print(F(" on"));
-      res->print(F("\" data-panel=\""));
-      res->print(ti);
-      res->print(F("\">"));
+      out.print(F("<main class=\"grid tabpanel"));
+      if (ti == 0) out.print(F(" on"));
+      out.print(F("\" data-panel=\""));
+      out.print(ti);
+      out.print(F("\">"));
       j++;  // skip the tab marker
-      for (; j < _count && strcmp(_widgets[j]->typeId(), "tab") != 0; j++) _widgets[j]->card(*res);
-      res->print(F("</main>"));
+      for (; j < _count && strcmp(_widgets[j]->typeId(), "tab") != 0; j++) _widgets[j]->card(out);
+      out.print(F("</main>"));
       ti++;
     }
   }
-  res->print(FPSTR(RISAL_BODY_FOOT));
-  res->print(rloc(L_SERVED, eff));
-  res->print(FPSTR(RISAL_FOOT_END));
+  out.print(FPSTR(RISAL_BODY_FOOT));
+  out.print(rloc(L_SERVED, eff));
+  out.print(FPSTR(RISAL_FOOT_END));
 
   // Client runtime + each widget type's JS (once) + init.
-  res->print(FPSTR(RISAL_SCRIPT_OPEN));
-  res->print(FPSTR(RISAL_RUNTIME_JS));
-  res->print(F("R.L={on:'On',off:'Off'};"));
-  if (strcmp(eff, "ru") == 0) res->print(F("R.L.on='Вкл';R.L.off='Выкл';"));
-  else if (strcmp(eff, "ar") == 0) res->print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
-  res->print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
+  out.print(FPSTR(RISAL_SCRIPT_OPEN));
+  out.print(FPSTR(RISAL_RUNTIME_JS));
+  out.print(F("R.L={on:'On',off:'Off'};"));
+  if (strcmp(eff, "ru") == 0) out.print(F("R.L.on='Вкл';R.L.off='Выкл';"));
+  else if (strcmp(eff, "ar") == 0) out.print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
+  out.print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
               "if(s)s.classList.toggle('open',o);if(d)d.classList.toggle('open',o);};"));
-  res->print(F("window.RSB_TZ="));
-  res->print(_tz);
-  res->print(F(";"));
-  res->print(FPSTR(RISAL_STATUSBAR_JS));
+  out.print(F("window.RSB_TZ="));
+  out.print(_tz);
+  out.print(F(";"));
+  if (WiFi.isConnected()) {  // real link RSSI (dBm), shown next to the Wi-Fi icon; only in STA mode
+    out.print(F("window.RSB_RSSI="));
+    out.print(WiFi.RSSI());
+    out.print(F(";"));
+  }
+  if (_battery) {  // real battery % (dash.battery) -> status bar shows it, no cosmetic drift
+    out.print(F("window.RSB_BAT="));
+    out.print(*_battery);
+    out.print(F(";window.RSB_BAT_REAL=1;"));
+  }
+  out.print(FPSTR(RISAL_STATUSBAR_JS));
   // Settings modal: localized labels (window.RSL) + default accent (window.RSACC) + the JS.
   if (strcmp(eff, "ru") == 0)
-    res->print(F("window.RSL={set:'Настройки',lang:'Язык',theme:'Тема',accent:'Акцент',"
-                 "note:'Сохранено \\u00b7 на всех экранах',dark:'Тёмная',light:'Светлая',auto:'Авто'};"));
+    out.print(F("window.RSL={set:'Настройки',lang:'Язык',theme:'Тема',accent:'Акцент',"
+                 "note:'Сохранено \\u00b7 на всех экранах',dark:'Тёмная',light:'Светлая',auto:'Авто',"
+                 "signal:'Сигнал (dBm)',on:'Вкл',off:'Выкл',battery:'Батарея'};"));
   else if (strcmp(eff, "ar") == 0)
-    res->print(F("window.RSL={set:'الإعدادات',lang:'اللغة',theme:'السمة',accent:'اللون',"
-                 "note:'محفوظ \\u00b7 في كل الشاشات',dark:'داكن',light:'فاتح',auto:'تلقائي'};"));
-  res->print(F("window.RSACC="));
-  res->print(_accent);
-  res->print(F(";"));
-  res->print(FPSTR(RISAL_SETTINGS_JS));
-  if (layCount > 0) res->print(FPSTR(RISAL_LAYOUTS_JS));
+    out.print(F("window.RSL={set:'الإعدادات',lang:'اللغة',theme:'السمة',accent:'اللون',"
+                 "note:'محفوظ \\u00b7 في كل الشاشات',dark:'داكن',light:'فاتح',auto:'تلقائي',"
+                 "signal:'الإشارة (dBm)',on:'تشغيل',off:'إيقاف',battery:'البطارية'};"));
+  out.print(F("window.RSACC="));
+  out.print(_accent);
+  out.print(F(";"));
+  out.print(FPSTR(RISAL_SETTINGS_JS));
+  if (layCount > 0) out.print(FPSTR(RISAL_LAYOUTS_JS));
   sc = 0;
   for (uint8_t i = 0; i < _count; i++) {
     const char* j = _widgets[i]->js();
@@ -809,12 +892,10 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
     bool dup = false;
     for (uint8_t k = 0; k < sc; k++)
       if (seen[k] == j) { dup = true; break; }
-    if (!dup) { seen[sc++] = j; res->print(FPSTR(j)); }
+    if (!dup) { seen[sc++] = j; out.print(FPSTR(j)); }
   }
-  res->print(FPSTR(RISAL_INIT_JS));
-  res->print(FPSTR(RISAL_HTML_END));
-
-  req->send(res);
+  out.print(FPSTR(RISAL_INIT_JS));
+  out.print(FPSTR(RISAL_HTML_END));
 }
 
 void RisalUI::update() {

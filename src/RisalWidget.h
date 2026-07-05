@@ -55,6 +55,19 @@ static const char RICON_SIGNAL[] PROGMEM = "M4 20h3v-7H4v7zm6.5 0h3V8h-3v12zm6.5
 static const char RICON_LEAF[] PROGMEM = "M17 8C8 10 6 16 5 21c0 0 8.5 1 12.5-6 1.6-2.8 1-7-.5-7z";
 static const char RICON_MOTION[] PROGMEM = "M13.5 5.5A2 2 0 0 0 15.5 3.5A2 2 0 0 0 13.5 1.5A2 2 0 0 0 11.5 3.5A2 2 0 0 0 13.5 5.5M9.89 19.38L10.89 15L13 17V23H15V15.5L12.89 13.5L13.5 10.5C14.79 12 16.79 13 19 13V11C17.09 11 15.5 10 14.69 8.58L13.69 7C13.29 6.38 12.69 6 12 6C11.69 6 11.5 6.08 11.19 6.08L6 8.28V13H8V9.58L9.79 8.88L8.19 17L3.29 16L2.89 18L9.89 19.38Z";
 
+// Widget footprint on the iOS-style cell grid. Small = 1 cell, Medium = full width, Large = full
+// width + double height. Each type has a sensible default (rDefaultSize); override with .size().
+enum RSize : uint8_t { RSIZE_S = 0, RSIZE_M = 1, RSIZE_L = 2, RSIZE_AUTO = 255 };
+inline uint8_t rDefaultSize(const char* t) {
+  if (!strcmp(t, "gauge") || !strcmp(t, "chart") || !strcmp(t, "table") || !strcmp(t, "ai") ||
+      !strcmp(t, "log") || !strcmp(t, "image"))
+    return RSIZE_L;  // need vertical room
+  if (!strcmp(t, "metric") || !strcmp(t, "stat") || !strcmp(t, "badge") || !strcmp(t, "led") ||
+      !strcmp(t, "label") || !strcmp(t, "toggle") || !strcmp(t, "number") || !strcmp(t, "color"))
+    return RSIZE_S;  // compact single value / control
+  return RSIZE_M;    // slider, progress, select, text, password, time, date, button
+}
+
 class Widget {
  public:
   Widget(const char* key, const char* title) : _key(key), _title(title) {}
@@ -76,6 +89,10 @@ class Widget {
   // Returns the base type; call it last in a chain, e.g. dash.chart(...).span(2).
   Widget& span(uint8_t n) { _span = n; return *this; }
 
+  // Size preset on the cell grid: RSIZE_S (1 cell), RSIZE_M (full width), RSIZE_L (full width,
+  // double height). Overrides the type's default. Call last in a chain: dash.metric(...).size(RSIZE_L).
+  Widget& size(RSize s) { _size = s; return *this; }
+
   // Show an icon in the card header instead of the accent dot. Pass a RICON_* path
   // (or any 24×24 SVG path string). Returns the base type — call it last in a chain.
   Widget& icon(const char* svgPath) { _icon = svgPath; return *this; }
@@ -83,9 +100,11 @@ class Widget {
  protected:
   virtual void extraAttrs(Print& out) { (void)out; }    // extra data-* on the card
   void cardOpen(Print& out) {
+    // Explicit .size() wins; otherwise the type's default footprint. (.span() is legacy and no
+    // longer drives the cell grid — the size presets replace it.)
+    uint8_t sz = _size != RSIZE_AUTO ? _size : rDefaultSize(typeId());
     out.print(F("<section class=\"card"));
-    if (_span == 2) out.print(F(" sp2"));
-    else if (_span >= 3) out.print(F(" sp3"));
+    out.print(sz == RSIZE_S ? F(" s") : (sz == RSIZE_L ? F(" l") : F(" m")));
     out.print(F("\" data-type=\""));
     out.print(typeId());
     out.print(F("\" data-key=\""));
@@ -109,6 +128,7 @@ class Widget {
   const char* _title;
   const char* _icon = nullptr;
   uint8_t _span = 1;
+  uint8_t _size = RSIZE_AUTO;  // size preset override; RSIZE_AUTO -> use the type's default
 };
 
 // ── Display: metric (big number + bar) ──

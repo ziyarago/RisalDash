@@ -3,6 +3,40 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.3.0] — 2026-07-05
+
+Verified end-to-end on real ESP8266 (Wemos D1 mini) hardware. Fixes the biggest ESP8266 gap
+(large pages were silently truncated) and reworks the layout / widget-size system.
+
+### Fixed
+- **Large pages were truncated on ESP8266** — the whole response was buffered in a single RAM
+  block, and heap fragmentation capped it at ~15 KB, so trailing content (the `<script>`) was
+  silently dropped: JS broke on every page and big dashboards (AllWidgets) rendered an empty grid.
+  The page is now streamed in chunks (`sendChunked` + a windowing `Print` sink) — no big buffer,
+  so any page size works. CSS-only pages looked fine, which is why it hid on ESP32 (300 KB RAM).
+- **Captive portal dropped its own access point** — the setup page ran a blocking
+  `WiFi.scanNetworks()` inside the async request handler on every load, which hopped the radio and
+  reset the connected client. The scan now runs once when the portal starts and is cached.
+- **Provisioning could join a stale network** — the ESP8266 SDK auto-connected to a previously
+  saved AP; `_tryStation` now clears the old STA config (`persistent(false)` + `disconnect(true)`)
+  before joining the network the user picked.
+- Portal network list: nothing is pre-selected, entries are sorted by signal, hidden SSIDs dropped.
+
+### Added
+- **iOS-style cell grid + size presets** — 2 columns on phone (4 on tablet+). Each widget picks a
+  footprint: `.size(RSIZE_S)` (1 cell), `RSIZE_M` (full width), `RSIZE_L` (full width, tall), with
+  a sensible default per type (gauge/chart/table/ai → L; metric/stat/badge/… → S).
+- **Swipeable multi-page layouts** — layout pages swipe left/right (scroll-snap) and a sticky nav
+  strip under the app bar shows `‹ PAGE NAME ›`; tapping the name opens the tile sheet.
+- **Wi-Fi RSSI** in the status bar (real `WiFi.RSSI()` in STA mode), next to the Wi-Fi icon.
+- **`dash.battery(int* pct)`** — bind a real battery percentage (e.g. `map(analogRead(A0), …)`);
+  the status-bar battery then shows it instead of the cosmetic simulation.
+- Settings modal: **Signal (dBm)** and **Battery** show/hide toggles (per-browser).
+- Portal password field: a reveal (eye) toggle, and focus jumps to it when you pick a network.
+
+### Changed
+- The `RisalDash vX · served by ESP` footer is now pinned to the bottom of every page.
+
 ## [0.2.1] — 2026-06-27
 
 ### Added

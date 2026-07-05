@@ -22,7 +22,7 @@
 // Each widget type's CSS is emitted once (Zero-Waste). Live WebSocket updates (P3),
 // the full widget set + sensor presets (P2), and AP captive-portal provisioning (P4)
 // follow — all prototyped in dev/.
-#define RISALDASH_VERSION "0.2.1"
+#define RISALDASH_VERSION "0.3.0"
 
 #ifndef RISAL_MAX_WIDGETS
 #define RISAL_MAX_WIDGETS 32
@@ -53,6 +53,10 @@ class RisalUI {
   // Default accent: 0 Aqua · 1 Blue · 2 Violet · 3 Amber · 4 Rose. The user can change it
   // live in Settings (persists per-browser); this sets the out-of-the-box color.
   RisalUI& accent(int idx) { _accent = idx; return *this; }
+  // Bind a real battery percentage (0-100) to the status-bar indicator — e.g. from a LiPo on a
+  // voltage divider: bat = map(analogRead(A0), rawEmpty, rawFull, 0, 100). Without this the bar
+  // shows a cosmetic (simulated) battery. Users can hide the indicator in Settings either way.
+  RisalUI& battery(int* pct) { _battery = pct; return *this; }
   // Expose widgets to an AI agent via MCP: GET /api/mcp/manifest lists each widget as a
   // get_*/set_* tool (the risal-mcp-server bridge reads it). Token-guarded.
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
@@ -110,6 +114,10 @@ class RisalUI {
  private:
   void _startServer();
   void _handleRoot(AsyncWebServerRequest* req);
+  // The page is streamed via a chunked response (a fill-callback re-renders through a windowing
+  // Print sink) so it never needs one big RAM buffer — ESP8266 heap fragmentation caps a single
+  // AsyncResponseStream buffer at ~15 KB and silently drops the rest, breaking large pages.
+  void _renderRoot(Print& out, const char* eff, bool rtl, int active);
   void _onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* data, size_t len);
   void _handleSet(AsyncWebServerRequest* req);
   void _handleMetrics(AsyncWebServerRequest* req);
@@ -120,6 +128,7 @@ class RisalUI {
   bool _tryStation(const char* ssid, const char* pass, uint32_t timeoutMs);
   void _startPortal();
   void _handlePortal(AsyncWebServerRequest* req);
+  void _renderPortal(Print& out);
   void _handleConnect(AsyncWebServerRequest* req);
   bool _loadCreds(String& ssid, String& pass);
   void _saveCreds(const char* ssid, const char* pass);
@@ -153,8 +162,10 @@ class RisalUI {
   bool _effects = true;
   int _tz = 180;
   int _accent = 0;
+  int* _battery = nullptr;  // bound real battery % (dash.battery); null -> cosmetic status-bar battery
   bool _ota = false;
   uint32_t _rebootAt = 0;
+  int16_t _scanN = 0;  // Wi-Fi networks found once at portal start (cached; see _startPortal)
   Widget* _widgets[RISAL_MAX_WIDGETS];
   uint8_t _count = 0;
   uint32_t _lastPush = 0;
