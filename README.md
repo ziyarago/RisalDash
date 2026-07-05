@@ -190,6 +190,37 @@ Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `c
 `ina219`, `acs712`, `pzem004t`, `hcsr04`, `vl53l0x`, `mq135`, `soil`, `mpu6050`, `mpu9250`.
 The widget is chosen by the **quantity**, not the sensor model.
 
+## Fake sensors — build with no hardware
+
+Prototype and debug the whole dashboard with **nothing plugged in**. `#include <RisalFake.h>` gives
+you realistic *drifting* readings — a slow trend + wobble + a little noise, not a flat sine — so the
+UI looks live while you iterate on layout and logic.
+
+```cpp
+#include <RisalFake.h>
+RisalFakeEnv env;                 // temperature / humidity / pressure / soil / air quality
+
+void setup() { env.begin(); /* ...declare widgets bound to temp/hum/... ... */ }
+void loop() {
+  env.update();
+  temp = env.temperature();       // °C   — later: aht.readTemperature()
+  hum  = env.humidity();          // %
+  pres = env.pressure();          // hPa
+  dash.update();
+}
+```
+
+Need one value of any other quantity? `RisalFake(center, amp, noise)`:
+
+```cpp
+RisalFake volts(12.4, 0.3, 0.05);   // 12.4 V, ±0.3 drift, a little jitter
+voltage = volts.read();
+```
+
+When the real sensor arrives, swap the reads for your driver's — same variable names, the rest of the
+sketch is unchanged. Opt-in and Zero-Waste: nothing is compiled unless you include it. Works on
+ESP8266 and ESP32. The **ESP32-C6-LCD-1.47** example ships with it.
+
 ## Languages
 
 ```cpp
