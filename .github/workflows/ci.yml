@@ -34,9 +34,9 @@ jobs:
       - name: Build ${{ matrix.example }} (ESP32 + ESP8266)
         run: |
           set -o pipefail   # without this, `| tee` would mask a failed build
-          cp "examples/${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
+          cp "examples/Any-ESP/${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
           cd ci
-          pio run 2>&1 | tee build.log
+          pio run -e esp32dev -e nodemcuv2 -e d1_mini 2>&1 | tee build.log
 
       - name: Size report — ${{ matrix.example }}
         if: always()
