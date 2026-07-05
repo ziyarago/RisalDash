@@ -83,6 +83,9 @@ class RisalUI {
   ProgressWidget& progress(const char* name, int* val, const char* unit = "%");
   StatWidget&   stat(const char* name, float* val, const char* unit = "");
   ChartWidget&  chart(const char* name, float* val, const char* unit = "");
+  // Animated robot face — two glowing eyes that blink and change emotion. `mood` is 0..6
+  // (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love); set it from your logic or an AI agent.
+  FaceWidget&   face(const char* name, int* mood);
   NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
   SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
   GroupWidget&  group(const char* title);

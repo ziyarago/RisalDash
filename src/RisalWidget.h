@@ -97,6 +97,13 @@ class Widget {
   // (or any 24×24 SVG path string). Returns the base type — call it last in a chain.
   Widget& icon(const char* svgPath) { _icon = svgPath; return *this; }
 
+  // Move this control out of the main grid and into the Settings modal (the appbar gear), so it
+  // reads as a device setting rather than a dashboard tile. The widget still lives in /api/state
+  // and /api/set — the modal drives it there. Currently rendered for toggles. Call it last in a
+  // chain: dash.toggle("Auto-slide", &v).gear().
+  Widget& gear() { _setting = true; return *this; }
+  bool isSetting() const { return _setting; }
+
  protected:
   virtual void extraAttrs(Print& out) { (void)out; }    // extra data-* on the card
   void cardOpen(Print& out) {
@@ -129,6 +136,7 @@ class Widget {
   const char* _icon = nullptr;
   uint8_t _span = 1;
   uint8_t _size = RSIZE_AUTO;  // size preset override; RSIZE_AUTO -> use the type's default
+  bool _setting = false;       // .gear() -> render in the Settings modal, not the grid
 };
 
 // ── Display: metric (big number + bar) ──
@@ -496,18 +504,96 @@ class ChartWidget : public Widget {
   float* _val; const char* _unit; float _last = NAN;
 };
 
+// ── Display: robot face — two animated eyes that show an emotion (bound to an int) ──
+// A modern "AI companion" face: glowing accent eyes on a dark panel, idle blinking, and an emotion
+// index 0..6 (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love) that morphs the eye shape. Set the
+// bound variable from your logic (or an AI agent) and the face reacts live over the WebSocket.
+static const char RW_FACE_CSS[] PROGMEM =
+  ".rface{display:flex;align-items:center;justify-content:center;gap:26px;height:132px;border-radius:14px;"
+  "background:radial-gradient(120% 130% at 50% 28%,#16203a,#080d18);overflow:hidden}"
+  ".reye{transition:transform .28s}"
+  ".eyeball{width:44px;height:62px;border-radius:16px;background:var(--acc);position:relative;overflow:hidden;"
+  "box-shadow:0 0 24px var(--acc),0 0 42px var(--acc);animation:rblink 4.6s infinite;"
+  "transition:width .28s,height .28s,border-radius .28s,background .28s,box-shadow .28s}"
+  ".eyeball::after{content:'';position:absolute;left:-30%;width:160%;height:150%;background:#0a1120;"
+  "border-radius:50%;top:150%;transition:top .28s}"
+  "@keyframes rblink{0%,90%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}}"
+  ".rface[data-emo=\"1\"] .eyeball::after{top:52%}"                                    // happy
+  ".rface[data-emo=\"2\"] .eyeball{height:46px}.rface[data-emo=\"2\"] .eyeball::after{top:56%}"
+  ".rface[data-emo=\"2\"] .reye.l{transform:rotate(-16deg)}.rface[data-emo=\"2\"] .reye.r{transform:rotate(16deg)}"  // sad
+  ".rface[data-emo=\"3\"] .eyeball::after{top:-56%}"
+  ".rface[data-emo=\"3\"] .reye.l{transform:rotate(18deg)}.rface[data-emo=\"3\"] .reye.r{transform:rotate(-18deg)}"  // angry
+  ".rface[data-emo=\"4\"] .eyeball{width:54px;height:54px;border-radius:50%}"          // surprised
+  ".rface[data-emo=\"5\"] .eyeball{height:20px;border-radius:10px}"                    // sleepy
+  ".rface[data-emo=\"6\"] .eyeball{background:#ff5c8a;box-shadow:0 0 24px #ff5c8a,0 0 44px #ff5c8a;border-radius:50% 50% 12px 12px}";  // love
+static const char RW_FACE_JS[] PROGMEM =
+  "R.W.face={init:function(el){},update:function(el,v){var f=el.querySelector('.rface');if(f)f.setAttribute('data-emo',v);}};";
+class FaceWidget : public Widget {
+ public:
+  FaceWidget(const char* key, const char* title, int* mood) : Widget(key, title), _mood(mood) {}
+  const char* typeId() const override { return "face"; }
+  const char* css() const override { return RW_FACE_CSS; }
+  const char* js() const override { return RW_FACE_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"rface\" data-emo=\""));
+    out.print(_mood ? *_mood : 0);
+    out.print(F("\"><div class=\"reye l\"><div class=\"eyeball\"></div></div>"
+                "<div class=\"reye r\"><div class=\"eyeball\"></div></div></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { int v = _mood ? *_mood : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_mood ? *_mood : 0); }
+ private:
+  int* _mood; int _last = 0; bool _seen = false;
+};
+
 static const char RW_GROUP_CSS[] PROGMEM =
   ".group{grid-column:1/-1;margin:8px 2px 0;font:700 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}";
 static const char RW_NUMBER_CSS[] PROGMEM =
   ".ninp{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:16px var(--font);padding:0 12px}";
 static const char RW_SELECT_CSS[] PROGMEM =
-  ".rsel{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 12px;cursor:pointer}";
+  // Fully custom dropdown so the option list matches the theme (a native <select> popup can't be
+  // styled). .rsel is the trigger; .rsel-list overlays on .open. Chevron rotates; RTL flips sides.
+  ".rsel{position:relative;min-height:42px;border-radius:12px;border:1px solid var(--line2);"
+  "background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 40px 0 13px;display:flex;"
+  "align-items:center;cursor:pointer;user-select:none;outline:none}"
+  ".rsel:focus,.rsel.open{border-color:var(--acc)}"
+  ".rsel-cur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+  ".rsel-chev{position:absolute;right:13px;top:50%;margin-top:-9px;width:18px;height:18px;fill:none;"
+  "stroke:#7c8699;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;"
+  "pointer-events:none}"
+  ".rsel.open .rsel-chev{transform:rotate(180deg)}"
+  ".rsel-list{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;margin:0;padding:5px;"
+  "list-style:none;background:oklch(0.23 0.025 255);border:1px solid var(--line2);border-radius:12px;"
+  "box-shadow:0 18px 44px oklch(0 0 0 / .5);max-height:min(320px,62vh);overflow:auto;display:none}"
+  ".rsel.open .rsel-list{display:block}"
+  ".rsel-opt{padding:9px 12px;border-radius:8px;font:14.5px var(--font);color:var(--ink1);"
+  "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}"
+  ".rsel-opt:hover{background:oklch(0.7 0.03 255 / .14)}"
+  ".rsel-opt.on{background:var(--grad);color:var(--acc-ink);font-weight:700}"
+  ".light .rsel-list{background:oklch(0.99 0.004 255)}"
+  "[dir=rtl] .rsel{padding:0 13px 0 40px}"
+  "[dir=rtl] .rsel-chev{right:auto;left:13px}";
 static const char RW_NUMBER_JS[] PROGMEM =
   "R.W.number={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,+i.value);});},"
   "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
 static const char RW_SELECT_JS[] PROGMEM =
-  "R.W.select={init:function(el){var s=el.querySelector('select');if(s)s.addEventListener('change',function(){R.send(el.dataset.key,s.selectedIndex);});},"
-  "update:function(el,v){var s=el.querySelector('select');if(s)s.selectedIndex=v;}};";
+  "R.W.select={init:function(el){var box=el.querySelector('.rsel');if(!box)return;"
+  "var cur=box.querySelector('.rsel-cur'),opts=box.querySelectorAll('.rsel-opt');"
+  // Cards have backdrop-filter -> each is its own stacking context, so the popup can't paint over
+  // sibling cards from inside. Lift the whole card while open (46: above the fixed footer, below the
+  // sticky appbar so it never bleeds over the header on scroll).
+  "function open(o){box.classList.toggle('open',o);el.style.zIndex=o?'46':'';}"
+  "box.addEventListener('click',function(e){var o=e.target.closest('.rsel-opt');"
+  "if(o){opts.forEach(function(x){x.classList.remove('on');});o.classList.add('on');"
+  "cur.textContent=o.textContent;open(false);R.send(el.dataset.key,+o.dataset.i);}"
+  "else{open(!box.classList.contains('open'));}});"
+  "document.addEventListener('click',function(e){if(!box.contains(e.target))open(false);});},"
+  "update:function(el,v){var box=el.querySelector('.rsel');if(!box)return;"
+  "box.querySelectorAll('.rsel-opt').forEach(function(o){var on=+o.dataset.i===+v;o.classList.toggle('on',on);"
+  "if(on)box.querySelector('.rsel-cur').textContent=o.textContent;});}};";
 
 // Lowercase, non-alphanumeric → '-'. Used to anchor groups for the nav drawer.
 inline void rwSlug(Print& out, const char* s) {
@@ -586,20 +672,37 @@ class SelectWidget : public Widget {
   const char* js() const override { return RW_SELECT_JS; }
   void card(Print& out) override {
     cardOpen(out);
-    out.print(F("<select class=\"rsel\">"));
-    int cur = _idx ? *_idx : 0, i = 0;
+    int cur = _idx ? *_idx : 0;
+    // Custom dropdown (not a native <select>) so the option list matches the UI instead of the OS
+    // popup. The trigger shows the current label; the list overlays on click. JS keeps it in sync.
+    out.print(F("<div class=\"rsel\" tabindex=\"0\"><span class=\"rsel-cur\">"));
+    for (const char* p = _opts, *pi = _opts; p; p = nullptr) {  // print the current label
+      int j = 0;
+      for (; pi && *pi;) {
+        const char* q = pi;
+        while (*q && *q != ',') q++;
+        if (j == cur) { for (const char* c = pi; c < q; c++) out.print(*c); break; }
+        j++;
+        pi = (*q) ? q + 1 : q;
+      }
+    }
+    out.print(F("</span><svg class=\"rsel-chev\" viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\"/></svg>"
+                "<ul class=\"rsel-list\">"));
+    int i = 0;
     for (const char* p = _opts; p && *p;) {
       const char* q = p;
       while (*q && *q != ',') q++;
-      out.print(F("<option"));
-      if (i == cur) out.print(F(" selected"));
-      out.print('>');
+      out.print(F("<li class=\"rsel-opt"));
+      if (i == cur) out.print(F(" on"));
+      out.print(F("\" data-i=\""));
+      out.print(i);
+      out.print(F("\">"));
       for (const char* c = p; c < q; c++) out.print(*c);
-      out.print(F("</option>"));
+      out.print(F("</li>"));
       i++;
       p = (*q) ? q + 1 : q;
     }
-    out.print(F("</select>"));
+    out.print(F("</ul></div>"));
     cardClose(out);
   }
   bool hasState() const override { return true; }

@@ -146,13 +146,15 @@ var CSS=".sscrim{position:fixed;inset:0;z-index:100;background:oklch(0 0 0 / .5)
 var D={set:'Settings',lang:'Language',theme:'Theme',accent:'Accent',note:'Saved · shown on every screen',dark:'Dark',light:'Light',auto:'Auto',signal:'Signal (dBm)',on:'On',off:'Off',battery:'Battery'};
 var L=window.RSL||{};for(var k in D)if(L[k]==null)L[k]=D[k];
 var accBtns=ACC.map(function(a,i){return '<button data-i="'+i+'" style="background:linear-gradient(135deg,oklch(0.82 0.15 '+a[1]+'),oklch(0.85 0.16 '+a[2]+'))"></button>';}).join('');
+var DEV=window.RSDEV||[];
+var devHtml=DEV.map(function(d){return '<div class="srow"><div class="l">'+d.n+'</div><div class="sseg sdevseg" data-k="'+encodeURIComponent(d.k)+'"><button data-v="1">'+L.on+'</button><button data-v="0">'+L.off+'</button></div></div>';}).join('');
 var html='<div class="smodal"><div class="top"><h3>'+L.set+'</h3><button class="sx" id="sx">✕</button></div>'+
 '<div class="srow"><div class="l">'+L.lang+'</div><div class="sseg" id="slang"><button data-v="en">English</button><button data-v="ru">Русский</button><button data-v="ar">العربية</button></div></div>'+
 '<div class="srow"><div class="l">'+L.theme+'</div><div class="sseg" id="stheme"><button data-v="dark">'+L.dark+'</button><button data-v="light">'+L.light+'</button><button data-v="auto">'+L.auto+'</button></div></div>'+
 '<div class="srow"><div class="l">'+L.accent+'</div><div class="sacc" id="sacc">'+accBtns+'</div></div>'+
 '<div class="srow"><div class="l">'+L.signal+'</div><div class="sseg" id="ssig"><button data-v="1">'+L.on+'</button><button data-v="0">'+L.off+'</button></div></div>'+
 '<div class="srow"><div class="l">'+L.battery+'</div><div class="sseg" id="sbat"><button data-v="1">'+L.on+'</button><button data-v="0">'+L.off+'</button></div></div>'+
-'<div class="snote">'+L.note+'</div></div>';
+devHtml+'<div class="snote">'+L.note+'</div></div>';
 var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
 var scrim=document.createElement('div');scrim.className='sscrim';scrim.innerHTML=html;document.body.appendChild(scrim);
 var root=document.documentElement;
@@ -169,6 +171,8 @@ scrim.querySelectorAll('#ssig button').forEach(function(b){b.addEventListener('c
 mark('ssig',localStorage.getItem('rd-rssi')==='0'?'0':'1');
 scrim.querySelectorAll('#sbat button').forEach(function(b){b.addEventListener('click',function(){mark('sbat',b.dataset.v);localStorage.setItem('rd-bat',b.dataset.v);if(window.RSB&&window.RSB.applyBat)window.RSB.applyBat();});});
 mark('sbat',localStorage.getItem('rd-bat')==='0'?'0':'1');
+scrim.querySelectorAll('.sdevseg').forEach(function(seg){seg.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});fetch('/api/set?'+seg.dataset.k+'='+b.dataset.v);});});});
+if(DEV.length)fetch('/api/state').then(function(r){return r.json();}).then(function(st){scrim.querySelectorAll('.sdevseg').forEach(function(seg){var v=st[decodeURIComponent(seg.dataset.k)];var on=(v===true||v===1||v==='1'||v>0)?'1':'0';seg.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.v===on);});});}).catch(function(){});
 function open(o){scrim.classList.toggle('open',o);}
 scrim.querySelector('#sx').addEventListener('click',function(){open(false);});
 scrim.addEventListener('click',function(e){if(e.target===scrim)open(false);});

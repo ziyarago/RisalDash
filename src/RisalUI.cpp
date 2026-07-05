@@ -374,6 +374,12 @@ ProgressWidget& RisalUI::progress(const char* name, int* val, const char* unit) 
   return *w;
 }
 
+FaceWidget& RisalUI::face(const char* name, int* mood) {
+  FaceWidget* w = new FaceWidget(name, name, mood);
+  _add(w);
+  return *w;
+}
+
 StatWidget& RisalUI::stat(const char* name, float* val, const char* unit) {
   StatWidget* w = new StatWidget(name, name, val, unit);
   _add(w);
@@ -764,7 +770,8 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     // Cards before the first layout() are pinned (visible on every page).
     if (strcmp(_widgets[0]->typeId(), "layout") != 0) {
       out.print(F("<main class=\"grid\">"));
-      for (; i < _count && strcmp(_widgets[i]->typeId(), "layout") != 0; i++) _widgets[i]->card(out);
+      for (; i < _count && strcmp(_widgets[i]->typeId(), "layout") != 0; i++)
+        if (!_widgets[i]->isSetting()) _widgets[i]->card(out);
       out.print(F("</main>"));
     }
     out.print(F("<div class=\"lays\" data-active=\""));
@@ -780,7 +787,7 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
         out.print(li);
         out.print(F("\">"));
         open = true;
-      } else {
+      } else if (!_widgets[i]->isSetting()) {
         _widgets[i]->card(out);
       }
     }
@@ -807,13 +814,15 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     out.print(F("</div></div>"));
   } else if (!hasTabs) {
     out.print(F("<main class=\"grid\">"));
-    for (uint8_t i = 0; i < _count; i++) _widgets[i]->card(out);
+    for (uint8_t i = 0; i < _count; i++)
+      if (!_widgets[i]->isSetting()) _widgets[i]->card(out);
     out.print(F("</main>"));
   } else {
     // Cards before the first tab are always visible.
     uint8_t i = 0;
     out.print(F("<main class=\"grid\">"));
-    for (; i < _count && strcmp(_widgets[i]->typeId(), "tab") != 0; i++) _widgets[i]->card(out);
+    for (; i < _count && strcmp(_widgets[i]->typeId(), "tab") != 0; i++)
+      if (!_widgets[i]->isSetting()) _widgets[i]->card(out);
     out.print(F("</main>"));
     // Tab bar.
     out.print(F("<div class=\"tabbar\">"));
@@ -840,7 +849,8 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
       out.print(ti);
       out.print(F("\">"));
       j++;  // skip the tab marker
-      for (; j < _count && strcmp(_widgets[j]->typeId(), "tab") != 0; j++) _widgets[j]->card(out);
+      for (; j < _count && strcmp(_widgets[j]->typeId(), "tab") != 0; j++)
+        if (!_widgets[j]->isSetting()) _widgets[j]->card(out);
       out.print(F("</main>"));
       ti++;
     }
@@ -883,6 +893,23 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
   out.print(F("window.RSACC="));
   out.print(_accent);
   out.print(F(";"));
+  // Device settings: .gear() widgets are pulled out of the grid and listed in the Settings modal,
+  // which reads their value from /api/state and writes via /api/set. (Toggles for now.)
+  out.print(F("window.RSDEV=["));
+  {
+    bool first = true;
+    for (uint8_t i = 0; i < _count; i++) {
+      if (!_widgets[i]->isSetting() || strcmp(_widgets[i]->typeId(), "toggle") != 0) continue;
+      if (!first) out.print(',');
+      out.print(F("{n:\""));
+      out.print(_widgets[i]->key());
+      out.print(F("\",k:\""));
+      out.print(_widgets[i]->key());
+      out.print(F("\"}"));
+      first = false;
+    }
+  }
+  out.print(F("];"));
   out.print(FPSTR(RISAL_SETTINGS_JS));
   if (layCount > 0) out.print(FPSTR(RISAL_LAYOUTS_JS));
   sc = 0;
