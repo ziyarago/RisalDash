@@ -77,7 +77,7 @@ void setup() {
 
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
-  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
+  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
   // Auto emotion: cycle through all moods on a timer (the LCD "Robot" slide shows the same).
   dash.toggle("Auto emotion", &autoEmo, [](bool on) { (void)on; prefs.putInt("aemo", autoEmo); });
 
@@ -139,9 +139,15 @@ void drawSlideValue() {
     case 5: if ((int)pres != (int)lastPres) { char b[8]; snprintf(b, sizeof(b), "%d", (int)pres); lcd::statValue(b, "hPa", lcd::C_BLUE); lastPres = pres; } break;
     case 6: if (airq != lastAirq) { lcd::badgeValue(airq); lastAirq = airq; } break;
     case 7: if (millis() - lastChart > 500) { lastChart = millis(); lcd::chartValue(&thist[THN - thCount], thCount, 18, 30, lcd::C_TEAL); } break;
-    case 8: {  // robot eyes — redraw on mood change or blink edge
+    case 8: {  // robot eyes — redraw on mood change, blink edge, or each frame of Look
       bool blink = (millis() % 3800) < 130;
-      if (mood != lastMood || blink != lastBlink) { lcd::eyes(mood, blink); lastMood = mood; lastBlink = blink; }
+      bool anim = (mood == 9);  // "Look" drifts, so it needs continuous redraw
+      if (mood != lastMood || blink != lastBlink || (anim && millis() - lastChart > 180)) {
+        lcd::eyes(mood, blink);
+        lastMood = mood;
+        lastBlink = blink;
+        if (anim) lastChart = millis();
+      }
     } break;
   }
 }
@@ -149,7 +155,7 @@ void drawSlideValue() {
 void loop() {
   dash.update();                                                   // serve web + push widget updates
   if (millis() - lastAnim > 250) { lastAnim = millis(); sampleSensors(); }
-  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 7; }  // cycle emotions
+  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }  // cycle emotions
   updateSlide();                                                   // which slide + static chrome
   drawSlideValue();                                                // its live value
   if (ledMode == led::GRADIENT && millis() - lastLed > 60) { lastLed = millis(); led::apply(ledMode, ledColor, curSlide); }

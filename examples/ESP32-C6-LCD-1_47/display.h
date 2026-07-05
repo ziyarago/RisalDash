@@ -221,15 +221,16 @@ inline void chartValue(const float *h, int n, float mn, float mx, uint16_t accen
   _gfx->print(b);
 }
 
-// Robot face: two glowing eyes showing an emotion (0 Neutral · 1 Happy · 2 Sad · 3 Angry ·
-// 4 Surprised · 5 Sleepy · 6 Love), or blinked (thin bars). Carves shapes with C_BG circles, same
-// idea as the web widget. Call each tick with the current mood + a blink flag.
+// Robot face: two glowing eyes showing an emotion (0 Neutral · 1 Happy · 2 Sad · 3 Angry · 4 Surprised
+// · 5 Sleepy · 6 Love · 7 Wink · 8 Dizzy · 9 Look), or blinked (thin bars). Carves shapes with C_BG
+// circles, same idea as the web widget. Call each tick with the current mood + a blink flag.
 inline void eyes(int mood, bool blink) {
   _gfx->fillRect(0, 96, 172, 130, C_BG);
   const int ex[2] = {56, 116}, cy = 158;
   uint16_t c = (mood == 6) ? C_LOVE : C_TEAL;
   for (int e = 0; e < 2; e++) {
     int cx = ex[e];
+    if (mood == 9) cx += (int)(12 * sinf(millis() * 0.005f));  // look — drift left/right
     if (blink) { _gfx->fillRoundRect(cx - 22, cy - 4, 44, 8, 4, c); continue; }
     switch (mood) {
       case 4:  // surprised — big round
@@ -254,6 +255,18 @@ inline void eyes(int mood, bool blink) {
         _gfx->fillCircle(cx - 9, cy - 8, 12, c);
         _gfx->fillCircle(cx + 9, cy - 8, 12, c);
         _gfx->fillTriangle(cx - 20, cy - 2, cx + 20, cy - 2, cx, cy + 22, c);
+        break;
+      case 7:  // wink — right eye closed, left open
+        if (e) _gfx->fillRoundRect(cx - 22, cy - 4, 44, 8, 4, c);
+        else _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);
+        break;
+      case 8:  // dizzy — hollow swirl rings
+        _gfx->drawCircle(cx, cy, 21, c);
+        _gfx->drawCircle(cx, cy, 14, c);
+        _gfx->drawCircle(cx, cy, 7, c);
+        break;
+      case 9:  // look — neutral eye, drifting (cx offset above)
+        _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);
         break;
       default:  // neutral — tall rounded
         _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);

@@ -506,8 +506,8 @@ class ChartWidget : public Widget {
 
 // ── Display: robot face — two animated eyes that show an emotion (bound to an int) ──
 // A modern "AI companion" face: glowing accent eyes on a dark panel, idle blinking, and an emotion
-// index 0..6 (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love) that morphs the eye shape. Set the
-// bound variable from your logic (or an AI agent) and the face reacts live over the WebSocket.
+// index 0..9 (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love/Wink/Dizzy/Look) that morphs or animates
+// the eyes. Set the bound variable from your logic (or an AI agent) and it reacts over the WebSocket.
 static const char RW_FACE_CSS[] PROGMEM =
   ".rface{display:flex;align-items:center;justify-content:center;gap:26px;height:132px;border-radius:14px;"
   "background:radial-gradient(120% 130% at 50% 28%,#16203a,#080d18);overflow:hidden}"
@@ -525,7 +525,13 @@ static const char RW_FACE_CSS[] PROGMEM =
   ".rface[data-emo=\"3\"] .reye.l{transform:rotate(18deg)}.rface[data-emo=\"3\"] .reye.r{transform:rotate(-18deg)}"  // angry
   ".rface[data-emo=\"4\"] .eyeball{width:54px;height:54px;border-radius:50%}"          // surprised
   ".rface[data-emo=\"5\"] .eyeball{height:20px;border-radius:10px}"                    // sleepy
-  ".rface[data-emo=\"6\"] .eyeball{background:#ff5c8a;box-shadow:0 0 24px #ff5c8a,0 0 44px #ff5c8a;border-radius:50% 50% 12px 12px}";  // love
+  ".rface[data-emo=\"6\"] .eyeball{background:#ff5c8a;box-shadow:0 0 24px #ff5c8a,0 0 44px #ff5c8a;border-radius:50% 50% 12px 12px}"  // love
+  ".rface[data-emo=\"7\"] .reye.r .eyeball{height:9px;border-radius:5px}"              // wink (right eye)
+  ".rface[data-emo=\"8\"] .eyeball{width:34px;height:34px;border-radius:50%}"
+  ".rface[data-emo=\"8\"] .reye{animation:rwob 1.1s infinite}"                          // dizzy — wobble
+  ".rface[data-emo=\"9\"] .reye{animation:rlook 2s infinite}"                           // look around
+  "@keyframes rwob{0%,100%{transform:rotate(-11deg)}50%{transform:rotate(11deg)}}"
+  "@keyframes rlook{0%,100%{transform:translateX(-9px)}50%{transform:translateX(9px)}}";
 static const char RW_FACE_JS[] PROGMEM =
   "R.W.face={init:function(el){},update:function(el,v){var f=el.querySelector('.rface');if(f)f.setAttribute('data-emo',v);}};";
 class FaceWidget : public Widget {

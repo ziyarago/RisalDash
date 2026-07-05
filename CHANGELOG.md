@@ -3,6 +3,29 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.4.0] — 2026-07-06
+
+### Added
+- **`dash.face(&mood)` — animated robot face.** Two glowing accent eyes on a dark panel with idle
+  blinking and 10 emotions (Neutral, Happy, Sad, Angry, Surprised, Sleepy, Love, Wink, Dizzy, Look).
+  Bind the emotion to your logic or an AI agent and the face reacts live over the WebSocket — an
+  expressive status face for AI companions and robots. Renders on the web and (in the C6 example) the
+  device LCD.
+- **`RisalFake` — fake sensors for hardware-free development.** `#include <RisalFake.h>` gives
+  realistic drifting readings (slow trend + wobble + noise, not a flat sine). `RisalFake(center, amp,
+  noise)` is one signal; `RisalFakeEnv` bundles a whole environment (temperature/humidity/pressure/
+  soil/air quality). Build and debug a dashboard with nothing plugged in, then swap for the real
+  driver — the sketch is unchanged. Opt-in, works on ESP8266 + ESP32.
+- **`.gear()` — device settings in the appbar gear.** A control marked `.gear()` moves out of the
+  grid into the Settings modal, which drives it via `/api/state` + `/api/set` (e.g. an "Auto-slide"
+  device toggle), keeping device settings out of the dashboard tiles.
+
+### Changed
+- **`select` is now a custom themed dropdown** instead of a native `<select>`: a scoped popup that
+  matches the theme (dark/light), an accent-highlighted option, a rotating chevron, RTL support, and
+  it lifts its own card above sibling cards on open (cards are `backdrop-filter` stacking contexts, so
+  a native popup couldn't be styled to match).
+
 ## [0.3.0] — 2026-07-05
 
 Verified end-to-end on real ESP8266 (Wemos D1 mini) hardware. Fixes the biggest ESP8266 gap
