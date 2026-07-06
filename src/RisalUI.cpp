@@ -405,6 +405,12 @@ TerminalWidget& RisalUI::terminal(const char* name, TerminalWidget::Cb cb) {
   return *w;
 }
 
+HeatmapWidget& RisalUI::heatmap(const char* name, uint8_t cols, uint8_t rows) {
+  HeatmapWidget* w = new HeatmapWidget(name, name, cols, rows);
+  _add(w);
+  return *w;
+}
+
 StatWidget& RisalUI::stat(const char* name, float* val, const char* unit) {
   StatWidget* w = new StatWidget(name, name, val, unit);
   _add(w);

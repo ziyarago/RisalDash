@@ -58,6 +58,11 @@ bool replayMode = false;
 // Fake IMU orientation (degrees) for the 3D cube widget.
 float imuP = 0, imuR = 0, imuY = 0;
 TerminalWidget *term = nullptr;  // WebSocket console
+
+// Fake thermal camera (stand-in for MLX90640) — a moving hotspot over a warm field.
+HeatmapWidget *heat = nullptr;
+static const int TW = 24, TH = 18;
+float thermal[TW * TH];
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -194,6 +199,9 @@ void setup() {
   });
   term->print("RisalDash console - type 'help'");
 
+  dash.layout("Thermal", RICON_THERMOMETER);
+  heat = &dash.heatmap("Thermal cam", TW, TH);  // MLX90640-style (fake frames)
+
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
@@ -223,7 +231,7 @@ void setup() {
 #endif
 }
 
-uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0;
+uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0, lastHeat = 0;
 
 // Pull the latest readings from `sensors` into the globals the slides/LED/dashboard use. The source
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
@@ -300,6 +308,17 @@ void loop() {
   dash.update();                                                   // serve web + push widget updates
   if (millis() - lastAnim > 250) { lastAnim = millis(); sampleSensors(); }
   if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }  // cycle emotions
+  if (heat && millis() - lastHeat > 500) {  // fake thermal frame — a moving hotspot
+    lastHeat = millis();
+    float ph = millis() * 0.001f;
+    float hx = TW / 2.0f + TW / 3.0f * sinf(ph), hy = TH / 2.0f + TH / 3.0f * cosf(ph * 0.7f);
+    for (int y = 0; y < TH; y++)
+      for (int x = 0; x < TW; x++) {
+        float dx = x - hx, dy = y - hy;
+        thermal[y * TW + x] = 22.0f + 15.0f * expf(-(dx * dx + dy * dy) / 12.0f) + 1.5f * sinf(x * 0.5f + ph);
+      }
+    heat->frame(thermal);
+  }
   if (bleLog && millis() - lastBle > 2500) {  // refresh the fake BLE scan feed
     lastBle = millis();
     ble.update();

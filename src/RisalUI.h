@@ -95,6 +95,9 @@ class RisalUI {
   // Terminal / console — a scrolling output (.print(line)) plus a command input; the callback fires
   // with each entered command over the WebSocket.
   TerminalWidget& terminal(const char* name, TerminalWidget::Cb cb);
+  // Heatmap / thermal camera — a cols x rows grid of colours (e.g. MLX90640 32x24). Push frames with
+  // heat.frame(temps); auto-scaled to each frame's min..max.
+  HeatmapWidget& heatmap(const char* name, uint8_t cols, uint8_t rows);
   NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
   SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
   GroupWidget&  group(const char* title);

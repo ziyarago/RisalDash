@@ -657,6 +657,50 @@ class CubeWidget : public Widget {
   float _lp = 0, _lr = 0, _ly = 0;
 };
 
+// ── Display: heatmap / thermal — a colours grid (e.g. MLX90640 32x24). Push frames with .frame() ──
+static const char RW_HEAT_CSS[] PROGMEM =
+  ".rheat{width:100%;height:auto;display:block;image-rendering:pixelated;border-radius:10px;background:#0a1120}";
+static const char RW_HEAT_JS[] PROGMEM =
+  "R.W.heat={init:function(el){},update:function(el,v){var c=el.querySelector('canvas');if(!c||!v)return;"
+  "var p=(''+v).split(',');var w=+p[0],h=+p[1];if(!w||!h)return;c.width=w;c.height=h;"
+  "var x=c.getContext('2d'),im=x.createImageData(w,h),d=im.data;"
+  "for(var i=0;i<w*h;i++){var t=(+p[2+i])/255;"
+  "d[i*4]=255*Math.min(1,Math.max(0,1.5-Math.abs(4*t-3)));"
+  "d[i*4+1]=255*Math.min(1,Math.max(0,1.5-Math.abs(4*t-2)));"
+  "d[i*4+2]=255*Math.min(1,Math.max(0,1.5-Math.abs(4*t-1)));d[i*4+3]=255;}x.putImageData(im,0,0);}};";
+class HeatmapWidget : public Widget {
+ public:
+  HeatmapWidget(const char* key, const char* title, uint8_t cols, uint8_t rows)
+      : Widget(key, title), _c(cols), _r(rows) { _buf = new uint8_t[(uint16_t)cols * rows](); }
+  const char* typeId() const override { return "heat"; }
+  const char* css() const override { return RW_HEAT_CSS; }
+  const char* js() const override { return RW_HEAT_JS; }
+  // Push a frame of cols*rows temperatures; auto-scaled to the frame's own min..max.
+  void frame(const float* d) {
+    uint16_t n = (uint16_t)_c * _r;
+    float mn = 1e9f, mx = -1e9f;
+    for (uint16_t i = 0; i < n; i++) { if (d[i] < mn) mn = d[i]; if (d[i] > mx) mx = d[i]; }
+    float rng = mx - mn; if (rng < 1e-3f) rng = 1;
+    for (uint16_t i = 0; i < n; i++) _buf[i] = (uint8_t)(255.0f * (d[i] - mn) / rng);
+    _dirty = true;
+  }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<canvas class=\"rheat\"></canvas>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { if (_dirty) { _dirty = false; return true; } return false; }
+  void writeKV(String& out) override {
+    out += '"'; out += _key; out += "\":\""; out += _c; out += ','; out += _r;
+    uint16_t n = (uint16_t)_c * _r;
+    for (uint16_t i = 0; i < n; i++) { out += ','; out += _buf[i]; }
+    out += '"';
+  }
+ private:
+  uint8_t _c, _r; uint8_t* _buf; bool _dirty = false;
+};
+
 static const char RW_GROUP_CSS[] PROGMEM =
   ".group{grid-column:1/-1;margin:8px 2px 0;font:700 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}";
 static const char RW_NUMBER_CSS[] PROGMEM =
