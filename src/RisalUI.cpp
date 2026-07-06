@@ -96,6 +96,7 @@ const RSensor RSENSORS[] = {
   {"ina219", 3, {{"Voltage","V",K_GAUGE,0,26},{"Current","A",K_METRIC,0,3.2f},{"Power","W",K_CHART,0,80}}},
   {"hcsr04", 1, {{"Distance","cm",K_METRIC,0,400}}},
   {"ccs811", 2, {{"CO2","ppm",K_GAUGE,400,8000},{"TVOC","ppb",K_METRIC,0,1100}}},
+  {"scd40",  3, {{"CO2","ppm",K_GAUGE,400,5000},{"Temperature","\xC2\xB0""C",K_METRIC,-10,60},{"Humidity","%",K_METRIC,0,100}}},
   // Power pack
   {"acs712",  1, {{"Current","A",K_GAUGE,-30,30}}},
   {"pzem004t",4, {{"Voltage","V",K_GAUGE,0,260},{"Current","A",K_METRIC,0,100},{"Power","W",K_CHART,0,23000},{"Energy","kWh",K_METRIC,0,9999}}},
@@ -103,6 +104,9 @@ const RSensor RSENSORS[] = {
   {"vl53l0x", 1, {{"Distance","mm",K_METRIC,0,2000}}},
   {"mq135",   1, {{"Air quality","ppm",K_GAUGE,0,1000}}},
   {"soil",    1, {{"Soil moisture","%",K_GAUGE,0,100}}},
+  // Presence pack (mmWave radar) — human presence, a differentiator vs. other ESP dashboards
+  {"ld2410",  3, {{"Presence","",K_METRIC,0,1},{"Distance","cm",K_GAUGE,0,600},{"Motion","%",K_CHART,0,100}}},
+  {"ld2450",  2, {{"Targets","",K_METRIC,0,3},{"Distance","cm",K_GAUGE,0,600}}},
   // IMU pack
   {"mpu6050", 3, {{"Accel X","g",K_CHART,-2,2},{"Accel Y","g",K_CHART,-2,2},{"Accel Z","g",K_CHART,-2,2}}},
   {"mpu9250", 3, {{"Accel X","g",K_CHART,-2,2},{"Accel Y","g",K_CHART,-2,2},{"Accel Z","g",K_CHART,-2,2}}},

@@ -31,6 +31,7 @@ bool pump = false;
 float pres = 1013.0f;  // barometric pressure, hPa (BMP280)
 float light = 0;       // ambient light, lux (follows the emulator's day/night cycle)
 int airq = 0;          // air quality: 0 GOOD · 1 FAIR · 2 POOR
+float presence = 0, presDist = 250, presMotion = 0;  // fake mmWave (LD2410) presence / distance / motion
 
 // Fake GPS driving the map widget — plays this loop of waypoints (no GPS module needed).
 float gpsLat = 41.311f, gpsLon = 69.279f, gpsSpeed = 0, gpsHeading = 0;
@@ -137,6 +138,7 @@ void setup() {
   dash.metric("Humidity", &hum, "%");
   dash.progress("Soil moisture", &soil, "%");
   dash.stat("Light", &light, "lux");
+  dash.sensor("ld2410", &presence, &presDist, &presMotion);  // mmWave presence preset (Presence/Distance/Motion)
 
   dash.layout("Weather", RICON_WATER);
   dash.text("City", &cityInput, [](const String &v) { (void)v; prefs.putString("city", cityInput); cityDirty = true; });  // type a city -> geocode + persist
@@ -203,6 +205,9 @@ void sampleSensors() {
   if (power < 0) power = 0;
   energyKwh += power / 1000.0f * (0.25f / 3600.0f) * 200.0f;  // 200x speedup so kWh climbs visibly
   cost = energyKwh * tariff / 100.0f;
+  presence = ((millis() / 8000) % 2) ? 1 : 0;                 // fake mmWave: person present ~every 8 s
+  presDist = 200.0f + 130.0f * sinf(millis() * 0.0007f);
+  presMotion = presence ? 40.0f + 40.0f * fabsf(sinf(millis() * 0.002f)) : 0.0f;
   for (int i = 0; i < THN - 1; i++) thist[i] = thist[i + 1];  // push temp into the history ring
   thist[THN - 1] = temp;
   if (thCount < THN) thCount++;
