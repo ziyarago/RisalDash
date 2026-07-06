@@ -31,6 +31,12 @@ bool pump = false;
 float pres = 1013.0f;  // barometric pressure, hPa (BMP280)
 float light = 0;       // ambient light, lux (follows the emulator's day/night cycle)
 int airq = 0;          // air quality: 0 GOOD · 1 FAIR · 2 POOR
+
+// Fake GPS driving the map widget — plays this loop of waypoints (no GPS module needed).
+float gpsLat = 41.311f, gpsLon = 69.279f, gpsSpeed = 0, gpsHeading = 0;
+RisalFakeGPS gps;
+const float ROUTE[] = {41.311f, 69.279f, 41.318f, 69.286f, 41.315f, 69.298f,
+                       41.306f, 69.296f, 41.302f, 69.283f, 41.311f, 69.279f};
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -104,6 +110,7 @@ void setup() {
   setCpuFrequencyMhz(80);  // less heat; plenty for web + LCD
 
   sensors.begin();
+  gps.begin(ROUTE, 6);
 
   prefs.begin("rdisp", false);  // persisted settings survive reboots (defaults on first run)
   autoSlide = prefs.getInt("auto", 1);
@@ -132,6 +139,11 @@ void setup() {
   dash.stat("Outside", &wxTemp, "C");
   dash.label("Sky", &wxDesc);
   dash.stat("Wind", &wxWind, "km/h");
+
+  dash.layout("Route", RICON_MOTION);
+  dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // needs internet on the client (Leaflet + OSM tiles)
+  dash.stat("Speed", &gpsSpeed, "km/h");
+  dash.stat("Heading", &gpsHeading, "deg");
 
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
@@ -174,6 +186,8 @@ void sampleSensors() {
   pres = sensors.pressure();
   light = sensors.light();
   airq = sensors.airQuality();
+  gps.update();
+  gpsLat = gps.lat(); gpsLon = gps.lon(); gpsSpeed = gps.speed(); gpsHeading = gps.heading();
   for (int i = 0; i < THN - 1; i++) thist[i] = thist[i + 1];  // push temp into the history ring
   thist[THN - 1] = temp;
   if (thCount < THN) thCount++;

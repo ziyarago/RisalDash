@@ -86,6 +86,9 @@ class RisalUI {
   // Animated robot face — two glowing eyes that blink and change emotion. `mood` is 0..6
   // (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love); set it from your logic or an AI agent.
   FaceWidget&   face(const char* name, int* mood);
+  // Live map (Leaflet) — a marker + trail following the bound lat/lon. NEEDS INTERNET on the client
+  // (Leaflet + OpenStreetMap tiles load from a CDN), so it's an opt-in online widget.
+  MapWidget&    map(const char* name, float* lat, float* lon);
   NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
   SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
   GroupWidget&  group(const char* title);

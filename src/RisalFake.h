@@ -69,3 +69,33 @@ class RisalFakeEnv {
   float _t = 8.0f, _temp = 22, _hum = 58, _pres = 1013, _lux = 0, _soil = 62, _hour = 8;
   int _airq = 0;
 };
+
+// Fake GPS — plays a fixed route on a loop (GPX-style), interpolating between waypoints. A stand-in
+// for a real GPS module: drive a map widget, or lat/lon/speed stats, with no hardware. Pass a flat
+// {lat,lon, lat,lon, ...} array to begin(); call update() each tick, then read the getters.
+class RisalFakeGPS {
+ public:
+  void begin(const float *route, int points) { _r = route; _n = points; }
+
+  void update() {
+    if (_n < 2) return;
+    _f += 0.02f;  // fraction along the current segment per tick
+    if (_f >= 1.0f) { _f -= 1.0f; _seg = (_seg + 1) % (_n - 1); }
+    int a = _seg * 2, b = (_seg + 1) * 2;
+    _lat = _r[a] + (_r[b] - _r[a]) * _f;
+    _lon = _r[a + 1] + (_r[b + 1] - _r[a + 1]) * _f;
+    _heading = atan2f(_r[b + 1] - _r[a + 1], _r[b] - _r[a]) * 57.2958f;  // bearing of the segment
+    if (_heading < 0) _heading += 360.0f;
+    _speed = 32.0f + 14.0f * sinf(_seg + _f);  // km/h, varies along the route
+  }
+
+  float lat() const { return _lat; }
+  float lon() const { return _lon; }
+  float speed() const { return _speed; }    // km/h
+  float heading() const { return _heading; }  // degrees, 0 = north
+
+ private:
+  const float *_r = nullptr;
+  int _n = 0, _seg = 0;
+  float _f = 0, _lat = 0, _lon = 0, _speed = 0, _heading = 0;
+};

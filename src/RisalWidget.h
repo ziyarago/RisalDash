@@ -555,6 +555,52 @@ class FaceWidget : public Widget {
   int* _mood; int _last = 0; bool _seen = false;
 };
 
+// ── Display: live map (Leaflet) — a marker + trail that follow a bound lat/lon ──
+// NEEDS INTERNET on the client (Leaflet + OpenStreetMap tiles load from a CDN), so it's an opt-in
+// online widget, unlike the offline-first core. Bind two floats; the marker moves and leaves a trail.
+static const char RW_MAP_CSS[] PROGMEM =
+  ".rmap{height:260px;border-radius:12px;overflow:hidden;background:#0a1120}.rmap-c{height:100%;width:100%}";
+static const char RW_MAP_JS[] PROGMEM = R"js(R.W.map={
+_ld:function(cb){if(window.L)return cb();
+if(!document.getElementById('lfcss')){var c=document.createElement('link');c.id='lfcss';c.rel='stylesheet';c.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(c);}
+var s=document.getElementById('lfjs');if(s){s.addEventListener('load',cb);return;}
+s=document.createElement('script');s.id='lfjs';s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=cb;document.head.appendChild(s);},
+init:function(el){var self=this,box=el.querySelector('.rmap-c');self._ld(function(){
+var m=L.map(box,{zoomControl:false,attributionControl:false}).setView([0,0],14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(m);
+el._mk=L.circleMarker([0,0],{radius:7,color:'#22d3ee',fillColor:'#22d3ee',fillOpacity:1,weight:2}).addTo(m);
+el._tr=L.polyline([],{color:'#22d3ee',weight:3,opacity:.75}).addTo(m);
+el._m=m;el._first=1;setTimeout(function(){m.invalidateSize();},250);});},
+update:function(el,v){if(!el._m||!v)return;var p=(''+v).split(',');var la=parseFloat(p[0]),lo=parseFloat(p[1]);if(isNaN(la))return;
+el._mk.setLatLng([la,lo]);var t=el._tr.getLatLngs();t.push([la,lo]);if(t.length>150)t.shift();el._tr.setLatLngs(t);
+if(el._first){el._m.setView([la,lo],15);el._m.invalidateSize();el._first=0;}else{el._m.panTo([la,lo],{animate:true});}}
+};)js";
+class MapWidget : public Widget {
+ public:
+  MapWidget(const char* key, const char* title, float* lat, float* lon) : Widget(key, title), _lat(lat), _lon(lon) {}
+  const char* typeId() const override { return "map"; }
+  const char* css() const override { return RW_MAP_CSS; }
+  const char* js() const override { return RW_MAP_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"rmap\"><div class=\"rmap-c\"></div></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override {
+    float a = _lat ? *_lat : 0, b = _lon ? *_lon : 0;
+    if (a != _la || b != _lo) { _la = a; _lo = b; return true; }
+    return false;
+  }
+  void writeKV(String& out) override {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.5f,%.5f", _lat ? *_lat : 0.0f, _lon ? *_lon : 0.0f);
+    out += '"'; out += _key; out += "\":\""; out += buf; out += '"';
+  }
+ private:
+  float* _lat; float* _lon; float _la = 0, _lo = 0;
+};
+
 static const char RW_GROUP_CSS[] PROGMEM =
   ".group{grid-column:1/-1;margin:8px 2px 0;font:700 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}";
 static const char RW_NUMBER_CSS[] PROGMEM =

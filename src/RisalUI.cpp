@@ -380,6 +380,12 @@ FaceWidget& RisalUI::face(const char* name, int* mood) {
   return *w;
 }
 
+MapWidget& RisalUI::map(const char* name, float* lat, float* lon) {
+  MapWidget* w = new MapWidget(name, name, lat, lon);
+  _add(w);
+  return *w;
+}
+
 StatWidget& RisalUI::stat(const char* name, float* val, const char* unit) {
   StatWidget* w = new StatWidget(name, name, val, unit);
   _add(w);
