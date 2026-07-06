@@ -280,8 +280,9 @@ inline void eyes(int mood, bool blink) {
 
 // Weather slide: big temperature + the sky condition, from the background weather task. Shows a
 // placeholder until the first successful fetch (valid == false).
-inline void weatherValue(float temp, const char *desc, bool valid) {
-  _gfx->fillRect(0, 96, 172, 130, C_BG);
+inline void weatherValue(float temp, const char *city, const char *desc, bool valid) {
+  _gfx->fillRect(0, 96, 172, 132, C_BG);
+  centerText(valid ? city : "...", 104, 2, C_INK);  // resolved city name
   char b[8];
   if (valid) snprintf(b, sizeof(b), "%.0f", temp);
   else strcpy(b, "--");
@@ -289,13 +290,13 @@ inline void weatherValue(float temp, const char *desc, bool valid) {
   int x = 86 - (nw + 20) / 2;
   _gfx->setTextSize(5);
   _gfx->setTextColor(C_BLUE);
-  _gfx->setCursor(x, 136);
+  _gfx->setCursor(x, 146);
   _gfx->print(b);
   _gfx->setTextSize(2);
   _gfx->setTextColor(C_INK3);
-  _gfx->setCursor(x + nw + 4, 138);
+  _gfx->setCursor(x + nw + 4, 148);
   _gfx->print("C");
-  centerText(valid ? desc : "connecting...", 198, 2, C_INK);
+  centerText(valid ? desc : "connecting...", 206, 2, C_INK3);
 }
 
 }  // namespace lcd

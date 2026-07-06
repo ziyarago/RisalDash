@@ -14,8 +14,8 @@
 #include "display.h"
 #include "led.h"
 #include <RisalUI.h>
-#include <RisalFake.h>  // realistic fake sensors (library) — build/debug with no hardware attached
-#include "weather.h"    // live weather (Open-Meteo) fetched in a background task
+#include <RisalFake.h>     // realistic fake sensors (library) — build/debug with no hardware attached
+#include <RisalWeather.h>  // live weather (Open-Meteo, library) fetched in a background task
 #include <WiFi.h>
 #include <Preferences.h>
 #include <math.h>
@@ -46,34 +46,45 @@ bool autoEmo = false;   // Auto emotion: cycle through all moods (web face + LCD
 
 // ── Weather. The HTTPS fetch blocks (~1-2 s), so it runs in a background FreeRTOS task and publishes
 //    into wxShared under a mutex; loop() copies that into these display globals and never blocks.
-const float WX_LAT = 41.3111f, WX_LON = 69.2797f;  // ⚠ set your location (these are Tashkent)
-float wxTemp = 0;     // last temperature shown by the widgets / LCD (0 until the first fetch)
+const float WX_LAT = 41.3111f, WX_LON = 69.2797f;  // default location (Tashkent) until a city is entered
+String cityInput = "Tashkent";  // web "City" field — the task re-geocodes it whenever it changes
+float wxTemp = 0;     // last values shown by the widgets / LCD (copied from the task under wxMux)
 int wxCode = -1;
 float wxWind = 0;
 bool wxValid = false;
-String wxDesc = "...";
+String wxDesc = "...", wxCity = "...";
 #if defined(ESP32)
-Weather weather;
+RisalWeather weather;
 SemaphoreHandle_t wxMux;
-struct { float temp; int code; float wind; bool valid; } wxShared = {0, 0, 0, false};
+volatile bool cityDirty = false;  // set by the City field's callback, consumed by the task
+struct { float temp; int code; float wind; bool valid; String city; } wxShared;
 
-// Its own task (pinned to core 0; loop() runs on core 1 on dual-core parts). Fetches every ~10 min,
-// retries sooner on failure, and hands the result to loop() through the mutex — the blocking GET
-// never touches the web/LCD loop.
+// Its own task (pinned to core 0; loop() runs on core 1 on dual-core parts). All blocking work —
+// geocoding a new city AND fetching weather — stays here, off loop(), and is published under wxMux.
 void weatherTask(void *) {
-  weather.begin(WX_LAT, WX_LON);
+  weather.setLocation(WX_LAT, WX_LON, cityInput);
+  bool need = true;
+  uint32_t last = 0;
   for (;;) {
-    bool ok = weather.poll();  // blocking is fine here — this is not loop()
-    if (ok) {
-      xSemaphoreTake(wxMux, portMAX_DELAY);
-      wxShared.temp = weather.temperature();
-      wxShared.code = weather.code();
-      wxShared.wind = weather.wind();
-      wxShared.valid = true;
-      xSemaphoreGive(wxMux);
-      Serial.printf("[wx] %.1fC %s wind=%.0f heap=%u\n", weather.temperature(), weather.description(), weather.wind(), ESP.getFreeHeap());
+    if (cityDirty) { cityDirty = false; weather.geocode(cityInput); need = true; }  // resolve city -> lat/lon
+    if (need || millis() - last > 600000UL) {                                        // fetch on demand / every 10 min
+      if (weather.poll()) {
+        last = millis();
+        need = false;
+        xSemaphoreTake(wxMux, portMAX_DELAY);
+        wxShared.temp = weather.temperature();
+        wxShared.code = weather.code();
+        wxShared.wind = weather.wind();
+        wxShared.city = weather.city();
+        wxShared.valid = true;
+        xSemaphoreGive(wxMux);
+        Serial.printf("[wx] %s %.1fC %s wind=%.0f heap=%u\n", weather.city().c_str(), weather.temperature(), weather.description(), weather.wind(), ESP.getFreeHeap());
+      } else {
+        need = false;
+        last = millis() - 570000UL;  // failed -> retry in ~30 s
+      }
     }
-    vTaskDelay(pdMS_TO_TICKS(ok ? 600000UL : 30000UL));  // 10 min on success, retry in 30 s
+    vTaskDelay(pdMS_TO_TICKS(3000));  // wake often enough to react to a city change
   }
 }
 #endif
@@ -82,6 +93,7 @@ void weatherTask(void *) {
 int curSlide = 1, lastSlide = -1;
 float lastTemp = -999, lastPres = -1, lastWxT = -999;
 int lastHum = -1, lastSoil = -1, lastAirq = -1, lastMood = -1;
+String lastWxCityStr = "";
 bool lastBlink = false;
 
 void setup() {
@@ -111,6 +123,8 @@ void setup() {
   dash.progress("Soil moisture", &soil, "%");
 
   dash.layout("Weather", RICON_WATER);
+  dash.text("City", &cityInput, [](const String &v) { (void)v; cityDirty = true; });  // type a city -> auto-geocoded
+  dash.label("Place", &wxCity);
   dash.stat("Outside", &wxTemp, "C");
   dash.label("Sky", &wxDesc);
   dash.stat("Wind", &wxWind, "km/h");
@@ -195,7 +209,7 @@ void drawSlideValue() {
         if (anim) lastChart = millis();
       }
     } break;
-    case 9: if (fabsf(wxTemp - lastWxT) >= 0.1f) { lcd::weatherValue(wxTemp, wxDesc.c_str(), wxValid); lastWxT = wxTemp; } break;
+    case 9: if (fabsf(wxTemp - lastWxT) >= 0.1f || wxCity != lastWxCityStr) { lcd::weatherValue(wxTemp, wxCity.c_str(), wxDesc.c_str(), wxValid); lastWxT = wxTemp; lastWxCityStr = wxCity; } break;
   }
 }
 
@@ -208,8 +222,9 @@ void loop() {
     lastWx = millis();
     xSemaphoreTake(wxMux, portMAX_DELAY);
     wxTemp = wxShared.temp; wxCode = wxShared.code; wxWind = wxShared.wind; wxValid = wxShared.valid;
+    if (wxValid) wxCity = wxShared.city;
     xSemaphoreGive(wxMux);
-    wxDesc = wxValid ? Weather::codeText(wxCode) : String("...");
+    wxDesc = wxValid ? RisalWeather::codeText(wxCode) : String("...");
   }
 #endif
   updateSlide();                                                   // which slide + static chrome
