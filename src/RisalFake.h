@@ -30,37 +30,42 @@ class RisalFake {
   float _c, _a, _n, _s, _t;
 };
 
-// A ready greenhouse-style environment. Call begin() once, update() each sample tick, then read the
-// getters. It aims to look measured rather than a clean sine: humidity tracks inversely to
-// temperature, soil slowly dries then gets "watered", air quality is mostly good with occasional dips.
+// A ready greenhouse-style environment with a realistic DAY/NIGHT cycle (Fake Engine 2.0). A virtual
+// clock (one day ~3 min so it's visible) drives the readings: temperature peaks in the afternoon,
+// humidity runs inverse, light follows the sun (0 at night), soil dries faster by day then gets
+// "watered", air quality is worse midday. Call begin() once, update() each tick, then read the getters.
 class RisalFakeEnv {
  public:
   void begin() { _soil = 62.0f; }
 
   void update() {
-    _t += 0.004f;                  // slow clock: a full "day" cycle every few minutes
-    float day = sinf(_t);          // -1 night .. +1 midday
-    float wob = sinf(_t * 22.0f);  // faster local wobble
+    _t += 0.033f;  // ~3 min per virtual day at 4 ticks/s
+    float hour = fmodf(_t, 24.0f);
+    _hour = hour;
+    float sun = (hour > 6 && hour < 18) ? sinf(PI * (hour - 6.0f) / 12.0f) : 0;  // daylight 0..1
 
-    _temp = 24.0f + 4.0f * day + 0.6f * wob + noise(0.12f);
-    _hum = 58.0f - 10.0f * day + 1.5f * sinf(_t * 15.0f) + noise(0.5f);  // inverse of temp
-    _pres = 1013.0f + 5.0f * sinf(_t * 0.4f) + noise(0.15f);             // slow weather drift
+    _temp = 18.0f + 10.0f * sun + 0.5f * sinf(_t * 3.0f) + noise(0.12f);  // ~18 night .. ~28 noon
+    _hum = 72.0f - 32.0f * sun + noise(0.6f);                             // inverse of temperature
+    _lux = 95000.0f * sun * sun + noise(120.0f);                          // 0 night .. ~95k lux noon
+    _pres = 1013.0f + 5.0f * sinf(_t * 0.05f) + noise(0.15f);             // slow weather drift
 
-    _soil -= 0.05f + noise(0.02f);     // dries steadily...
+    _soil -= 0.02f + 0.06f * sun;      // evaporates faster in daylight...
     if (_soil < 34.0f) _soil = 66.0f;  // ...then an irrigation event tops it up
 
-    float aq = sinf(_t * 3.3f) + 0.5f * sinf(_t * 7.7f);  // -1.5 .. 1.5
-    _airq = aq > 1.1f ? 2 : (aq > 0.4f ? 1 : 0);          // mostly GOOD, occasional FAIR/POOR
+    int a = (int)(sun * 2.4f);
+    _airq = a > 2 ? 2 : a;  // air a bit worse midday
   }
 
   float temperature() const { return _temp; }  // °C
   float humidity() const { return _hum; }       // %
   float pressure() const { return _pres; }      // hPa
+  float light() const { return _lux; }          // lux (follows the sun)
   int soil() const { return (int)_soil; }       // %
   int airQuality() const { return _airq; }      // 0 GOOD · 1 FAIR · 2 POOR
+  float hourOfDay() const { return _hour; }     // 0..24 virtual clock
 
  private:
   float noise(float amp) { return amp * ((float)random(-1000, 1001) / 1000.0f); }
-  float _t = 0, _temp = 24, _hum = 58, _pres = 1013, _soil = 62;
+  float _t = 8.0f, _temp = 22, _hum = 58, _pres = 1013, _lux = 0, _soil = 62, _hour = 8;
   int _airq = 0;
 };

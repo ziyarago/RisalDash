@@ -29,6 +29,7 @@ float temp = 24.3f, hum = 62;
 int soil = 48;
 bool pump = false;
 float pres = 1013.0f;  // barometric pressure, hPa (BMP280)
+float light = 0;       // ambient light, lux (follows the emulator's day/night cycle)
 int airq = 0;          // air quality: 0 GOOD · 1 FAIR · 2 POOR
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
@@ -63,6 +64,7 @@ struct { float temp; int code; float wind; bool valid; String city; } wxShared;
 // geocoding a new city AND fetching weather — stays here, off loop(), and is published under wxMux.
 void weatherTask(void *) {
   weather.setLocation(WX_LAT, WX_LON, cityInput);
+  weather.geocode(cityInput);  // resolve the (possibly persisted) city before the first fetch
   bool need = true;
   uint32_t last = 0;
   for (;;) {
@@ -112,6 +114,7 @@ void setup() {
   ledColor = prefs.getString("col", ledColor);
   mood = prefs.getInt("mood", mood);
   autoEmo = prefs.getInt("aemo", 0);
+  cityInput = prefs.getString("city", cityInput);
 
   lcd::begin();
   lcd::backlight(backlight);
@@ -121,9 +124,10 @@ void setup() {
   dash.gauge("Air temp", &temp, 0, 50, "C");
   dash.metric("Humidity", &hum, "%");
   dash.progress("Soil moisture", &soil, "%");
+  dash.stat("Light", &light, "lux");
 
   dash.layout("Weather", RICON_WATER);
-  dash.text("City", &cityInput, [](const String &v) { (void)v; cityDirty = true; });  // type a city -> auto-geocoded
+  dash.text("City", &cityInput, [](const String &v) { (void)v; prefs.putString("city", cityInput); cityDirty = true; });  // type a city -> geocode + persist
   dash.label("Place", &wxCity);
   dash.stat("Outside", &wxTemp, "C");
   dash.label("Sky", &wxDesc);
@@ -168,6 +172,7 @@ void sampleSensors() {
   hum = sensors.humidity();
   soil = sensors.soil();
   pres = sensors.pressure();
+  light = sensors.light();
   airq = sensors.airQuality();
   for (int i = 0; i < THN - 1; i++) thist[i] = thist[i + 1];  // push temp into the history ring
   thist[THN - 1] = temp;
