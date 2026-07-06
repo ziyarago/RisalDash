@@ -37,6 +37,11 @@ float gpsLat = 41.311f, gpsLon = 69.279f, gpsSpeed = 0, gpsHeading = 0;
 RisalFakeGPS gps;
 const float ROUTE[] = {41.311f, 69.279f, 41.318f, 69.286f, 41.315f, 69.298f,
                        41.306f, 69.296f, 41.302f, 69.283f, 41.311f, 69.279f};
+
+// Fake energy meter (stand-in for a PZEM-004T): power draw, accumulated kWh and cost.
+float power = 0, energyKwh = 0, cost = 0;
+int tariff = 12;  // price per kWh, cents — editable on the dashboard
+RisalFake powerFake(850, 650, 40, 1.3f);  // watts, wandering
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -141,9 +146,15 @@ void setup() {
   dash.stat("Wind", &wxWind, "km/h");
 
   dash.layout("Route", RICON_MOTION);
-  dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // needs internet on the client (Leaflet + OSM tiles)
+  dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // needs internet on the client (Leaflet + tiles)
   dash.stat("Speed", &gpsSpeed, "km/h");
   dash.stat("Heading", &gpsHeading, "deg");
+
+  dash.layout("Energy", RICON_FLASH);
+  dash.gauge("Power", &power, 0, 2000, "W");
+  dash.stat("Today", &energyKwh, "kWh").decimals(2);
+  dash.stat("Cost", &cost, "$").decimals(2);
+  dash.number("Tariff c/kWh", &tariff, 1, 100, 1, [](int i) { (void)i; });
 
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
@@ -188,6 +199,10 @@ void sampleSensors() {
   airq = sensors.airQuality();
   gps.update();
   gpsLat = gps.lat(); gpsLon = gps.lon(); gpsSpeed = gps.speed(); gpsHeading = gps.heading();
+  power = powerFake.read();
+  if (power < 0) power = 0;
+  energyKwh += power / 1000.0f * (0.25f / 3600.0f) * 200.0f;  // 200x speedup so kWh climbs visibly
+  cost = energyKwh * tariff / 100.0f;
   for (int i = 0; i < THN - 1; i++) thist[i] = thist[i + 1];  // push temp into the history ring
   thist[THN - 1] = temp;
   if (thCount < THN) thCount++;

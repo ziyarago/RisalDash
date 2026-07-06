@@ -556,8 +556,9 @@ class FaceWidget : public Widget {
 };
 
 // ── Display: live map (Leaflet) — a marker + trail that follow a bound lat/lon ──
-// NEEDS INTERNET on the client (Leaflet + OpenStreetMap tiles load from a CDN), so it's an opt-in
-// online widget, unlike the offline-first core. Bind two floats; the marker moves and leaves a trail.
+// NEEDS INTERNET on the client (Leaflet + dark CARTO tiles load from a CDN), so it's an opt-in online
+// widget, unlike the offline-first core. Dark basemap to match the theme. Bind two floats; the marker
+// moves and leaves a trail.
 static const char RW_MAP_CSS[] PROGMEM =
   ".rmap{height:260px;border-radius:12px;overflow:hidden;background:#0a1120}.rmap-c{height:100%;width:100%}";
 static const char RW_MAP_JS[] PROGMEM = R"js(R.W.map={
@@ -567,7 +568,7 @@ var s=document.getElementById('lfjs');if(s){s.addEventListener('load',cb);return
 s=document.createElement('script');s.id='lfjs';s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=cb;document.head.appendChild(s);},
 init:function(el){var self=this,box=el.querySelector('.rmap-c');self._ld(function(){
 var m=L.map(box,{zoomControl:false,attributionControl:false}).setView([0,0],14);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(m);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abcd'}).addTo(m);
 el._mk=L.circleMarker([0,0],{radius:7,color:'#22d3ee',fillColor:'#22d3ee',fillOpacity:1,weight:2}).addTo(m);
 el._tr=L.polyline([],{color:'#22d3ee',weight:3,opacity:.75}).addTo(m);
 el._m=m;el._first=1;setTimeout(function(){m.invalidateSize();},250);});},
