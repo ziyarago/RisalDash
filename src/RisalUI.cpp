@@ -390,6 +390,12 @@ MapWidget& RisalUI::map(const char* name, float* lat, float* lon) {
   return *w;
 }
 
+CubeWidget& RisalUI::cube(const char* name, float* pitch, float* roll, float* yaw) {
+  CubeWidget* w = new CubeWidget(name, name, pitch, roll, yaw);
+  _add(w);
+  return *w;
+}
+
 StatWidget& RisalUI::stat(const char* name, float* val, const char* unit) {
   StatWidget* w = new StatWidget(name, name, val, unit);
   _add(w);

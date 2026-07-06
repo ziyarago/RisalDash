@@ -51,6 +51,9 @@ LogWidget *bleLog = nullptr;
 // Record & replay the temperature: capture the live signal, then loop the recording (Replay toggle).
 RisalRecorder rec;
 bool replayMode = false;
+
+// Fake IMU orientation (degrees) for the 3D cube widget.
+float imuP = 0, imuR = 0, imuY = 0;
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -170,6 +173,11 @@ void setup() {
   dash.layout("BLE", RICON_SIGNAL);
   bleLog = &dash.log("Nearby", 5);  // fake BLE scan feed (swap for a real NimBLE scan)
 
+  dash.layout("Motion", RICON_MOTION);
+  dash.cube("Orientation", &imuP, &imuR, &imuY).size(RSIZE_L);  // 3D IMU cube (fake angles)
+  dash.stat("Pitch", &imuP, "deg").decimals(0);
+  dash.stat("Roll", &imuR, "deg").decimals(0);
+
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
@@ -225,6 +233,9 @@ void sampleSensors() {
   presence = ((millis() / 8000) % 2) ? 1 : 0;                 // fake mmWave: person present ~every 8 s
   presDist = 200.0f + 130.0f * sinf(millis() * 0.0007f);
   presMotion = presence ? 40.0f + 40.0f * fabsf(sinf(millis() * 0.002f)) : 0.0f;
+  imuP = 30.0f * sinf(millis() * 0.0009f);                    // fake IMU orientation for the 3D cube
+  imuR = 25.0f * sinf(millis() * 0.0013f);
+  imuY = fmodf(millis() * 0.03f, 360.0f);
   for (int i = 0; i < THN - 1; i++) thist[i] = thist[i + 1];  // push temp into the history ring
   thist[THN - 1] = temp;
   if (thCount < THN) thCount++;

@@ -602,6 +602,48 @@ class MapWidget : public Widget {
   float* _lat; float* _lon; float _la = 0, _lo = 0;
 };
 
+// ── Display: 3D orientation cube — a CSS cube that rotates with a bound pitch/roll/yaw (IMU) ──
+static const char RW_CUBE_CSS[] PROGMEM =
+  ".rcube-s{height:220px;display:flex;align-items:center;justify-content:center;perspective:620px}"
+  ".rcube{width:108px;height:108px;position:relative;transform-style:preserve-3d;transition:transform .12s linear}"
+  ".rcube i{position:absolute;width:108px;height:108px;box-sizing:border-box;border:2px solid var(--acc);"
+  "background:linear-gradient(135deg,var(--acc),var(--acc2));opacity:.82;display:flex;align-items:center;"
+  "justify-content:center;font:800 22px var(--font);color:var(--acc-ink)}"
+  ".rcf1{transform:translateZ(54px)}.rcf2{transform:rotateY(180deg) translateZ(54px)}"
+  ".rcf3{transform:rotateY(90deg) translateZ(54px)}.rcf4{transform:rotateY(-90deg) translateZ(54px)}"
+  ".rcf5{transform:rotateX(90deg) translateZ(54px)}.rcf6{transform:rotateX(-90deg) translateZ(54px)}";
+static const char RW_CUBE_JS[] PROGMEM =
+  "R.W.cube={init:function(el){},update:function(el,v){var c=el.querySelector('.rcube');if(!c||!v)return;"
+  "var p=(''+v).split(',');c.style.transform='rotateX('+(-p[0])+'deg) rotateZ('+p[1]+'deg) rotateY('+p[2]+'deg)';}};";
+class CubeWidget : public Widget {
+ public:
+  CubeWidget(const char* key, const char* title, float* pitch, float* roll, float* yaw)
+      : Widget(key, title), _p(pitch), _r(roll), _y(yaw) {}
+  const char* typeId() const override { return "cube"; }
+  const char* css() const override { return RW_CUBE_CSS; }
+  const char* js() const override { return RW_CUBE_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"rcube-s\"><div class=\"rcube\"><i class=\"rcf1\">F</i><i class=\"rcf2\">B</i>"
+                "<i class=\"rcf3\">R</i><i class=\"rcf4\">L</i><i class=\"rcf5\">U</i><i class=\"rcf6\">D</i></div></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override {
+    float a = _p ? *_p : 0, b = _r ? *_r : 0, c = _y ? *_y : 0;
+    if (a != _lp || b != _lr || c != _ly) { _lp = a; _lr = b; _ly = c; return true; }
+    return false;
+  }
+  void writeKV(String& out) override {
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%.1f,%.1f,%.1f", _p ? *_p : 0.0f, _r ? *_r : 0.0f, _y ? *_y : 0.0f);
+    out += '"'; out += _key; out += "\":\""; out += buf; out += '"';
+  }
+ private:
+  float *_p, *_r, *_y;
+  float _lp = 0, _lr = 0, _ly = 0;
+};
+
 static const char RW_GROUP_CSS[] PROGMEM =
   ".group{grid-column:1/-1;margin:8px 2px 0;font:700 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}";
 static const char RW_NUMBER_CSS[] PROGMEM =
