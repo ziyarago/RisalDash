@@ -63,6 +63,11 @@ TerminalWidget *term = nullptr;  // WebSocket console
 HeatmapWidget *heat = nullptr;
 static const int TW = 24, TH = 18;
 float thermal[TW * TH];
+
+// Fake Zigbee coordinator — a few paired smart-home devices (real path: the esp-zigbee stack on C6).
+bool zbLight = false, zbPlug = true;
+int zbDoor = 0, zbMotion = 0;  // badges: 0 ok · 1 warn
+float zbDevices = 4;
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -202,6 +207,13 @@ void setup() {
   dash.layout("Thermal", RICON_THERMOMETER);
   heat = &dash.heatmap("Thermal cam", TW, TH);  // MLX90640-style (fake frames)
 
+  dash.layout("Zigbee", RICON_HOME);  // fake coordinator panel (real path: esp-zigbee)
+  dash.stat("Devices", &zbDevices).decimals(0);
+  dash.toggle("Living light", &zbLight, [](bool on) { (void)on; });
+  dash.toggle("Smart plug", &zbPlug, [](bool on) { (void)on; });
+  dash.badge("Door", &zbDoor);
+  dash.badge("Motion", &zbMotion);
+
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
@@ -231,7 +243,7 @@ void setup() {
 #endif
 }
 
-uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0, lastHeat = 0;
+uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0, lastHeat = 0, lastZb = 0;
 
 // Pull the latest readings from `sensors` into the globals the slides/LED/dashboard use. The source
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
@@ -318,6 +330,11 @@ void loop() {
         thermal[y * TW + x] = 22.0f + 15.0f * expf(-(dx * dx + dy * dy) / 12.0f) + 1.5f * sinf(x * 0.5f + ph);
       }
     heat->frame(thermal);
+  }
+  if (millis() - lastZb > 3000) {  // fake Zigbee sensor events
+    lastZb = millis();
+    zbDoor = (millis() / 15000) % 2;                  // door opens/closes
+    zbMotion = ((millis() / 6000) % 3 == 0) ? 1 : 0;  // motion detected
   }
   if (bleLog && millis() - lastBle > 2500) {  // refresh the fake BLE scan feed
     lastBle = millis();
