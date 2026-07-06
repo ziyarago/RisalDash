@@ -15,6 +15,7 @@
 #include "led.h"
 #include <RisalUI.h>
 #include <RisalFake.h>  // realistic fake sensors (library) — build/debug with no hardware attached
+#include "weather.h"    // live weather (Open-Meteo) fetched in a background task
 #include <WiFi.h>
 #include <Preferences.h>
 #include <math.h>
@@ -43,9 +44,43 @@ String ledColor = "#22d3ee";
 int mood = 1;           // Robot face: 0 Neutral · 1 Happy · 2 Sad · 3 Angry · 4 Surprised · 5 Sleepy · 6 Love
 bool autoEmo = false;   // Auto emotion: cycle through all moods (web face + LCD eyes follow)
 
-// Slides: 1 Address · 2 Air temp · 3 Humidity · 4 Soil · 5 Pressure · 6 Air quality · 7 Trend.
+// ── Weather. The HTTPS fetch blocks (~1-2 s), so it runs in a background FreeRTOS task and publishes
+//    into wxShared under a mutex; loop() copies that into these display globals and never blocks.
+const float WX_LAT = 41.3111f, WX_LON = 69.2797f;  // ⚠ set your location (these are Tashkent)
+float wxTemp = 0;     // last temperature shown by the widgets / LCD (0 until the first fetch)
+int wxCode = -1;
+float wxWind = 0;
+bool wxValid = false;
+String wxDesc = "...";
+#if defined(ESP32)
+Weather weather;
+SemaphoreHandle_t wxMux;
+struct { float temp; int code; float wind; bool valid; } wxShared = {0, 0, 0, false};
+
+// Its own task (pinned to core 0; loop() runs on core 1 on dual-core parts). Fetches every ~10 min,
+// retries sooner on failure, and hands the result to loop() through the mutex — the blocking GET
+// never touches the web/LCD loop.
+void weatherTask(void *) {
+  weather.begin(WX_LAT, WX_LON);
+  for (;;) {
+    bool ok = weather.poll();  // blocking is fine here — this is not loop()
+    if (ok) {
+      xSemaphoreTake(wxMux, portMAX_DELAY);
+      wxShared.temp = weather.temperature();
+      wxShared.code = weather.code();
+      wxShared.wind = weather.wind();
+      wxShared.valid = true;
+      xSemaphoreGive(wxMux);
+      Serial.printf("[wx] %.1fC %s wind=%.0f heap=%u\n", weather.temperature(), weather.description(), weather.wind(), ESP.getFreeHeap());
+    }
+    vTaskDelay(pdMS_TO_TICKS(ok ? 600000UL : 30000UL));  // 10 min on success, retry in 30 s
+  }
+}
+#endif
+
+// Slides: 1 Address · 2 Temp · 3 Humidity · 4 Soil · 5 Pressure · 6 Air · 7 Trend · 8 Robot · 9 Weather.
 int curSlide = 1, lastSlide = -1;
-float lastTemp = -999, lastPres = -1;
+float lastTemp = -999, lastPres = -1, lastWxT = -999;
 int lastHum = -1, lastSoil = -1, lastAirq = -1, lastMood = -1;
 bool lastBlink = false;
 
@@ -75,6 +110,11 @@ void setup() {
   dash.metric("Humidity", &hum, "%");
   dash.progress("Soil moisture", &soil, "%");
 
+  dash.layout("Weather", RICON_WATER);
+  dash.stat("Outside", &wxTemp, "C");
+  dash.label("Sky", &wxDesc);
+  dash.stat("Wind", &wxWind, "km/h");
+
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
@@ -84,7 +124,7 @@ void setup() {
   dash.layout("Display", RICON_GAUGE);
   // Auto-slide lives in the Settings gear (.gear()), not the grid — it's a device setting.
   dash.toggle("Auto-slide", &autoSlide, [](bool on) { (void)on; prefs.putInt("auto", autoSlide); }).gear();
-  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); });
+  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); });
   dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); });
   dash.slider("Backlight", &backlight, 5, 100, [](int i) { (void)i; prefs.putInt("bl", backlight); lcd::backlight(backlight); });
 
@@ -96,9 +136,15 @@ void setup() {
   WiFi.setSleep(true);  // Wi-Fi modem sleep — heat/power saver
   Serial.printf("[net] staIP=%s\n", WiFi.localIP().toString().c_str());
   led::apply(ledMode, ledColor, curSlide);
+
+#if defined(ESP32)
+  // Start the weather fetcher on its own task so its blocking HTTPS call never stalls loop().
+  wxMux = xSemaphoreCreateMutex();
+  xTaskCreatePinnedToCore(weatherTask, "weather", 12288, nullptr, 1, nullptr, 0);
+#endif
 }
 
-uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0;
+uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0;
 
 // Pull the latest readings from `sensors` into the globals the slides/LED/dashboard use. The source
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
@@ -125,7 +171,7 @@ void updateSlide() {
   if (curSlide == lastSlide) return;
   lcd::slideStatic(curSlide, WiFi.localIP().toString(), "RisalDash v" RISALDASH_VERSION);
   lastSlide = curSlide;
-  lastTemp = -999; lastPres = -1; lastHum = lastSoil = lastAirq = lastMood = -1;
+  lastTemp = -999; lastPres = -1; lastWxT = -999; lastHum = lastSoil = lastAirq = lastMood = -1;
   lastSwap = millis();
   if (ledMode == led::PER_WIDGET) led::apply(ledMode, ledColor, curSlide);
 }
@@ -149,6 +195,7 @@ void drawSlideValue() {
         if (anim) lastChart = millis();
       }
     } break;
+    case 9: if (fabsf(wxTemp - lastWxT) >= 0.1f) { lcd::weatherValue(wxTemp, wxDesc.c_str(), wxValid); lastWxT = wxTemp; } break;
   }
 }
 
@@ -156,6 +203,15 @@ void loop() {
   dash.update();                                                   // serve web + push widget updates
   if (millis() - lastAnim > 250) { lastAnim = millis(); sampleSensors(); }
   if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }  // cycle emotions
+#if defined(ESP32)
+  if (millis() - lastWx > 1000) {  // copy the weather task's latest result (quick, non-blocking)
+    lastWx = millis();
+    xSemaphoreTake(wxMux, portMAX_DELAY);
+    wxTemp = wxShared.temp; wxCode = wxShared.code; wxWind = wxShared.wind; wxValid = wxShared.valid;
+    xSemaphoreGive(wxMux);
+    wxDesc = wxValid ? Weather::codeText(wxCode) : String("...");
+  }
+#endif
   updateSlide();                                                   // which slide + static chrome
   drawSlideValue();                                                // its live value
   if (ledMode == led::GRADIENT && millis() - lastLed > 60) { lastLed = millis(); led::apply(ledMode, ledColor, curSlide); }

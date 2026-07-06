@@ -27,7 +27,7 @@ static const uint16_t C_AMBER = RGB565(240, 190, 90);
 static const uint16_t C_RED = RGB565(240, 120, 110);
 static const uint16_t C_LOVE = RGB565(255, 92, 138);
 
-static const int NUM_SLIDES = 8;              // Address · Temp · Humidity · Soil · Pressure · Air · Trend · Robot
+static const int NUM_SLIDES = 9;              // Address · Temp · Humidity · Soil · Pressure · Air · Trend · Robot · Weather
 static const int GX = 86, GY = 190, GR = 72;  // gauge centre + ring radius
 
 static Arduino_DataBus *_bus = nullptr;
@@ -122,6 +122,8 @@ inline void slideStatic(int s, const String &ip, const char *version) {
     slideLabel("TEMP TREND", C_TEAL);
   } else if (s == 8) {
     slideLabel("ROBOT", C_TEAL);
+  } else if (s == 9) {
+    slideLabel("WEATHER", C_BLUE);
   }
 }
 
@@ -274,6 +276,26 @@ inline void eyes(int mood, bool blink) {
     }
     if (mood == 0 || mood == 4) _gfx->fillCircle(cx - 8, cy - 14, 4, C_INK);  // catch-light shine
   }
+}
+
+// Weather slide: big temperature + the sky condition, from the background weather task. Shows a
+// placeholder until the first successful fetch (valid == false).
+inline void weatherValue(float temp, const char *desc, bool valid) {
+  _gfx->fillRect(0, 96, 172, 130, C_BG);
+  char b[8];
+  if (valid) snprintf(b, sizeof(b), "%.0f", temp);
+  else strcpy(b, "--");
+  int nw = strlen(b) * 30;  // size-5 glyph ~30px wide
+  int x = 86 - (nw + 20) / 2;
+  _gfx->setTextSize(5);
+  _gfx->setTextColor(C_BLUE);
+  _gfx->setCursor(x, 136);
+  _gfx->print(b);
+  _gfx->setTextSize(2);
+  _gfx->setTextColor(C_INK3);
+  _gfx->setCursor(x + nw + 4, 138);
+  _gfx->print("C");
+  centerText(valid ? desc : "connecting...", 198, 2, C_INK);
 }
 
 }  // namespace lcd
