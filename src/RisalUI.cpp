@@ -924,14 +924,9 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
   {
     bool first = true;
     for (uint8_t i = 0; i < _count; i++) {
-      if (!_widgets[i]->isSetting() || strcmp(_widgets[i]->typeId(), "toggle") != 0) continue;
+      if (!_widgets[i]->isSetting()) continue;
       if (!first) out.print(',');
-      out.print(F("{n:\""));
-      out.print(_widgets[i]->key());
-      out.print(F("\",k:\""));
-      out.print(_widgets[i]->key());
-      out.print(F("\"}"));
-      first = false;
+      if (_widgets[i]->writeGearMeta(out)) first = false;  // each control emits its own descriptor
     }
   }
   out.print(F("];"));

@@ -11,6 +11,9 @@
 // or PlatformIO `lib_deps = moononournation/GFX Library for Arduino` + `ricmoo/QRCode`. On first boot
 // dash.begin() raises the Wi-Fi setup portal; after provisioning it serves the dashboard and drives
 // the LCD (address slide shows a QR to the dashboard URL). Board: ESP32-C6.
+// NOTE: this showcase has ~50 widgets across its pages — more than the default cap of 32. Raise it
+// with a BUILD FLAG so the whole library sees it (a #define in the sketch can't reach RisalUI.cpp):
+// PlatformIO: build_flags = -D RISAL_MAX_WIDGETS=64  ·  Arduino IDE: edit RISAL_MAX_WIDGETS in RisalUI.h.
 #include "display.h"
 #include "led.h"
 #include <RisalUI.h>
@@ -197,17 +200,17 @@ void setup() {
   // Auto emotion: cycle through all moods on a timer (the LCD "Robot" slide shows the same).
   dash.toggle("Auto emotion", &autoEmo, [](bool on) { (void)on; prefs.putInt("aemo", autoEmo); });
 
-  dash.layout("Display", RICON_GAUGE);
-  // Auto-slide lives in the Settings gear (.gear()), not the grid — it's a device setting.
+  // Device settings — all live in the Settings gear (.gear()), not on a dashboard page: brightness,
+  // the LCD slide picker + auto-slide interval, and the RGB LED mode/colour.
   dash.toggle("Auto-slide", &autoSlide, [](bool on) { (void)on; prefs.putInt("auto", autoSlide); }).gear();
-  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); });
-  dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); });
-  dash.slider("Backlight", &backlight, 5, 100, [](int i) { (void)i; prefs.putInt("bl", backlight); lcd::backlight(backlight); });
+  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
+  dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); }).gear();
+  dash.slider("Backlight", &backlight, 5, 100, [](int i) { (void)i; prefs.putInt("bl", backlight); lcd::backlight(backlight); }).gear();
+  dash.select("LED mode", "Off,Manual,Per-widget,Gradient", &ledMode, [](int i) { (void)i; prefs.putInt("led", ledMode); led::apply(ledMode, ledColor, curSlide); }).gear();
+  dash.color("LED colour", &ledColor, [](const String &v) { (void)v; prefs.putString("col", ledColor); led::apply(ledMode, ledColor, curSlide); }).gear();
 
   dash.layout("Control", RICON_POWER);
   dash.toggle("Pump", &pump, [](bool on) { (void)on; });
-  dash.select("Mode", "Off,Manual,Per-widget,Gradient", &ledMode, [](int i) { (void)i; prefs.putInt("led", ledMode); led::apply(ledMode, ledColor, curSlide); });
-  dash.color("Color", &ledColor, [](const String &v) { (void)v; prefs.putString("col", ledColor); led::apply(ledMode, ledColor, curSlide); });
   dash.begin();
   WiFi.setSleep(true);  // Wi-Fi modem sleep — heat/power saver
   Serial.printf("[net] staIP=%s\n", WiFi.localIP().toString().c_str());

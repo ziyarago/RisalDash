@@ -82,6 +82,9 @@ class Widget {
   virtual bool poll() { return false; }                 // true if changed since last poll
   virtual void writeKV(String& out) {}                  // append "key":value
   virtual void applyCommand(const String& v) { (void)v; }  // control widgets
+  // Describe this control for the Settings modal when it is .gear()'d — emit a JSON object
+  // {"n","k","t",...params} and return true. Default: not renderable there. Overridden by controls.
+  virtual bool writeGearMeta(Print& out) { (void)out; return false; }
 
   const char* key() const { return _key; }
 
@@ -261,6 +264,11 @@ class ToggleWidget : public Widget {
     if (_val) *_val = b;
     if (_cb) _cb(b);
   }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"toggle\"}"));
+    return true;
+  }
 
  private:
   bool* _val;
@@ -352,6 +360,11 @@ class SliderWidget : public Widget {
   bool poll() override { int v = _val ? *_val : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_val ? *_val : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_val) *_val = n; if (_cb) _cb(n); }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"range\",\"lo\":")); out.print(_lo); out.print(F(",\"hi\":")); out.print(_hi); out.print('}');
+    return true;
+  }
  private:
   int* _val; int _lo, _hi; Cb _cb; int _last = 0; bool _seen = false;
 };
@@ -752,6 +765,11 @@ class NumberWidget : public Widget {
   bool poll() override { int v = _val ? *_val : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_val ? *_val : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_val) *_val = n; if (_cb) _cb(n); }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"number\",\"lo\":")); out.print(_lo); out.print(F(",\"hi\":")); out.print(_hi); out.print('}');
+    return true;
+  }
  private:
   int* _val; int _lo, _hi, _step; Cb _cb; int _last = 0; bool _seen = false;
 };
@@ -804,6 +822,11 @@ class SelectWidget : public Widget {
   bool poll() override { int v = _idx ? *_idx : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(_opts); out.print(F("\"}"));
+    return true;
+  }
  private:
   const char* _opts; int* _idx; Cb _cb; int _last = 0; bool _seen = false;
 };
@@ -1051,6 +1074,11 @@ class ColorWidget : public Widget {
   const char* typeId() const override { return "color"; }
   const char* css() const override { return RW_COLOR_CSS; }
   const char* js() const override { return RW_COLOR_JS; }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"color\"}"));
+    return true;
+  }
   void card(Print& out) override {
     cardOpen(out);
     String hex = _val && _val->length() ? *_val : String("#22d3ee");
@@ -1193,6 +1221,11 @@ class RadioWidget : public Widget {
   bool poll() override { int v = _idx ? *_idx : 0; if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
+  bool writeGearMeta(Print& out) override {
+    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(_opts); out.print(F("\"}"));
+    return true;
+  }
  private:
   const char* _opts; int* _idx; Cb _cb; int _last = 0; bool _seen = false;
 };
