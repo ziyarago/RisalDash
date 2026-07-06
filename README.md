@@ -188,7 +188,7 @@ dash.sensor("ina219", &volts, &cur, &pwr);  // V / A / W
 
 Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `ccs811`,
 `scd40`, `ina219`, `acs712`, `pzem004t`, `hcsr04`, `vl53l0x`, `mq135`, `soil`, `ld2410`,
-`ld2450`, `mpu6050`, `mpu9250`.
+`ld2450`, `mpu6050`, `mpu9250`, `neo-m10`, `inmp441`.
 The widget is chosen by the **quantity**, not the sensor model.
 
 ## Fake sensors — build with no hardware

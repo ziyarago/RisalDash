@@ -921,6 +921,54 @@ class LogWidget : public Widget {
   bool _dirty = false;
 };
 
+// ── Control: terminal / console — a scrolling output + a command input (over the WebSocket) ──
+static const char RW_TERM_CSS[] PROGMEM =
+  ".rterm{background:#0a0f18;border:1px solid var(--line2);border-radius:12px;overflow:hidden;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}"
+  ".rterm-o{height:150px;overflow:auto;padding:10px 12px;font-size:12.5px;line-height:1.55;color:#7ee0b0;white-space:pre-wrap;word-break:break-word}"
+  ".rterm-in{display:flex;align-items:center;gap:7px;padding:8px 12px;border-top:1px solid var(--line2);color:#7ee0b0}"
+  ".rterm-i{flex:1;background:transparent;border:none;outline:none;color:#e6fff2;font:12.5px ui-monospace,monospace}";
+static const char RW_TERM_JS[] PROGMEM =
+  "R.W.term={init:function(el){var i=el.querySelector('.rterm-i');if(i)i.addEventListener('keydown',function(e){"
+  "if(e.key==='Enter'&&i.value){R.send(el.dataset.key,i.value);i.value='';}});},"
+  "update:function(el,v){var o=el.querySelector('.rterm-o');if(o){o.innerHTML=v;o.scrollTop=o.scrollHeight;}}};";
+class TerminalWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  TerminalWidget(const char* key, const char* title, Cb cb) : Widget(key, title), _cb(cb) {}
+  const char* typeId() const override { return "term"; }
+  const char* css() const override { return RW_TERM_CSS; }
+  const char* js() const override { return RW_TERM_JS; }
+  TerminalWidget& print(const String& line) {  // append output
+    for (int i = 7; i > 0; i--) _arr[i] = _arr[i - 1];
+    _arr[0] = line;
+    if (_n < 8) _n++;
+    _dirty = true;
+    return *this;
+  }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"rterm\"><div class=\"rterm-o\">"));
+    out.print(_joined());
+    out.print(F("</div><div class=\"rterm-in\"><span>&gt;</span>"
+                "<input class=\"rterm-i\" placeholder=\"command\" autocomplete=\"off\"></div></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { if (_dirty) { _dirty = false; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_joined()); out += '"'; }
+  void applyCommand(const String& v) override { print(String("> ") + v); if (_cb) _cb(v); }  // echo + handle
+ private:
+  String _joined() {
+    String j;
+    for (int i = _n - 1; i >= 0; i--) { if (j.length()) j += "<br>"; j += _arr[i]; }  // oldest -> newest
+    return j;
+  }
+  Cb _cb;
+  String _arr[8];
+  uint8_t _n = 0;
+  bool _dirty = false;
+};
+
 // ════════ password / color / time / image / table ════════
 
 static const char RW_COLOR_CSS[] PROGMEM =

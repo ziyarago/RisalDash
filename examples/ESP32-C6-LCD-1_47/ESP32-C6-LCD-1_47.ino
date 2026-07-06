@@ -54,6 +54,7 @@ bool replayMode = false;
 
 // Fake IMU orientation (degrees) for the 3D cube widget.
 float imuP = 0, imuR = 0, imuY = 0;
+TerminalWidget *term = nullptr;  // WebSocket console
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -177,6 +178,18 @@ void setup() {
   dash.cube("Orientation", &imuP, &imuR, &imuY).size(RSIZE_L);  // 3D IMU cube (fake angles)
   dash.stat("Pitch", &imuP, "deg").decimals(0);
   dash.stat("Roll", &imuR, "deg").decimals(0);
+
+  dash.layout("Console", RICON_WIFI);
+  term = &dash.terminal("Shell", [](const String &cmd) {  // type commands from the dashboard
+    if (!term) return;
+    if (cmd == "help") term->print("cmds: help, heap, ip, temp, uptime");
+    else if (cmd == "heap") term->print(String(ESP.getFreeHeap()) + " bytes free");
+    else if (cmd == "ip") term->print(WiFi.localIP().toString());
+    else if (cmd == "temp") term->print(String(temp, 1) + " C");
+    else if (cmd == "uptime") term->print(String(millis() / 1000) + " s");
+    else term->print("unknown: " + cmd + " (try 'help')");
+  });
+  term->print("RisalDash console - type 'help'");
 
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);

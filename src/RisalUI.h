@@ -92,6 +92,9 @@ class RisalUI {
   // 3D orientation cube — a CSS cube that rotates with the bound pitch/roll/yaw (degrees), e.g. from
   // an IMU (MPU6050/9250). Pure client-side; no external requests.
   CubeWidget&   cube(const char* name, float* pitch, float* roll, float* yaw);
+  // Terminal / console — a scrolling output (.print(line)) plus a command input; the callback fires
+  // with each entered command over the WebSocket.
+  TerminalWidget& terminal(const char* name, TerminalWidget::Cb cb);
   NumberWidget& number(const char* name, int* val, int mn, int mx, int step = 1, NumberWidget::Cb cb = nullptr);
   SelectWidget& select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb = nullptr);
   GroupWidget&  group(const char* title);

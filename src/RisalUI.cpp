@@ -110,6 +110,9 @@ const RSensor RSENSORS[] = {
   // IMU pack
   {"mpu6050", 3, {{"Accel X","g",K_CHART,-2,2},{"Accel Y","g",K_CHART,-2,2},{"Accel Z","g",K_CHART,-2,2}}},
   {"mpu9250", 3, {{"Accel X","g",K_CHART,-2,2},{"Accel Y","g",K_CHART,-2,2},{"Accel Z","g",K_CHART,-2,2}}},
+  // Nav / audio pack
+  {"neo-m10", 3, {{"Speed","km/h",K_GAUGE,0,200},{"Altitude","m",K_METRIC,-100,9000},{"Satellites","",K_METRIC,0,24}}},
+  {"inmp441", 1, {{"Sound level","dB",K_GAUGE,30,120}}},
 };
 const uint8_t RSENSOR_COUNT = sizeof(RSENSORS) / sizeof(RSENSORS[0]);
 }  // namespace
@@ -392,6 +395,12 @@ MapWidget& RisalUI::map(const char* name, float* lat, float* lon) {
 
 CubeWidget& RisalUI::cube(const char* name, float* pitch, float* roll, float* yaw) {
   CubeWidget* w = new CubeWidget(name, name, pitch, roll, yaw);
+  _add(w);
+  return *w;
+}
+
+TerminalWidget& RisalUI::terminal(const char* name, TerminalWidget::Cb cb) {
+  TerminalWidget* w = new TerminalWidget(name, name, cb);
   _add(w);
   return *w;
 }
