@@ -215,7 +215,7 @@ void setup() {
   dash.badge("Motion", &zbMotion);
 
   dash.layout("Robot", RICON_MOTION);
-  dash.face("Robot", &mood).size(RSIZE_M);
+  dash.face("Robot", &mood).size(RSIZE_L);  // big, full-width face
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
   // Auto emotion: cycle through all moods on a timer (the LCD "Robot" slide shows the same).
   dash.toggle("Auto emotion", &autoEmo, [](bool on) { (void)on; prefs.putInt("aemo", autoEmo); });
