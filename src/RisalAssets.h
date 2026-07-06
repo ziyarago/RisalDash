@@ -65,9 +65,9 @@ static const char RISAL_CSS[] PROGMEM =
   // iOS-style cell grid: 2 columns on phone (4 on tablet+). Widgets pick a size preset —
   // s = 1 cell (square), m = full width, l = full width + tall. Height comes from per-size
   // min-height (not grid rows) so group headers stay compact; order is preserved (no dense).
-  ".grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}"
-  ".card.s{grid-column:span 1;min-height:112px}.card.m{grid-column:span 2;min-height:92px}.card.l{grid-column:span 2;min-height:236px}"
-  "@media(min-width:720px){.grid{grid-template-columns:repeat(4,1fr)}.card.m,.card.l{grid-column:span 2}}"
+  ".grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}"
+  ".card.s{grid-column:span 1;min-height:104px}.card.m{grid-column:span 2;min-height:92px}.card.l{grid-column:span 4;min-height:220px}"
+  "@media(min-width:720px){.card.l{grid-column:span 2}}"
   ".card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px;"
   "backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);"
   "box-shadow:0 8px 28px oklch(0 0 0 / .34),inset 0 1px 0 oklch(1 0 0 / .10)}"
