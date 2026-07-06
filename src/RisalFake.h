@@ -99,3 +99,30 @@ class RisalFakeGPS {
   int _n = 0, _seg = 0;
   float _f = 0, _lat = 0, _lon = 0, _speed = 0, _heading = 0;
 };
+
+// Fake BLE scanner — a plausible list of nearby devices with wandering RSSI, including a Xiaomi
+// temperature/humidity beacon (decoded, like a real scan). A stand-in for NimBLE scanning: build the
+// scanner UI with no BLE hardware, then swap in a real scan. Call update(), then read the devices.
+class RisalFakeBLE {
+ public:
+  static const int N = 5;
+  void update() {
+    _t += 0.25f;
+    for (int i = 0; i < N; i++) _rssi[i] = _base[i] + (int)(7.0f * sinf(_t * 0.5f + i));
+    _temp = 23.5f + 2.0f * sinf(_t * 0.1f);        // Xiaomi beacon temperature
+    _hum = 55 + (int)(6.0f * sinf(_t * 0.08f));    // Xiaomi beacon humidity
+  }
+  int count() const { return N; }
+  const char *name(int i) const { return _names[i]; }
+  int rssi(int i) const { return _rssi[i]; }
+  bool isSensor(int i) const { return i == 0; }  // index 0 is the Xiaomi temp/humidity beacon
+  float sensorTemp() const { return _temp; }     // °C
+  int sensorHum() const { return _hum; }         // %
+
+ private:
+  const char *_names[N] = {"Mi Temp/Humidity", "MJ_HT_V1", "Amazfit Band 5", "iPhone", "TV Remote"};
+  int _base[N] = {-58, -66, -73, -81, -89};
+  int _rssi[N] = {-58, -66, -73, -81, -89};
+  float _t = 0, _temp = 23.5f;
+  int _hum = 55;
+};

@@ -43,6 +43,10 @@ const float ROUTE[] = {41.311f, 69.279f, 41.318f, 69.286f, 41.315f, 69.298f,
 float power = 0, energyKwh = 0, cost = 0;
 int tariff = 12;  // price per kWh, cents — editable on the dashboard
 RisalFake powerFake(850, 650, 40, 1.3f);  // watts, wandering
+
+// Fake BLE scanner (stand-in for a NimBLE scan) — nearby devices incl. a Xiaomi temp/humidity beacon.
+RisalFakeBLE ble;
+LogWidget *bleLog = nullptr;
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -158,6 +162,9 @@ void setup() {
   dash.stat("Cost", &cost, "$").decimals(2);
   dash.number("Tariff c/kWh", &tariff, 1, 100, 1, [](int i) { (void)i; });
 
+  dash.layout("BLE", RICON_SIGNAL);
+  bleLog = &dash.log("Nearby", 5);  // fake BLE scan feed (swap for a real NimBLE scan)
+
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_M);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
@@ -187,7 +194,7 @@ void setup() {
 #endif
 }
 
-uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0;
+uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0;
 
 // Pull the latest readings from `sensors` into the globals the slides/LED/dashboard use. The source
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
@@ -256,6 +263,15 @@ void loop() {
   dash.update();                                                   // serve web + push widget updates
   if (millis() - lastAnim > 250) { lastAnim = millis(); sampleSensors(); }
   if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }  // cycle emotions
+  if (bleLog && millis() - lastBle > 2500) {  // refresh the fake BLE scan feed
+    lastBle = millis();
+    ble.update();
+    for (int i = ble.count() - 1; i >= 0; i--) {
+      String line = String(ble.name(i)) + "  " + ble.rssi(i) + "dBm";
+      if (ble.isSensor(i)) line += "  " + String(ble.sensorTemp(), 1) + "C " + ble.sensorHum() + "%";
+      bleLog->print(line);
+    }
+  }
 #if defined(ESP32)
   if (millis() - lastWx > 1000) {  // copy the weather task's latest result (quick, non-blocking)
     lastWx = millis();
