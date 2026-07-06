@@ -47,6 +47,10 @@ RisalFake powerFake(850, 650, 40, 1.3f);  // watts, wandering
 // Fake BLE scanner (stand-in for a NimBLE scan) — nearby devices incl. a Xiaomi temp/humidity beacon.
 RisalFakeBLE ble;
 LogWidget *bleLog = nullptr;
+
+// Record & replay the temperature: capture the live signal, then loop the recording (Replay toggle).
+RisalRecorder rec;
+bool replayMode = false;
 static const int THN = 40;
 float thist[THN] = {0};  // temperature history for the trend sparkline
 int thCount = 0;         // valid samples in thist (newest at the end)
@@ -142,6 +146,7 @@ void setup() {
   dash.metric("Humidity", &hum, "%");
   dash.progress("Soil moisture", &soil, "%");
   dash.stat("Light", &light, "lux");
+  dash.toggle("Replay temp", &replayMode, [](bool on) { (void)on; });  // loop the recorded temperature
   dash.sensor("ld2410", &presence, &presDist, &presMotion);  // mmWave presence preset (Presence/Distance/Motion)
 
   dash.layout("Weather", RICON_WATER);
@@ -200,7 +205,12 @@ uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, las
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
 void sampleSensors() {
   sensors.update();
-  temp = sensors.temperature();
+  if (replayMode && rec.size() > 8) {
+    temp = rec.replay();  // loop the recorded temperature trace
+  } else {
+    temp = sensors.temperature();
+    rec.record(temp);     // capture the live signal
+  }
   hum = sensors.humidity();
   soil = sensors.soil();
   pres = sensors.pressure();

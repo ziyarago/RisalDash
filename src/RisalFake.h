@@ -126,3 +126,26 @@ class RisalFakeBLE {
   float _t = 0, _temp = 23.5f;
   int _hum = 55;
 };
+
+// Record & replay — capture a real signal once, then loop it back forever with no hardware. record()
+// a live value each tick while capturing (fills up to CAP samples, ~30 s at 4 Hz); replay() reads the
+// recording back on a loop. Great for reproducing a real sensor trace in a demo or a test.
+class RisalRecorder {
+ public:
+  static const int CAP = 120;
+  void record(float v) { if (_n < CAP) _buf[_n++] = v; }  // append until full
+  void reset() { _n = 0; _r = 0; }
+  bool full() const { return _n >= CAP; }
+  int size() const { return _n; }
+  float replay() {
+    if (_n == 0) return 0;
+    float v = _buf[_r % _n];
+    _r++;
+    return v;
+  }
+
+ private:
+  float _buf[CAP];
+  int _n = 0;
+  uint32_t _r = 0;
+};
