@@ -3,6 +3,33 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.5.0] — 2026-07-06
+
+A big feature release: new widgets, a "develop with no hardware" fake-data engine, live weather, more
+sensor presets, and full device settings in the appbar gear.
+
+### Added
+- **New widgets** — `dash.face(&mood)` (animated robot face, 10 emotions), `dash.map(&lat, &lon)`
+  (Leaflet live map with a trail, dark basemap), `dash.cube(&pitch, &roll, &yaw)` (3D orientation
+  cube for an IMU), `dash.terminal(name, cb)` (WebSocket console with a command input), and
+  `dash.heatmap(name, cols, rows)` (thermal/heatmap grid, e.g. MLX90640).
+- **Fake-data engine — build & debug with no hardware attached.** `#include <RisalFake.h>`:
+  `RisalFake` (one realistic drifting signal), `RisalFakeEnv` (a day/night environment with light),
+  `RisalFakeGPS` (GPX-style route playback), `RisalFakeBLE` (a scan feed with a Xiaomi beacon), and
+  `RisalRecorder` (record a real signal, then replay it on a loop).
+- **Live weather** — `#include <RisalWeather.h>`: Open-Meteo (no API key) with `geocode(city)`; meant
+  to run in a background FreeRTOS task so the blocking HTTPS fetch never stalls the loop.
+- **Device settings in the gear** — `.gear()` now moves *any* control (toggle, slider, number, select,
+  colour) into the appbar Settings modal, not just toggles.
+- **More sensor presets** — `scd40`, `ld2410`, `ld2450`, `neo-m10`, `inmp441`.
+- **New example** — `ESP32-S3-DualCore`: the dashboard on one core while a heavy worker runs on the
+  other (real parallelism). The `ESP32-C6-LCD-1.47` example grew into a full showcase (weather with a
+  city field, live map, energy panel, robot face, thermal, BLE/Zigbee panels, a console…).
+
+### Note
+- Big dashboards may exceed the default `RISAL_MAX_WIDGETS` (32) — raise it with a build flag
+  (`-D RISAL_MAX_WIDGETS=64`), not a sketch `#define` (which can't reach `RisalUI.cpp`).
+
 ## [0.4.0] — 2026-07-06
 
 ### Added
