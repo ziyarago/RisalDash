@@ -165,13 +165,14 @@ var st=document.createElement('style');st.textContent=CSS;document.head.appendCh
 var scrim=document.createElement('div');scrim.className='sscrim';scrim.innerHTML=html;document.body.appendChild(scrim);
 var root=document.documentElement;
 function mark(id,v){scrim.querySelectorAll('#'+id+' button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});}
-scrim.querySelectorAll('#slang button').forEach(function(b){b.addEventListener('click',function(){if(b.dataset.v!==root.getAttribute('lang'))location.search='?lang='+b.dataset.v;});});
+function sp(q){try{navigator.sendBeacon?navigator.sendBeacon('/api/pref?'+q):fetch('/api/pref?'+q);}catch(e){}}
+scrim.querySelectorAll('#slang button').forEach(function(b){b.addEventListener('click',function(){if(b.dataset.v!==root.getAttribute('lang')){sp('lang='+b.dataset.v);location.search='?lang='+b.dataset.v;}});});
 mark('slang',root.getAttribute('lang'));
 function applyTheme(v){var d=v==='auto'?matchMedia('(prefers-color-scheme:dark)').matches:v!=='light';root.classList.toggle('light',!d);root.classList.toggle('dark',d);}
-scrim.querySelectorAll('#stheme button').forEach(function(b){b.addEventListener('click',function(){mark('stheme',b.dataset.v);localStorage.setItem('rd-th',b.dataset.v);applyTheme(b.dataset.v);});});
+scrim.querySelectorAll('#stheme button').forEach(function(b){b.addEventListener('click',function(){mark('stheme',b.dataset.v);localStorage.setItem('rd-th',b.dataset.v);sp('theme='+b.dataset.v);applyTheme(b.dataset.v);});});
 mark('stheme',localStorage.getItem('rd-th')||'dark');
 function applyAcc(i){var a=ACC[i];root.style.setProperty('--acc','oklch(0.82 0.14 '+a[1]+')');root.style.setProperty('--acc2','oklch(0.84 0.16 '+a[2]+')');root.style.setProperty('--acc-ink','oklch(0.26 0.06 '+a[1]+')');root.style.setProperty('--grad','linear-gradient(135deg,oklch(0.82 0.15 '+a[1]+'),oklch(0.85 0.16 '+a[2]+'))');scrim.querySelectorAll('#sacc button').forEach(function(x){x.classList.toggle('on',+x.dataset.i===i);});}
-scrim.querySelectorAll('#sacc button').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.i;localStorage.setItem('rd-acc',i);applyAcc(i);});});
+scrim.querySelectorAll('#sacc button').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.i;localStorage.setItem('rd-acc',i);sp('accent='+i);applyAcc(i);});});
 var ai=localStorage.getItem('rd-acc');applyAcc(ai!=null?+ai:(window.RSACC||0));
 scrim.querySelectorAll('#ssig button').forEach(function(b){b.addEventListener('click',function(){mark('ssig',b.dataset.v);localStorage.setItem('rd-rssi',b.dataset.v);if(window.RSB&&window.RSB.applyRssi)window.RSB.applyRssi();});});
 mark('ssig',localStorage.getItem('rd-rssi')==='0'?'0':'1');

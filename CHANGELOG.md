@@ -3,6 +3,20 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`dash.gsm()` / `dash.bluetooth()`** — status-bar radios. Wi-Fi always shows (the device serves
+  over it); the cellular signal bars appear only if you declare a GSM/LTE modem, and the Bluetooth
+  glyph only when BT is active. Both hidden by default.
+- **NVS-persisted UI preferences (ESP32)** — the theme, accent and language chosen in the appbar
+  Settings now save to the device (not just the browser) and become the served defaults after a
+  reboot, alongside the already-persisted Wi-Fi credentials and timezone. New `POST /api/pref`
+  endpoint (called by the Settings modal). On ESP8266 these stay per-browser to keep the EEPROM
+  credential layout stable.
+- **NTP clock** — with no RTC battery, the device now syncs real time over NTP once online, using the
+  timezone picked in the first-boot portal (offset applied; skipped in AP-only mode).
+
 ## [0.6.0] — 2026-07-07
 
 Multilingual, end to end. The dashboard already spoke several languages in its own chrome; now the

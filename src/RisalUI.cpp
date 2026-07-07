@@ -66,6 +66,55 @@ void RisalUI::_saveCreds(const char* ssid, const char* pass) {
 #endif
 }
 
+// ── Saved UI preferences: theme / accent / language / timezone. ESP32 only (Preferences has
+//    arbitrary keys); on ESP8266 these stay per-browser (localStorage) so the EEPROM creds layout
+//    is left untouched. Loaded at boot as the served defaults; written by /api/pref. ──
+void RisalUI::_loadPrefs() {
+#if defined(ESP32)
+  Preferences pr;
+  pr.begin("risaldash", true);
+  _theme = (Theme)pr.getInt("theme", (int)_theme);
+  _accent = pr.getInt("accent", _accent);
+  _tz = pr.getInt("tz", _tz);
+  String lg = pr.getString("lang", "");
+  pr.end();
+  if (lg.length()) {  // point _langCode at stable storage (_langStore), like a saved default
+    _langStore = lg;
+    _langCode = _langStore.c_str();
+    _rtl = (lg[0] == 'a' && lg[1] == 'r');
+  }
+#endif
+}
+
+// Persist a Settings choice to NVS and apply it in-memory (so the next render reflects it without a
+// reboot). Called from the Settings modal (sendBeacon) for theme/accent/language.
+void RisalUI::_handlePref(AsyncWebServerRequest* req) {
+#if defined(ESP32)
+  Preferences pr;
+  pr.begin("risaldash", false);
+  if (req->hasParam("theme")) {
+    String t = req->getParam("theme")->value();
+    _theme = t == "light" ? LIGHT : t == "auto" ? AUTO : DARK;
+    pr.putInt("theme", (int)_theme);
+  }
+  if (req->hasParam("accent")) { _accent = req->getParam("accent")->value().toInt(); pr.putInt("accent", _accent); }
+  if (req->hasParam("tz")) { _tz = req->getParam("tz")->value().toInt(); pr.putInt("tz", _tz); }
+  if (req->hasParam("lang")) {
+    String lg = req->getParam("lang")->value();
+    if (lg == "en" || lg == "ru" || lg == "uz" || lg == "ar") {
+      _langStore = lg;
+      _langCode = _langStore.c_str();
+      _rtl = (lg[0] == 'a' && lg[1] == 'r');
+      pr.putString("lang", lg);
+    }
+  }
+  pr.end();
+#else
+  (void)req;  // ESP8266: UI prefs stay client-side (localStorage)
+#endif
+  req->send(200, "text/plain", "ok");
+}
+
 bool RisalUI::_tryStation(const char* ssid, const char* pass, uint32_t timeoutMs) {
   // We persist credentials ourselves (NVS). Stop the ESP8266 SDK from auto-connecting to a stale
   // cached AP (e.g. a neighbour's network it once saw) and clear any old STA config first, so only
@@ -140,6 +189,7 @@ void RisalUI::sensor(const char* id, float* p0, float* p1, float* p2, float* p3)
 }
 
 void RisalUI::begin() {
+  _loadPrefs();
   // First-boot flow: saved creds -> try STA -> dashboard; else -> captive portal.
   String ss, pw;
   if (_loadCreds(ss, pw) && _tryStation(ss.c_str(), pw.c_str(), 15000)) {
@@ -150,6 +200,7 @@ void RisalUI::begin() {
 }
 
 void RisalUI::begin(const char* ssid, const char* pass) {
+  _loadPrefs();
   if (_tryStation(ssid, pass, 15000)) {
     _saveCreds(ssid, pass);
     _startServer();
@@ -159,6 +210,7 @@ void RisalUI::begin(const char* ssid, const char* pass) {
 }
 
 void RisalUI::beginAP(const char* ssid, const char* pass) {
+  _loadPrefs();
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid, pass);  // plain dashboard-over-AP (no provisioning portal)
   _startServer();
@@ -636,6 +688,10 @@ void RisalUI::_handleManifest(AsyncWebServerRequest* req) {
 }
 
 void RisalUI::_startServer() {
+  // No RTC battery: sync the real clock over NTP once we're online (offset = the chosen timezone).
+  // Skipped in AP-only mode (no internet); SNTP fills the time in the background.
+  if (WiFi.status() == WL_CONNECTED)
+    configTime((long)_tz * 60, 0, "pool.ntp.org", "time.nist.gov");
   _server.on("/", HTTP_GET, [this](AsyncWebServerRequest* req) { _handleRoot(req); });
   _server.on("/api/mcp/manifest", HTTP_GET, [this](AsyncWebServerRequest* req) { _handleManifest(req); });
   // REST API for integrations (Home Assistant, scripts, …).
@@ -643,6 +699,7 @@ void RisalUI::_startServer() {
     req->send(200, "application/json", _stateJson());
   });
   _server.on("/api/set", HTTP_ANY, [this](AsyncWebServerRequest* req) { _handleSet(req); });
+  _server.on("/api/pref", HTTP_ANY, [this](AsyncWebServerRequest* req) { _handlePref(req); });
   _server.on("/metrics", HTTP_GET, [this](AsyncWebServerRequest* req) { _handleMetrics(req); });
 
   if (_ota) {
@@ -909,6 +966,8 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
   out.print(F("window.RSB_TZ="));
   out.print(_tz);
   out.print(F(";"));
+  if (_gsm) out.print(F("window.RSB_GSM=1;"));  // cellular bars, only if the board declares a modem
+  if (_bt) out.print(F("window.RSB_BT=1;"));    // Bluetooth glyph, only when BT is active
   if (WiFi.isConnected()) {  // real link RSSI (dBm), shown next to the Wi-Fi icon; only in STA mode
     out.print(F("window.RSB_RSSI="));
     out.print(WiFi.RSSI());

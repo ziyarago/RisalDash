@@ -66,6 +66,11 @@ class RisalUI {
   // voltage divider: bat = map(analogRead(A0), rawEmpty, rawFull, 0, 100). Without this the bar
   // shows a cosmetic (simulated) battery. Users can hide the indicator in Settings either way.
   RisalUI& battery(int* pct) { _battery = pct; return *this; }
+  // Status-bar radios. Wi-Fi is always shown (the device serves over it). Declare the extras your
+  // board actually has: gsm() adds the cellular signal bars (only if a GSM/LTE modem is present),
+  // bluetooth() adds the BT glyph (only when BT is active). Both are hidden by default.
+  RisalUI& gsm(bool present = true) { _gsm = present; return *this; }
+  RisalUI& bluetooth(bool active = true) { _bt = active; return *this; }
   // Expose widgets to an AI agent via MCP: GET /api/mcp/manifest lists each widget as a
   // get_*/set_* tool (the risal-mcp-server bridge reads it). Token-guarded.
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
@@ -144,6 +149,7 @@ class RisalUI {
   void _renderRoot(Print& out, const char* eff, bool rtl, int active);
   void _onWs(AsyncWebSocketClient* client, AwsEventType type, uint8_t* data, size_t len);
   void _handleSet(AsyncWebServerRequest* req);
+  void _handlePref(AsyncWebServerRequest* req);  // persist UI prefs (theme/accent/lang/tz) to NVS
   void _handleMetrics(AsyncWebServerRequest* req);
   void _handleManifest(AsyncWebServerRequest* req);
   String _stateJson();
@@ -156,6 +162,7 @@ class RisalUI {
   void _handleConnect(AsyncWebServerRequest* req);
   bool _loadCreds(String& ssid, String& pass);
   void _saveCreds(const char* ssid, const char* pass);
+  void _loadPrefs();  // restore saved UI prefs (theme/accent/lang/tz) from NVS at boot (ESP32)
 #ifdef RISAL_ENABLE_MQTT
   void _mqttLoop();
   void _mqttPublish(Widget* w);
@@ -182,8 +189,11 @@ class RisalUI {
   const char* _apSsid = nullptr;
   const char* _mcpToken = nullptr;
   const char* _langCode = "en";
+  String _langStore;  // backs _langCode when the language is restored from NVS (stable storage)
   bool _rtl = false;
   bool _effects = true;
+  bool _gsm = false;  // status-bar GSM/cellular bars — only if the board has a modem
+  bool _bt = false;   // status-bar Bluetooth glyph — only when BT is active
   int _tz = 180;
   int _accent = 0;
   int* _battery = nullptr;  // bound real battery % (dash.battery); null -> cosmetic status-bar battery
