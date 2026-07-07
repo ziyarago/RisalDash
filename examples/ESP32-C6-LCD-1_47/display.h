@@ -6,6 +6,7 @@
 #pragma once
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
+#include <U8g2lib.h>  // for the Cyrillic font symbol (u8g2_font_*); Arduino_GFX draws it directly
 #include <qrcode.h>
 #include <math.h>
 
@@ -31,40 +32,44 @@ static const int NUM_SLIDES = 13;             // …Weather · Pump(LED) · Back
 static const int GX = 86, GY = 190, GR = 72;  // gauge centre + ring radius
 
 // ── LCD localization ─────────────────────────────────────────────────────────
-// The stock Arduino_GFX 5x7 font is Latin-only: it cannot draw Cyrillic or Arabic
-// glyphs (those need a bundled font pack + RTL shaping). So the LCD follows the
-// device language for Latin scripts (English, Oʻzbek) and falls back to English
-// for ru/ar. The *web* dashboard still serves all four languages in full.
-enum Lang { LANG_EN, LANG_UZ };
+// The stock Arduino_GFX 5x7 font is Latin-only. English + Oʻzbek (both Latin) render with it.
+// For Russian we switch the *labels* to a compact Cyrillic u8g2 font (from the U8g2 library —
+// the linker keeps just this one font). Arabic still falls back to English (needs RTL shaping).
+// Numbers/units stay in the classic font (ASCII). The web dashboard serves all four in full.
+enum Lang { LANG_EN, LANG_UZ, LANG_RU };
 static Lang _lang = LANG_EN;
 
 inline void setLang(const char *code) {  // pass the device language ("en"/"ru"/"uz"/"ar")
-  _lang = (code && code[0] == 'u' && code[1] == 'z') ? LANG_UZ : LANG_EN;
+  _lang = (code && code[0] == 'u' && code[1] == 'z') ? LANG_UZ
+          : (code && code[0] == 'r') ? LANG_RU
+                                     : LANG_EN;  // ar has no LCD font -> English fallback
 }
 
-struct Tr { const char *en; const char *uz; };
-inline const char *tr(const Tr &t) { return _lang == LANG_UZ ? t.uz : t.en; }
+struct Tr { const char *en; const char *uz; const char *ru; };
+inline const char *tr(const Tr &t) { return _lang == LANG_UZ ? t.uz : _lang == LANG_RU ? t.ru : t.en; }
+inline bool cyr() { return _lang == LANG_RU; }  // labels must render with the Cyrillic font
 
-// Slide labels — keep SHORT & UPPERCASE (panel is 172 px, ~14 chars at size 2).
-static const Tr T_SCAN     = {"SCAN TO OPEN", "OCHISH UCHUN"};
-static const Tr T_AIRTEMP  = {"AIR TEMP", "HARORAT"};
-static const Tr T_HUMIDITY = {"HUMIDITY", "NAMLIK"};
-static const Tr T_SOIL     = {"SOIL MOISTURE", "TUPROQ NAMI"};
-static const Tr T_PRESSURE = {"PRESSURE", "BOSIM"};
-static const Tr T_AIRQ     = {"AIR QUALITY", "HAVO SIFATI"};
-static const Tr T_TREND    = {"TEMP TREND", "TREND"};
-static const Tr T_ROBOT    = {"ROBOT", "ROBOT"};
-static const Tr T_WEATHER  = {"WEATHER", "OB-HAVO"};
-static const Tr T_CONNECT  = {"connecting...", "ulanmoqda..."};
-static const Tr T_PUMP      = {"PUMP", "NASOS"};
-static const Tr T_BACKLIGHT = {"BACKLIGHT", "YORQINLIK"};
-static const Tr T_OVERVIEW  = {"OVERVIEW", "UMUMIY"};
-static const Tr T_THERMAL   = {"THERMAL", "TERMAL"};
-static const Tr T_ON        = {"ON", "YONIQ"};    // ASCII only — the LCD font can't draw oʻ etc.
-static const Tr T_OFF       = {"OFF", "OCHIQ"};
-static const Tr T_GOOD      = {"GOOD", "YAXSHI"};
-static const Tr T_FAIR      = {"FAIR", "ORTA"};
-static const Tr T_POOR      = {"POOR", "YOMON"};
+// Slide labels — SHORT & UPPERCASE. ru uses Cyrillic (drawn via the u8g2 font). Strings drawn only
+// by the classic font (ON/OFF, badge, connecting) keep ru = English so they never garble.
+static const Tr T_SCAN     = {"SCAN TO OPEN", "OCHISH UCHUN", "СКАН QR"};
+static const Tr T_AIRTEMP  = {"AIR TEMP", "HARORAT", "ТЕМПЕРАТУРА"};
+static const Tr T_HUMIDITY = {"HUMIDITY", "NAMLIK", "ВЛАЖНОСТЬ"};
+static const Tr T_SOIL     = {"SOIL MOISTURE", "TUPROQ NAMI", "ВЛАГА ПОЧВЫ"};
+static const Tr T_PRESSURE = {"PRESSURE", "BOSIM", "ДАВЛЕНИЕ"};
+static const Tr T_AIRQ     = {"AIR QUALITY", "HAVO SIFATI", "КАЧ. ВОЗДУХА"};
+static const Tr T_TREND    = {"TEMP TREND", "TREND", "ТРЕНД"};
+static const Tr T_ROBOT    = {"ROBOT", "ROBOT", "РОБОТ"};
+static const Tr T_WEATHER  = {"WEATHER", "OB-HAVO", "ПОГОДА"};
+static const Tr T_CONNECT  = {"connecting...", "ulanmoqda...", "connecting..."};
+static const Tr T_PUMP      = {"PUMP", "NASOS", "НАСОС"};
+static const Tr T_BACKLIGHT = {"BACKLIGHT", "YORQINLIK", "ПОДСВЕТКА"};
+static const Tr T_OVERVIEW  = {"OVERVIEW", "UMUMIY", "ОБЗОР"};
+static const Tr T_THERMAL   = {"THERMAL", "TERMAL", "ТЕПЛО"};
+static const Tr T_ON        = {"ON", "YONIQ", "ON"};
+static const Tr T_OFF       = {"OFF", "OCHIQ", "OFF"};
+static const Tr T_GOOD      = {"GOOD", "YAXSHI", "GOOD"};
+static const Tr T_FAIR      = {"FAIR", "ORTA", "FAIR"};
+static const Tr T_POOR      = {"POOR", "YOMON", "POOR"};
 
 static Arduino_DataBus *_bus = nullptr;
 static Arduino_GFX *_gfx = nullptr;
@@ -85,6 +90,23 @@ inline void centerText(const char *s, int y, uint8_t size, uint16_t color) {
 }
 
 inline void slideLabel(const char *t, uint16_t dot) {
+  if (cyr()) {  // Russian: draw the label with the Cyrillic u8g2 font (baseline-positioned)
+    _gfx->setFont(u8g2_font_9x15_t_cyrillic);
+    _gfx->setUTF8Print(true);
+    _gfx->setTextSize(1);  // Arduino_GFX scales u8g2 fonts by textSize too; reset so the leftover size(2)
+                           // from chrome() can't blow the label up to ~18 px/glyph and overflow the panel.
+    int16_t bx, by;
+    uint16_t bw, bh;
+    _gfx->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+    int x = 86 - ((int)bw + 14) / 2;
+    _gfx->fillCircle(x, 61, 3, dot);
+    _gfx->setTextColor(C_INK3);
+    _gfx->setCursor(x + 12, 67);
+    _gfx->print(t);
+    _gfx->setFont((const GFXfont *)nullptr);  // back to the classic font for values/other text
+    _gfx->setUTF8Print(false);
+    return;
+  }
   int w = strlen(t) * 12;
   int x = 86 - (w + 14) / 2;
   _gfx->fillCircle(x, 61, 3, dot);
@@ -377,13 +399,23 @@ inline void multiValue(const MiniCell *cells, int n) {
   for (int i = 0; i < n && i < 4; i++) {
     int y = top + i * (rowH + gap);
     _gfx->fillRoundRect(12, y, 148, rowH, 12, C_CARD);
-    _gfx->setTextSize(1);
     _gfx->setTextColor(C_INK3);
-    _gfx->setCursor(24, y + 9);
-    _gfx->print(cells[i].label);
+    if (cyr()) {  // Cyrillic label via the u8g2 font
+      _gfx->setFont(u8g2_font_9x15_t_cyrillic);
+      _gfx->setUTF8Print(true);
+      _gfx->setTextSize(1);  // the previous cell left textSize at 3 (its value) — u8g2 scales too, so reset
+      _gfx->setCursor(24, y + 17);
+      _gfx->print(cells[i].label);
+      _gfx->setFont((const GFXfont *)nullptr);
+      _gfx->setUTF8Print(false);
+    } else {
+      _gfx->setTextSize(1);
+      _gfx->setCursor(24, y + 9);
+      _gfx->print(cells[i].label);
+    }
     _gfx->setTextSize(3);
     _gfx->setTextColor(cells[i].accent);
-    _gfx->setCursor(24, y + 20);
+    _gfx->setCursor(24, y + 24);
     _gfx->print(cells[i].value);
   }
 }
