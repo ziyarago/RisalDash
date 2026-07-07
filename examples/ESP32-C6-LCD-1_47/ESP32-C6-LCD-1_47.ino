@@ -455,10 +455,10 @@ void drawSlideValue() {
       snprintf(v2, sizeof(v2), "%d %%", soil);
       snprintf(v3, sizeof(v3), "%d hPa", (int)pres);
       lcd::MiniCell cells[4] = {
-        {"AIR TEMP", v0, lcd::C_TEAL},
-        {"HUMIDITY", v1, lcd::C_BLUE},
-        {"SOIL", v2, lcd::C_GREEN},
-        {"PRESSURE", v3, lcd::C_AMBER},
+        {lcd::tr(lcd::T_AIRTEMP), v0, lcd::C_TEAL},
+        {lcd::tr(lcd::T_HUMIDITY), v1, lcd::C_BLUE},
+        {lcd::tr(lcd::T_SOIL), v2, lcd::C_GREEN},
+        {lcd::tr(lcd::T_PRESSURE), v3, lcd::C_AMBER},
       };
       lcd::multiValue(cells, 4);
     } break;

@@ -60,6 +60,11 @@ static const Tr T_PUMP      = {"PUMP", "NASOS"};
 static const Tr T_BACKLIGHT = {"BACKLIGHT", "YORQINLIK"};
 static const Tr T_OVERVIEW  = {"OVERVIEW", "UMUMIY"};
 static const Tr T_THERMAL   = {"THERMAL", "TERMAL"};
+static const Tr T_ON        = {"ON", "YONIQ"};    // ASCII only — the LCD font can't draw oʻ etc.
+static const Tr T_OFF       = {"OFF", "OCHIQ"};
+static const Tr T_GOOD      = {"GOOD", "YAXSHI"};
+static const Tr T_FAIR      = {"FAIR", "ORTA"};
+static const Tr T_POOR      = {"POOR", "YOMON"};
 
 static Arduino_DataBus *_bus = nullptr;
 static Arduino_GFX *_gfx = nullptr;
@@ -218,13 +223,12 @@ inline void statValue(const char *num, const char *unit, uint16_t accent) {
 
 // Status pill (0 GOOD / 1 FAIR / 2 POOR) — a coloured capsule with dark centred text.
 inline void badgeValue(int level) {
-  static const char *TXT[] = {"GOOD", "FAIR", "POOR"};
   const uint16_t COL[] = {C_GREEN, C_AMBER, C_RED};
   if (level < 0) level = 0;
   if (level > 2) level = 2;
   _gfx->fillRect(0, 96, 172, 130, C_BG);
   _gfx->fillRoundRect(26, 148, 120, 48, 24, COL[level]);
-  const char *s = TXT[level];
+  const char *s = level == 0 ? tr(T_GOOD) : level == 1 ? tr(T_FAIR) : tr(T_POOR);
   int tw = strlen(s) * 18;  // size 3 -> ~18px per glyph
   _gfx->setTextSize(3);
   _gfx->setTextColor(C_BG);
@@ -350,7 +354,7 @@ inline void ledValue(bool on, uint16_t accent) {
     _gfx->fillCircle(86, 148, 34, C_TRACK);
     _gfx->fillCircle(86, 148, 24, C_CARD);  // hollow ring
   }
-  centerText(on ? "ON" : "OFF", 210, 3, on ? accent : C_INK3);
+  centerText(on ? tr(T_ON) : tr(T_OFF), 210, 3, on ? accent : C_INK3);
 }
 
 // Progress: a percentage over a thick rounded bar (brightness, fill level, battery…).
