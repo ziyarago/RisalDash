@@ -22,3 +22,17 @@ targets:
   - esp32c6
 dependencies:
   idf: ">=5.0"
+# Ship only the library + examples + docs; leave the website, build slots and tooling out.
+files:
+  exclude:
+    - "web/**/*"
+    - "ci/**/*"
+    - "dev/**/*"
+    - "tools/**/*"
+    - "docs/**/*"
+    - "emulator/**/*"
+    - "assets/**/*"
+    - "lang/**/*"
+    - ".github/**/*"
+    - ".claude/**/*"
+    - "**/.pio/**/*"
