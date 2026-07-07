@@ -24,8 +24,12 @@
 // follow — all prototyped in dev/.
 #define RISALDASH_VERSION "0.8.1"
 
+// Widget slots are one pointer each, so a roomy default costs 192 bytes of RAM and spares
+// users the silent "widget didn't appear" trap (past the cap, _add() drops widgets).
+// Packing more? Set a build flag (PlatformIO: build_flags = -D RISAL_MAX_WIDGETS=96) —
+// a #define in the sketch can't reach the library's own translation units.
 #ifndef RISAL_MAX_WIDGETS
-#define RISAL_MAX_WIDGETS 32
+#define RISAL_MAX_WIDGETS 48
 #endif
 
 // Handle returned by dash.sensor() so a preset can be tuned as a template: resize all its readouts
@@ -169,6 +173,14 @@ class RisalUI {
   RisalUI& interval(uint16_t ms) { _interval = ms; return *this; }
 
  private:
+  // One factory to rule them all: heap-allocate the widget, register it, hand back the
+  // concrete type so config chains (.decimals(), .variant(), .gear()…) keep working.
+  template <class W, class... A>
+  W& _make(A&&... a) {
+    W* w = new W(static_cast<A&&>(a)...);
+    _add(w);
+    return *w;
+  }
   void _startServer();
   void _handleRoot(AsyncWebServerRequest* req);
   // The page is streamed via a chunked response (a fill-callback re-renders through a windowing
