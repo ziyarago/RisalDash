@@ -127,11 +127,6 @@ String ledColor = "#22d3ee";
 int mood = 1;           // Robot face: 0 Neutral · 1 Happy · 2 Sad · 3 Angry · 4 Surprised · 5 Sleepy · 6 Love
 bool autoEmo = false;   // Auto emotion: cycle through all moods (web face + LCD eyes follow)
 
-// Device language (Settings gear). Drives the web dashboard (all four) and the LCD (en/uz native,
-// ru/ar fall back to English on the panel — the stock LCD font is Latin-only). Static literals so
-// dash.lang() can keep the pointer safely.
-static const char *const LANGS[] = {"en", "ru", "uz", "ar"};
-int langSel = 0;        // 0 English · 1 Русский · 2 Oʻzbek · 3 العربية
 
 // ── Weather. The HTTPS fetch blocks (~1-2 s), so it runs in a background FreeRTOS task and publishes
 //    into wxShared under a mutex; loop() copies that into these display globals and never blocks.
@@ -205,14 +200,9 @@ void setup() {
   mood = prefs.getInt("mood", mood);
   autoEmo = prefs.getInt("aemo", 0);
   cityInput = prefs.getString("city", cityInput);
-  langSel = prefs.getInt("lang", 0);
 
   lcd::begin();
   lcd::backlight(backlight);
-
-  // Language applies to both surfaces: the served dashboard (dash.lang) and the LCD (lcd::setLang).
-  dash.lang(LANGS[langSel]);
-  lcd::setLang(LANGS[langSel]);
 
   // Swipe pages (global nav strip + tile sheet) instead of one long scroll — dash.layout() per page.
   dash.layout("Sensors", RICON_LEAF);
@@ -277,14 +267,9 @@ void setup() {
   // Auto emotion: cycle through all moods on a timer (the LCD "Robot" slide shows the same).
   dash.toggle("Auto emotion", &autoEmo, [](bool on) { (void)on; prefs.putInt("aemo", autoEmo); });
 
-  // Device settings — all live in the Settings gear (.gear()), not on a dashboard page: language,
-  // brightness, the LCD slide picker + auto-slide interval, and the RGB LED mode/colour.
-  dash.select("Language", "English,Русский,Oʻzbek,العربية", &langSel, [](int i) { (void)i;
-    prefs.putInt("lang", langSel);
-    dash.lang(LANGS[langSel]);      // served dashboard re-renders in this language on next load
-    lcd::setLang(LANGS[langSel]);   // LCD follows (en/uz native; ru/ar -> English on the panel)
-    lastSlide = -1;                 // force the LCD to repaint its label immediately
-  }).gear();
+  // Device settings — all live in the Settings gear (.gear()), not on a dashboard page: brightness,
+  // the LCD slide picker + auto-slide interval, and the RGB LED mode/colour. (Language is the
+  // library's built-in Settings switcher; the LCD follows it via dash.language() in loop().)
   dash.toggle("Auto-slide", &autoSlide, [](bool on) { (void)on; prefs.putInt("auto", autoSlide); }).gear();
   dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather,Pump,Backlight,Overview,Thermal", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
   dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); }).gear();
@@ -295,6 +280,7 @@ void setup() {
   dash.layout("Control", RICON_POWER);
   dash.toggle("Pump", &pump, [](bool on) { (void)on; });
   dash.begin();
+  lcd::setLang(dash.language());  // LCD follows the device language (restored from NVS by begin())
   bleBegin();  // start the real BLE scan once Wi-Fi is up (they share the radio)
   WiFi.setSleep(true);  // Wi-Fi modem sleep — heat/power saver
   Serial.printf("[net] staIP=%s\n", WiFi.localIP().toString().c_str());
@@ -452,6 +438,10 @@ void loop() {
     wxDesc = wxValid ? RisalWeather::codeText(wxCode) : String("...");
   }
 #endif
+  // Keep the LCD language in sync with the library's Settings switcher (en/ru/uz/ar differ by first
+  // letter). No polling cost beyond a char compare; repaints the label when it changes.
+  static char lastLangC = 0;
+  if (dash.language()[0] != lastLangC) { lastLangC = dash.language()[0]; lcd::setLang(dash.language()); lastSlide = -1; }
   updateSlide();                                                   // which slide + static chrome
   drawSlideValue();                                                // its live value
   if (ledMode == led::GRADIENT && millis() - lastLed > 60) { lastLed = millis(); led::apply(ledMode, ledColor, curSlide); }

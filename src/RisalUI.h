@@ -68,6 +68,9 @@ class RisalUI {
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
   // UI language: "en" (default), "ru", "uz", "ar". "ar" switches the layout to RTL.
   RisalUI& lang(const char* code) { _langCode = code; _rtl = (code[0] == 'a' && code[1] == 'r'); return *this; }
+  // Current effective UI language ("en"/"ru"/"uz"/"ar"). Reflects the Settings switcher (persisted to
+  // NVS); poll it to keep a second surface — e.g. an LCD — in sync with the served dashboard.
+  const char* language() const { return _langCode; }
   // Optional: translate the strings YOU write (widget titles, layout/group/tab names, button labels,
   // select options). The library can't translate author text itself, so register a lookup that's
   // called at render time as fn(text, lang) -> localized text (return the original for unmapped
