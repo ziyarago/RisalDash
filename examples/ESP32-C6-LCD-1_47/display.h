@@ -27,7 +27,7 @@ static const uint16_t C_AMBER = RGB565(240, 190, 90);
 static const uint16_t C_RED = RGB565(240, 120, 110);
 static const uint16_t C_LOVE = RGB565(255, 92, 138);
 
-static const int NUM_SLIDES = 9;              // Address · Temp · Humidity · Soil · Pressure · Air · Trend · Robot · Weather
+static const int NUM_SLIDES = 13;             // …Weather · Pump(LED) · Backlight(progress) · Overview(multi) · Thermal(heatmap)
 static const int GX = 86, GY = 190, GR = 72;  // gauge centre + ring radius
 
 // ── LCD localization ─────────────────────────────────────────────────────────
@@ -56,6 +56,10 @@ static const Tr T_TREND    = {"TEMP TREND", "TREND"};
 static const Tr T_ROBOT    = {"ROBOT", "ROBOT"};
 static const Tr T_WEATHER  = {"WEATHER", "OB-HAVO"};
 static const Tr T_CONNECT  = {"connecting...", "ulanmoqda..."};
+static const Tr T_PUMP      = {"PUMP", "NASOS"};
+static const Tr T_BACKLIGHT = {"BACKLIGHT", "YORQINLIK"};
+static const Tr T_OVERVIEW  = {"OVERVIEW", "UMUMIY"};
+static const Tr T_THERMAL   = {"THERMAL", "TERMAL"};
 
 static Arduino_DataBus *_bus = nullptr;
 static Arduino_GFX *_gfx = nullptr;
@@ -151,6 +155,14 @@ inline void slideStatic(int s, const String &ip, const char *version) {
     slideLabel(tr(T_ROBOT), C_TEAL);
   } else if (s == 9) {
     slideLabel(tr(T_WEATHER), C_BLUE);
+  } else if (s == 10) {
+    slideLabel(tr(T_PUMP), C_TEAL);
+  } else if (s == 11) {
+    slideLabel(tr(T_BACKLIGHT), C_AMBER);
+  } else if (s == 12) {
+    slideLabel(tr(T_OVERVIEW), C_TEAL);
+  } else if (s == 13) {
+    slideLabel(tr(T_THERMAL), C_RED);
   }
 }
 
@@ -324,6 +336,78 @@ inline void weatherValue(float temp, const char *city, const char *desc, bool va
   _gfx->setCursor(x + nw + 4, 148);
   _gfx->print("C");
   centerText(valid ? desc : tr(T_CONNECT), 206, 2, C_INK3);
+}
+
+// ── More display widgets (read-only styles that suit a small non-touch panel) ──
+
+// On/off indicator: a big glowing dot (lit accent when on, hollow track when off) + ON/OFF.
+inline void ledValue(bool on, uint16_t accent) {
+  _gfx->fillRect(0, 96, 172, 132, C_BG);
+  _gfx->fillCircle(86, 150, 48, C_CARD);  // base plate
+  if (on) {
+    _gfx->fillCircle(86, 150, 34, accent);
+  } else {
+    _gfx->fillCircle(86, 150, 34, C_TRACK);
+    _gfx->fillCircle(86, 150, 24, C_CARD);  // hollow ring
+  }
+  centerText(on ? "ON" : "OFF", 214, 3, on ? accent : C_INK3);
+}
+
+// Progress: a percentage over a thick rounded bar (brightness, fill level, battery…).
+inline void progressValue(int pct, uint16_t accent) {
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  _gfx->fillRect(0, 96, 172, 132, C_BG);
+  char b[6];
+  snprintf(b, sizeof(b), "%d%%", pct);
+  centerText(b, 128, 4, accent);
+  _gfx->fillRoundRect(14, 190, 144, 24, 12, C_TRACK);
+  _gfx->fillRoundRect(14, 190, 144 * pct / 100, 24, 12, accent);
+}
+
+// Several readings on one screen — a compact stat grid (label + value cards).
+struct MiniCell { const char *label; const char *value; uint16_t accent; };
+inline void multiValue(const MiniCell *cells, int n) {
+  _gfx->fillRect(0, 78, 172, 210, C_BG);
+  const int top = 84, rowH = 46, gap = 6;
+  for (int i = 0; i < n && i < 4; i++) {
+    int y = top + i * (rowH + gap);
+    _gfx->fillRoundRect(12, y, 148, rowH, 12, C_CARD);
+    _gfx->setTextSize(1);
+    _gfx->setTextColor(C_INK3);
+    _gfx->setCursor(24, y + 9);
+    _gfx->print(cells[i].label);
+    _gfx->setTextSize(3);
+    _gfx->setTextColor(cells[i].accent);
+    _gfx->setCursor(24, y + 20);
+    _gfx->print(cells[i].value);
+  }
+}
+
+// 0..255 -> RGB565 on a jet colormap (blue -> cyan -> green -> yellow -> red).
+inline uint16_t jet(uint8_t v) {
+  float t = v / 255.0f;
+  int r = (int)(255 * constrain(1.5f - fabsf(4 * t - 3), 0.0f, 1.0f));
+  int g = (int)(255 * constrain(1.5f - fabsf(4 * t - 2), 0.0f, 1.0f));
+  int b = (int)(255 * constrain(1.5f - fabsf(4 * t - 1), 0.0f, 1.0f));
+  return RGB565(r, g, b);
+}
+
+// Thermal camera / any 2D field: a jet-coloured grid (e.g. MLX90640 24x18) mapped to [mn,mx].
+inline void heatmapValue(const float *buf, int cols, int rows, float mn, float mx) {
+  int cell = 144 / cols;
+  if (cell < 1) cell = 1;
+  int gw = cell * cols, gh = cell * rows;
+  int x0 = 86 - gw / 2, y0 = 96 + (140 - gh) / 2;
+  float rng = mx - mn;
+  if (rng < 1e-3f) rng = 1;
+  for (int r = 0; r < rows; r++)
+    for (int c = 0; c < cols; c++) {
+      float f = (buf[r * cols + c] - mn) / rng;
+      if (f < 0) f = 0;
+      if (f > 1) f = 1;
+      _gfx->fillRect(x0 + c * cell, y0 + r * cell, cell, cell, jet((uint8_t)(f * 255)));
+    }
 }
 
 }  // namespace lcd

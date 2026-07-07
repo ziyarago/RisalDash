@@ -183,6 +183,7 @@ void weatherTask(void *) {
 int curSlide = 1, lastSlide = -1;
 float lastTemp = -999, lastPres = -1, lastWxT = -999;
 int lastHum = -1, lastSoil = -1, lastAirq = -1, lastMood = -1;
+int lastPump = -1, lastBl = -1;  // LED (pump) + progress (backlight) slides
 String lastWxCityStr = "";
 bool lastBlink = false;
 
@@ -285,7 +286,7 @@ void setup() {
     lastSlide = -1;                 // force the LCD to repaint its label immediately
   }).gear();
   dash.toggle("Auto-slide", &autoSlide, [](bool on) { (void)on; prefs.putInt("auto", autoSlide); }).gear();
-  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
+  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather,Pump,Backlight,Overview,Thermal", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
   dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); }).gear();
   dash.slider("Backlight", &backlight, 5, 100, [](int i) { (void)i; prefs.putInt("bl", backlight); lcd::backlight(backlight); }).gear();
   dash.select("LED mode", "Off,Manual,Per-widget,Gradient", &ledMode, [](int i) { (void)i; prefs.putInt("led", ledMode); led::apply(ledMode, ledColor, curSlide); }).gear();
@@ -307,6 +308,7 @@ void setup() {
 }
 
 uint32_t lastAnim = 0, lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastWx = 0, lastBle = 0, lastHeat = 0, lastZb = 0;
+uint32_t lastMulti = 0, lastHeatDraw = 0;  // Overview (multi) + Thermal (heatmap) LCD redraw gates
 
 // Pull the latest readings from `sensors` into the globals the slides/LED/dashboard use. The source
 // (emulator vs real driver) lives entirely in sensors.h — this stays the same either way.
@@ -352,6 +354,7 @@ void updateSlide() {
   lcd::slideStatic(curSlide, WiFi.localIP().toString(), "RisalDash v" RISALDASH_VERSION);
   lastSlide = curSlide;
   lastTemp = -999; lastPres = -1; lastWxT = -999; lastHum = lastSoil = lastAirq = lastMood = -1;
+  lastPump = lastBl = -1;  // force the new slides to paint on entry
   lastSwap = millis();
   if (ledMode == led::PER_WIDGET) led::apply(ledMode, ledColor, curSlide);
 }
@@ -376,6 +379,24 @@ void drawSlideValue() {
       }
     } break;
     case 9: if (fabsf(wxTemp - lastWxT) >= 0.1f || wxCity != lastWxCityStr) { lcd::weatherValue(wxTemp, wxCity.c_str(), wxDesc.c_str(), wxValid); lastWxT = wxTemp; lastWxCityStr = wxCity; } break;
+    case 10: if ((int)pump != lastPump) { lcd::ledValue(pump, lcd::C_TEAL); lastPump = pump; } break;  // LED indicator
+    case 11: if (backlight != lastBl) { lcd::progressValue(backlight, lcd::C_AMBER); lastBl = backlight; } break;  // progress bar
+    case 12: if (millis() - lastMulti > 700) {  // several readings at once (stat grid)
+      lastMulti = millis();
+      static char v0[12], v1[12], v2[12], v3[12];
+      snprintf(v0, sizeof(v0), "%.1f C", temp);
+      snprintf(v1, sizeof(v1), "%d %%", (int)hum);
+      snprintf(v2, sizeof(v2), "%d %%", soil);
+      snprintf(v3, sizeof(v3), "%d hPa", (int)pres);
+      lcd::MiniCell cells[4] = {
+        {"AIR TEMP", v0, lcd::C_TEAL},
+        {"HUMIDITY", v1, lcd::C_BLUE},
+        {"SOIL", v2, lcd::C_GREEN},
+        {"PRESSURE", v3, lcd::C_AMBER},
+      };
+      lcd::multiValue(cells, 4);
+    } break;
+    case 13: if (millis() - lastHeatDraw > 450) { lastHeatDraw = millis(); lcd::heatmapValue(thermal, TW, TH, 20, 40); } break;  // thermal cam
   }
 }
 

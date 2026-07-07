@@ -5,6 +5,12 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **More LCD widget styles (ESP32-C6 example)** — the panel gains four read-only render styles beyond
+  gauge/metric/stat/badge/chart: an **LED indicator**, a **progress bar**, a **multi-metric grid**
+  (several readings on one screen), and a **thermal heatmap** (jet colormap, e.g. MLX90640). The
+  carousel now has 13 slides; controls (toggle/slider/…) stay web-only since the panel has no touch.
+
 ### Changed
 - **ESP32-C6 example now does a real BLE scan** (NimBLE) instead of the simulated feed: a continuous,
   non-blocking scan fills a deduped table and the "Nearby" panel lists real devices by signal, live
