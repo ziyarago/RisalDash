@@ -111,6 +111,11 @@ lib_deps =
   ; esp32async/ESPAsyncTCP    ; ESP8266
 ```
 
+**ESP-IDF** (Arduino as a component) — from the [Component Registry](https://components.espressif.com/components/shaxzodahmedov/risaldash):
+```bash
+idf.py add-dependency "shaxzodahmedov/risaldash"
+```
+
 ## Wi-Fi: first boot vs. fixed credentials
 
 ```cpp
