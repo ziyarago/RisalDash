@@ -68,6 +68,18 @@ inline uint8_t rDefaultSize(const char* t) {
   return RSIZE_M;    // slider, progress, select, text, password, time, date, button
 }
 
+// ── Optional author-string translation (widget titles, layout/group/tab names, button labels,
+// select options). These are strings YOU write, so the library can't translate them itself.
+// Register a translator with dash.translate(fn); it's called at render time with the effective
+// language ("en"/"ru"/"uz"/"ar") and must return a pointer to a stable (static/PROGMEM-copied)
+// string. Return the original for anything you don't map. Zero cost when no translator is set.
+typedef const char* (*RTranslator)(const char* text, const char* lang);
+extern RTranslator g_rTranslator;
+extern const char* g_rActiveLang;  // set per request to the effective language before rendering
+inline const char* rI18n(const char* s) {
+  return (g_rTranslator && s) ? g_rTranslator(s, g_rActiveLang) : s;
+}
+
 class Widget {
  public:
   Widget(const char* key, const char* title) : _key(key), _title(title) {}
@@ -129,7 +141,7 @@ class Widget {
     } else {
       out.print(F("<i class=\"eb\"></i>"));
     }
-    out.print(_title);
+    out.print(rI18n(_title));
     out.print(F("</h3>"));
   }
   void cardClose(Print& out) { out.print(F("</section>")); }
@@ -265,7 +277,7 @@ class ToggleWidget : public Widget {
     if (_cb) _cb(b);
   }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
     out.print(F("\",\"t\":\"toggle\"}"));
     return true;
   }
@@ -361,7 +373,7 @@ class SliderWidget : public Widget {
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_val ? *_val : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_val) *_val = n; if (_cb) _cb(n); }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
     out.print(F("\",\"t\":\"range\",\"lo\":")); out.print(_lo); out.print(F(",\"hi\":")); out.print(_hi); out.print('}');
     return true;
   }
@@ -381,7 +393,7 @@ class ButtonWidget : public Widget {
   void card(Print& out) override {
     cardOpen(out);
     out.print(F("<button class=\"act\">"));
-    out.print(_label ? _label : _title);
+    out.print(rI18n(_label ? _label : _title));
     out.print(F("</button>"));
     cardClose(out);
   }
@@ -764,9 +776,9 @@ class GroupWidget : public Widget {
   const char* css() const override { return RW_GROUP_CSS; }
   void card(Print& out) override {
     out.print(F("<div class=\"group\" id=\"g-"));
-    rwSlug(out, _title);
+    rwSlug(out, _title);  // slug/anchor stays the untranslated key (stable id)
     out.print(F("\">"));
-    out.print(_title);
+    out.print(rI18n(_title));
     out.print(F("</div>"));
   }
 };
@@ -810,7 +822,7 @@ class NumberWidget : public Widget {
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_val ? *_val : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_val) *_val = n; if (_cb) _cb(n); }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
     out.print(F("\",\"t\":\"number\",\"lo\":")); out.print(_lo); out.print(F(",\"hi\":")); out.print(_hi); out.print('}');
     return true;
   }
@@ -832,8 +844,10 @@ class SelectWidget : public Widget {
     int cur = _idx ? *_idx : 0;
     // Custom dropdown (not a native <select>) so the option list matches the UI instead of the OS
     // popup. The trigger shows the current label; the list overlays on click. JS keeps it in sync.
+    // Options are author strings, so run the whole comma-list through the translator (keep order/count).
+    const char* opts = rI18n(_opts);
     out.print(F("<div class=\"rsel\" tabindex=\"0\"><span class=\"rsel-cur\">"));
-    for (const char* p = _opts, *pi = _opts; p; p = nullptr) {  // print the current label
+    for (const char* p = opts, *pi = opts; p; p = nullptr) {  // print the current label
       int j = 0;
       for (; pi && *pi;) {
         const char* q = pi;
@@ -846,7 +860,7 @@ class SelectWidget : public Widget {
     out.print(F("</span><svg class=\"rsel-chev\" viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\"/></svg>"
                 "<ul class=\"rsel-list\">"));
     int i = 0;
-    for (const char* p = _opts; p && *p;) {
+    for (const char* p = opts; p && *p;) {
       const char* q = p;
       while (*q && *q != ',') q++;
       out.print(F("<li class=\"rsel-opt"));
@@ -867,8 +881,8 @@ class SelectWidget : public Widget {
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
-    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(_opts); out.print(F("\"}"));
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(rI18n(_opts)); out.print(F("\"}"));
     return true;
   }
  private:
@@ -1119,7 +1133,7 @@ class ColorWidget : public Widget {
   const char* css() const override { return RW_COLOR_CSS; }
   const char* js() const override { return RW_COLOR_JS; }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
     out.print(F("\",\"t\":\"color\"}"));
     return true;
   }
@@ -1266,8 +1280,8 @@ class RadioWidget : public Widget {
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_idx ? *_idx : 0); }
   void applyCommand(const String& v) override { int n = v.toInt(); if (_idx) *_idx = n; if (_cb) _cb(n); }
   bool writeGearMeta(Print& out) override {
-    out.print(F("{\"n\":\"")); out.print(_title); out.print(F("\",\"k\":\"")); out.print(_key);
-    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(_opts); out.print(F("\"}"));
+    out.print(F("{\"n\":\"")); out.print(rI18n(_title)); out.print(F("\",\"k\":\"")); out.print(_key);
+    out.print(F("\",\"t\":\"select\",\"opts\":\"")); out.print(rI18n(_opts)); out.print(F("\"}"));
     return true;
   }
  private:

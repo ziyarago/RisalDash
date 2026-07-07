@@ -15,6 +15,10 @@
   #include <Updater.h>
 #endif
 
+// Author-string translation hook (declared in RisalWidget.h). Off unless dash.translate() is set.
+RTranslator g_rTranslator = nullptr;
+const char* g_rActiveLang = "en";
+
 // ── Saved Wi-Fi credentials (ESP32: NVS via Preferences; ESP8266: EEPROM) ──
 bool RisalUI::_loadCreds(String& ssid, String& pass) {
 #if defined(ESP32)
@@ -188,13 +192,14 @@ enum RLoc { L_SUBTITLE, L_PASSWORD, L_CONNECT, L_SERVED, L_NETWORKS, L_TIMEZONE 
 const char* rloc(RLoc k, const char* lang) {
   bool ru = lang[0] == 'r';
   bool ar = lang[0] == 'a';
+  bool uz = lang[0] == 'u';
   switch (k) {
-    case L_SUBTITLE: return ar ? "إعداد Wi-Fi · اختر الشبكة" : ru ? "Настройка Wi-Fi · выберите сеть" : "Wi-Fi setup · choose your network";
-    case L_PASSWORD: return ar ? "كلمة المرور" : ru ? "Пароль" : "Password";
-    case L_CONNECT:  return ar ? "اتصال وحفظ" : ru ? "Подключить и сохранить" : "Connect & save";
-    case L_SERVED:   return ar ? "يخدمها ESP" : ru ? "обслуживается ESP" : "served by ESP";
-    case L_NETWORKS: return ar ? "الشبكات" : ru ? "Сети" : "Networks";
-    case L_TIMEZONE: return ar ? "المنطقة الزمنية" : ru ? "Часовой пояс" : "Timezone";
+    case L_SUBTITLE: return ar ? "إعداد Wi-Fi · اختر الشبكة" : ru ? "Настройка Wi-Fi · выберите сеть" : uz ? "Wi-Fi sozlash · tarmoqni tanlang" : "Wi-Fi setup · choose your network";
+    case L_PASSWORD: return ar ? "كلمة المرور" : ru ? "Пароль" : uz ? "Parol" : "Password";
+    case L_CONNECT:  return ar ? "اتصال وحفظ" : ru ? "Подключить и сохранить" : uz ? "Ulash va saqlash" : "Connect & save";
+    case L_SERVED:   return ar ? "يخدمها ESP" : ru ? "обслуживается ESP" : uz ? "ESP tomonidan" : "served by ESP";
+    case L_NETWORKS: return ar ? "الشبكات" : ru ? "Сети" : uz ? "Tarmoqlar" : "Networks";
+    case L_TIMEZONE: return ar ? "المنطقة الزمنية" : ru ? "Часовой пояс" : uz ? "Vaqt mintaqasi" : "Timezone";
   }
   return "";
 }
@@ -709,6 +714,7 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
   const char* eff = "en";
   bool rtl = false;
   if (want == "ru") eff = "ru";
+  else if (want == "uz") eff = "uz";
   else if (want == "ar") { eff = "ar"; rtl = true; }
   int active = req->hasParam("layout") ? req->getParam("layout")->value().toInt() : 0;
   req->sendChunked("text/html", [this, eff, rtl, active](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
@@ -719,6 +725,7 @@ void RisalUI::_handleRoot(AsyncWebServerRequest* req) {
 }
 
 void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
+  g_rActiveLang = eff;  // author-string translator (if any) resolves against this request's language
   out.print(F("<!DOCTYPE html><html class=\""));
   out.print(_effects ? "dark" : "dark flat");
   out.print(F("\" lang=\""));
@@ -770,7 +777,7 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
       out.print(F("<a href=\"#g-"));
       rwSlug(out, _widgets[i]->key());
       out.print(F("\" onclick=\"R.openNav(false)\">"));
-      out.print(_widgets[i]->key());
+      out.print(rI18n(_widgets[i]->key()));
       out.print(F("</a>"));
     }
     out.print(F("</aside>"));
@@ -839,7 +846,7 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
       out.print(F("\"><svg viewBox=\"0 0 24 24\"><path d=\""));
       out.print(FPSTR(lw->iconPath() ? lw->iconPath() : RICON_HOME));
       out.print(F("\"/></svg><span>"));
-      out.print(_widgets[k]->key());
+      out.print(rI18n(_widgets[k]->key()));
       out.print(F("</span></button>"));
     }
     out.print(F("</div></div>"));
@@ -865,7 +872,7 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
         out.print(F("\" data-tab=\""));
         out.print(ti);
         out.print(F("\">"));
-        out.print(_widgets[j]->key());
+        out.print(rI18n(_widgets[j]->key()));
         out.print(F("</button>"));
         ti++;
       }
@@ -895,6 +902,7 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
   out.print(FPSTR(RISAL_RUNTIME_JS));
   out.print(F("R.L={on:'On',off:'Off'};"));
   if (strcmp(eff, "ru") == 0) out.print(F("R.L.on='Вкл';R.L.off='Выкл';"));
+  else if (strcmp(eff, "uz") == 0) out.print(F("R.L.on='Yoniq';R.L.off='O\xCA\xBBchiq';"));
   else if (strcmp(eff, "ar") == 0) out.print(F("R.L.on='تشغيل';R.L.off='إيقاف';"));
   out.print(F("R.openNav=function(o){var s=document.querySelector('.scrim'),d=document.querySelector('.drawer');"
               "if(s)s.classList.toggle('open',o);if(d)d.classList.toggle('open',o);};"));
@@ -917,6 +925,10 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     out.print(F("window.RSL={set:'Настройки',lang:'Язык',theme:'Тема',accent:'Акцент',"
                  "note:'Сохранено \\u00b7 на всех экранах',dark:'Тёмная',light:'Светлая',auto:'Авто',"
                  "signal:'Сигнал (dBm)',on:'Вкл',off:'Выкл',battery:'Батарея'};"));
+  else if (strcmp(eff, "uz") == 0)
+    out.print(F("window.RSL={set:'Sozlamalar',lang:'Til',theme:'Mavzu',accent:'Urg\xCA\xBBu',"
+                 "note:'Saqlandi \\u00b7 barcha ekranlarda',dark:'Qorong\xCA\xBBi',light:'Yorug\xCA\xBB',auto:'Avto',"
+                 "signal:'Signal (dBm)',on:'Yoniq',off:'O\xCA\xBBchiq',battery:'Batareya'};"));
   else if (strcmp(eff, "ar") == 0)
     out.print(F("window.RSL={set:'الإعدادات',lang:'اللغة',theme:'السمة',accent:'اللون',"
                  "note:'محفوظ \\u00b7 في كل الشاشات',dark:'داكن',light:'فاتح',auto:'تلقائي',"

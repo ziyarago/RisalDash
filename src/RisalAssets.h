@@ -155,7 +155,7 @@ if(d.t==='number')return '<input type="number" class="sdev gc" '+k+' min="'+d.lo
 return '<div class="sseg gc" '+k+'><button data-v="1">'+L.on+'</button><button data-v="0">'+L.off+'</button></div>';}
 var devHtml=DEV.map(function(d){return '<div class="srow"><div class="l">'+d.n+'</div>'+devCtl(d)+'</div>';}).join('');
 var html='<div class="smodal"><div class="top"><h3>'+L.set+'</h3><button class="sx" id="sx">✕</button></div>'+
-'<div class="srow"><div class="l">'+L.lang+'</div><div class="sseg" id="slang"><button data-v="en">English</button><button data-v="ru">Русский</button><button data-v="ar">العربية</button></div></div>'+
+'<div class="srow"><div class="l">'+L.lang+'</div><div class="sseg" id="slang"><button data-v="en">EN</button><button data-v="ru">RU</button><button data-v="uz">UZ</button><button data-v="ar">AR</button></div></div>'+
 '<div class="srow"><div class="l">'+L.theme+'</div><div class="sseg" id="stheme"><button data-v="dark">'+L.dark+'</button><button data-v="light">'+L.light+'</button><button data-v="auto">'+L.auto+'</button></div></div>'+
 '<div class="srow"><div class="l">'+L.accent+'</div><div class="sacc" id="sacc">'+accBtns+'</div></div>'+
 '<div class="srow"><div class="l">'+L.signal+'</div><div class="sseg" id="ssig"><button data-v="1">'+L.on+'</button><button data-v="0">'+L.off+'</button></div></div>'+

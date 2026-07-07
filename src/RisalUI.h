@@ -42,8 +42,17 @@ class RisalUI {
   void beginAP(const char* ssid, const char* pass = nullptr);  // dashboard over a plain access point
   RisalUI& theme(Theme t);
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
-  // UI language: "en" (default), "ru", "ar". "ar" switches the layout to RTL.
+  // UI language: "en" (default), "ru", "uz", "ar". "ar" switches the layout to RTL.
   RisalUI& lang(const char* code) { _langCode = code; _rtl = (code[0] == 'a' && code[1] == 'r'); return *this; }
+  // Optional: translate the strings YOU write (widget titles, layout/group/tab names, button labels,
+  // select options). The library can't translate author text itself, so register a lookup that's
+  // called at render time as fn(text, lang) -> localized text (return the original for unmapped
+  // strings). Return value must point to stable storage (string literals / PROGMEM copied to a static
+  // buffer). Zero overhead when unset. Example:
+  //   dash.translate([](const char* s, const char* l) {
+  //     if (!strcmp(l,"ru") && !strcmp(s,"Air temp")) return "Температура воздуха";
+  //     return s; });
+  RisalUI& translate(RTranslator fn) { g_rTranslator = fn; return *this; }
   // Visual effects (orbs + appbar backdrop-blur) — on by default. effects(false) flattens
   // them for weak boards / lower GPU load, keeping the same colors.
   RisalUI& effects(bool on) { _effects = on; return *this; }

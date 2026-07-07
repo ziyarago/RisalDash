@@ -30,6 +30,33 @@ static const uint16_t C_LOVE = RGB565(255, 92, 138);
 static const int NUM_SLIDES = 9;              // Address · Temp · Humidity · Soil · Pressure · Air · Trend · Robot · Weather
 static const int GX = 86, GY = 190, GR = 72;  // gauge centre + ring radius
 
+// ── LCD localization ─────────────────────────────────────────────────────────
+// The stock Arduino_GFX 5x7 font is Latin-only: it cannot draw Cyrillic or Arabic
+// glyphs (those need a bundled font pack + RTL shaping). So the LCD follows the
+// device language for Latin scripts (English, Oʻzbek) and falls back to English
+// for ru/ar. The *web* dashboard still serves all four languages in full.
+enum Lang { LANG_EN, LANG_UZ };
+static Lang _lang = LANG_EN;
+
+inline void setLang(const char *code) {  // pass the device language ("en"/"ru"/"uz"/"ar")
+  _lang = (code && code[0] == 'u' && code[1] == 'z') ? LANG_UZ : LANG_EN;
+}
+
+struct Tr { const char *en; const char *uz; };
+inline const char *tr(const Tr &t) { return _lang == LANG_UZ ? t.uz : t.en; }
+
+// Slide labels — keep SHORT & UPPERCASE (panel is 172 px, ~14 chars at size 2).
+static const Tr T_SCAN     = {"SCAN TO OPEN", "OCHISH UCHUN"};
+static const Tr T_AIRTEMP  = {"AIR TEMP", "HARORAT"};
+static const Tr T_HUMIDITY = {"HUMIDITY", "NAMLIK"};
+static const Tr T_SOIL     = {"SOIL MOISTURE", "TUPROQ NAMI"};
+static const Tr T_PRESSURE = {"PRESSURE", "BOSIM"};
+static const Tr T_AIRQ     = {"AIR QUALITY", "HAVO SIFATI"};
+static const Tr T_TREND    = {"TEMP TREND", "TREND"};
+static const Tr T_ROBOT    = {"ROBOT", "ROBOT"};
+static const Tr T_WEATHER  = {"WEATHER", "OB-HAVO"};
+static const Tr T_CONNECT  = {"connecting...", "ulanmoqda..."};
+
 static Arduino_DataBus *_bus = nullptr;
 static Arduino_GFX *_gfx = nullptr;
 
@@ -103,27 +130,27 @@ inline void slideStatic(int s, const String &ip, const char *version) {
   chrome();
   carouselDots(s);
   if (s == 1) {
-    slideLabel("SCAN TO OPEN", C_TEAL);
+    slideLabel(tr(T_SCAN), C_TEAL);
     drawQR("http://" + ip, 86, 146, 4);
     centerText(ip.c_str(), 236, 2, C_GREEN);  // IP bigger + prominent
     centerText(version, 274, 1, C_INK3);       // copyright raised so the dots don't overlap it
   } else if (s == 2) {
-    slideLabel("AIR TEMP", C_TEAL);
+    slideLabel(tr(T_AIRTEMP), C_TEAL);
     arcSeg(GX, GY, GR, 9, 270, 630, C_TRACK);
   } else if (s == 3) {
-    slideLabel("HUMIDITY", C_TEAL);
+    slideLabel(tr(T_HUMIDITY), C_TEAL);
   } else if (s == 4) {
-    slideLabel("SOIL MOISTURE", C_GREEN);
+    slideLabel(tr(T_SOIL), C_GREEN);
   } else if (s == 5) {
-    slideLabel("PRESSURE", C_BLUE);
+    slideLabel(tr(T_PRESSURE), C_BLUE);
   } else if (s == 6) {
-    slideLabel("AIR QUALITY", C_GREEN);
+    slideLabel(tr(T_AIRQ), C_GREEN);
   } else if (s == 7) {
-    slideLabel("TEMP TREND", C_TEAL);
+    slideLabel(tr(T_TREND), C_TEAL);
   } else if (s == 8) {
-    slideLabel("ROBOT", C_TEAL);
+    slideLabel(tr(T_ROBOT), C_TEAL);
   } else if (s == 9) {
-    slideLabel("WEATHER", C_BLUE);
+    slideLabel(tr(T_WEATHER), C_BLUE);
   }
 }
 
@@ -296,7 +323,7 @@ inline void weatherValue(float temp, const char *city, const char *desc, bool va
   _gfx->setTextColor(C_INK3);
   _gfx->setCursor(x + nw + 4, 148);
   _gfx->print("C");
-  centerText(valid ? desc : "connecting...", 206, 2, C_INK3);
+  centerText(valid ? desc : tr(T_CONNECT), 206, 2, C_INK3);
 }
 
 }  // namespace lcd
