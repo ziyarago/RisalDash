@@ -22,6 +22,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <math.h>
+#include <BLEDevice.h>  // real BLE scanner (NimBLE stack on the C6) — coexists with Wi-Fi
 
 Preferences prefs;  // persists the display/LED settings to NVS (survive reboots)
 
@@ -47,9 +48,53 @@ float power = 0, energyKwh = 0, cost = 0;
 int tariff = 12;  // price per kWh, cents — editable on the dashboard
 RisalFake powerFake(850, 650, 40, 1.3f);  // watts, wandering
 
-// Fake BLE scanner (stand-in for a NimBLE scan) — nearby devices incl. a Xiaomi temp/humidity beacon.
-RisalFakeBLE ble;
+// Real BLE scanner. A continuous, non-blocking scan runs in the BLE task and fills a small deduped
+// table (by address); loop() rebuilds the "Nearby" list from it every few seconds. Wi-Fi + BLE share
+// the 2.4 GHz radio by time-slicing — this works while the dashboard is served.
 LogWidget *bleLog = nullptr;
+struct BleDev { char addr[18]; char name[22]; int rssi; uint32_t seen; };
+static const int BLE_MAX = 12;
+static BleDev bleTab[BLE_MAX];
+static volatile int bleCnt = 0;
+static portMUX_TYPE bleMux = portMUX_INITIALIZER_UNLOCKED;
+
+// Called from the BLE task for every advertisement. Keep the String work outside the critical
+// section; only the tiny table upsert runs with the spinlock held.
+class BleScanCB : public BLEAdvertisedDeviceCallbacks {
+  void onResult(BLEAdvertisedDevice d) override {
+    char addr[18];
+    strncpy(addr, d.getAddress().toString().c_str(), 17);
+    addr[17] = 0;
+    char name[22];
+    if (d.haveName()) { strncpy(name, d.getName().c_str(), 21); name[21] = 0; }
+    else strcpy(name, "(no name)");
+    int rssi = d.getRSSI();
+    uint32_t now = millis();
+    portENTER_CRITICAL(&bleMux);
+    int idx = -1;
+    for (int i = 0; i < bleCnt; i++)
+      if (strcmp(bleTab[i].addr, addr) == 0) { idx = i; break; }
+    if (idx < 0 && bleCnt < BLE_MAX) idx = bleCnt++;
+    if (idx >= 0) {
+      strcpy(bleTab[idx].addr, addr);
+      strcpy(bleTab[idx].name, name);
+      bleTab[idx].rssi = rssi;
+      bleTab[idx].seen = now;
+    }
+    portEXIT_CRITICAL(&bleMux);
+  }
+};
+static BleScanCB bleCB;
+
+void bleBegin() {  // start the continuous async scan (called after Wi-Fi is up)
+  BLEDevice::init("RisalDash");
+  BLEScan *scan = BLEDevice::getScan();
+  scan->setAdvertisedDeviceCallbacks(&bleCB, true);  // report duplicates so RSSI stays fresh
+  scan->setActiveScan(true);                          // ask for names (a bit more power)
+  scan->setInterval(160);
+  scan->setWindow(80);
+  scan->start(0, nullptr, false);  // duration 0 = scan forever, non-blocking
+}
 
 // Record & replay the temperature: capture the live signal, then loop the recording (Replay toggle).
 RisalRecorder rec;
@@ -249,6 +294,7 @@ void setup() {
   dash.layout("Control", RICON_POWER);
   dash.toggle("Pump", &pump, [](bool on) { (void)on; });
   dash.begin();
+  bleBegin();  // start the real BLE scan once Wi-Fi is up (they share the radio)
   WiFi.setSleep(true);  // Wi-Fi modem sleep — heat/power saver
   Serial.printf("[net] staIP=%s\n", WiFi.localIP().toString().c_str());
   led::apply(ledMode, ledColor, curSlide);
@@ -353,13 +399,26 @@ void loop() {
     zbDoor = (millis() / 15000) % 2;                  // door opens/closes
     zbMotion = ((millis() / 6000) % 3 == 0) ? 1 : 0;  // motion detected
   }
-  if (bleLog && millis() - lastBle > 2500) {  // refresh the fake BLE scan feed
+  if (bleLog && millis() - lastBle > 2500) {  // rebuild "Nearby" from the live BLE scan table
     lastBle = millis();
-    ble.update();
-    for (int i = ble.count() - 1; i >= 0; i--) {
-      String line = String(ble.name(i)) + "  " + ble.rssi(i) + "dBm";
-      if (ble.isSensor(i)) line += "  " + String(ble.sensorTemp(), 1) + "C " + ble.sensorHum() + "%";
-      bleLog->print(line);
+    BleDev snap[BLE_MAX];
+    uint32_t now = millis();
+    portENTER_CRITICAL(&bleMux);
+    int w = 0;  // compact out devices not heard from in the last 10 s
+    for (int i = 0; i < bleCnt; i++)
+      if (now - bleTab[i].seen <= 10000) bleTab[w++] = bleTab[i];
+    bleCnt = w;
+    for (int i = 0; i < w; i++) snap[i] = bleTab[i];
+    portEXIT_CRITICAL(&bleMux);
+    for (int i = 0; i < w; i++)  // strongest signal first
+      for (int j = i + 1; j < w; j++)
+        if (snap[j].rssi > snap[i].rssi) { BleDev t = snap[i]; snap[i] = snap[j]; snap[j] = t; }
+    if (w == 0) {
+      bleLog->print("scanning...");
+    } else {
+      int show = w < 5 ? w : 5;
+      for (int i = 0; i < show; i++)
+        bleLog->print(String(snap[i].name) + "  " + snap[i].rssi + "dBm");
     }
   }
 #if defined(ESP32)

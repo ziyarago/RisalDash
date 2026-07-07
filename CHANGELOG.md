@@ -3,6 +3,14 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **ESP32-C6 example now does a real BLE scan** (NimBLE) instead of the simulated feed: a continuous,
+  non-blocking scan fills a deduped table and the "Nearby" panel lists real devices by signal, live
+  alongside the Wi-Fi dashboard. (Zigbee stays a mock — Wi-Fi and 802.15.4 can't share the C6 radio
+  at once.)
+
 ## [0.8.1] — 2026-07-07
 
 ### Fixed
