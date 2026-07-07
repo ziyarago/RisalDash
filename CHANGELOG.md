@@ -3,6 +3,27 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.6.0] — 2026-07-07
+
+Multilingual, end to end. The dashboard already spoke several languages in its own chrome; now the
+strings *you* write can follow, and the ESP32-C6 LCD localizes too.
+
+### Added
+- **Uzbek (`uz`)** across the device chrome — captive portal, status bar and the Settings modal now
+  offer en / ru / uz / ar.
+- **`dash.translate(fn)`** — register one lookup and the library localizes the strings it can't
+  translate itself: widget titles, page/group/tab names, button labels and select options. Called at
+  render time as `fn(text, lang)`; zero overhead until you set it. New example:
+  `examples/Any-ESP/Multilingual`.
+- **LCD localization (ESP32-C6)** — panel labels follow the device language for Latin scripts
+  (English, Oʻzbek) and fall back to English for ru/ar, since the stock Arduino_GFX font is
+  Latin-only. A **Language** selector in the Settings gear persists to NVS and drives both the web
+  dashboard and the LCD together.
+
+### Changed
+- Denser **4-column grid on mobile** (was 2) so compact metric cards pack tighter on phones.
+- ESP32-C6 example shows the robot **face at L (full-width)** to demonstrate size variety.
+
 ## [0.5.0] — 2026-07-06
 
 A big feature release: new widgets, a "develop with no hardware" fake-data engine, live weather, more
