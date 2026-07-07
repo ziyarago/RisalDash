@@ -7,7 +7,7 @@
 
 **Beautiful real-time web dashboards for ESP32 / ESP8266 — in a few lines of C++.**
 
-<p align="center"><img src="assets/hero.gif" alt="A few lines of C++ become a live RisalDash dashboard" width="860"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/ziyarago/RisalDash/main/assets/hero.gif" alt="A few lines of C++ become a live RisalDash dashboard" width="860"></p>
 
 Describe widgets; RisalDash generates the HTML, CSS, JS and the WebSocket protocol for you.
 The dashboard is served by the device itself in an **OKLCH "liquid glass"** style (translucent
