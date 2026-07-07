@@ -342,15 +342,15 @@ inline void weatherValue(float temp, const char *city, const char *desc, bool va
 
 // On/off indicator: a big glowing dot (lit accent when on, hollow track when off) + ON/OFF.
 inline void ledValue(bool on, uint16_t accent) {
-  _gfx->fillRect(0, 96, 172, 132, C_BG);
-  _gfx->fillCircle(86, 150, 48, C_CARD);  // base plate
+  _gfx->fillRect(0, 96, 172, 150, C_BG);  // tall enough to also clear the ON/OFF label below
+  _gfx->fillCircle(86, 148, 46, C_CARD);  // base plate
   if (on) {
-    _gfx->fillCircle(86, 150, 34, accent);
+    _gfx->fillCircle(86, 148, 34, accent);
   } else {
-    _gfx->fillCircle(86, 150, 34, C_TRACK);
-    _gfx->fillCircle(86, 150, 24, C_CARD);  // hollow ring
+    _gfx->fillCircle(86, 148, 34, C_TRACK);
+    _gfx->fillCircle(86, 148, 24, C_CARD);  // hollow ring
   }
-  centerText(on ? "ON" : "OFF", 214, 3, on ? accent : C_INK3);
+  centerText(on ? "ON" : "OFF", 210, 3, on ? accent : C_INK3);
 }
 
 // Progress: a percentage over a thick rounded bar (brightness, fill level, battery…).
