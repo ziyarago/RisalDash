@@ -3,6 +3,12 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [0.8.1] — 2026-07-07
+
+### Fixed
+- README hero image now uses an absolute URL, so it renders on the ESP Component Registry (and
+  anywhere the README is shown outside GitHub), not only in the repo.
+
 ## [0.8.0] — 2026-07-07
 
 Building blocks and starting points: a multi-line input, tunable sensor templates, gauge looks, and

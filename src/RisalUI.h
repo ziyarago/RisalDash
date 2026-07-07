@@ -22,7 +22,7 @@
 // Each widget type's CSS is emitted once (Zero-Waste). Live WebSocket updates (P3),
 // the full widget set + sensor presets (P2), and AP captive-portal provisioning (P4)
 // follow — all prototyped in dev/.
-#define RISALDASH_VERSION "0.8.0"
+#define RISALDASH_VERSION "0.8.1"
 
 #ifndef RISAL_MAX_WIDGETS
 #define RISAL_MAX_WIDGETS 32
