@@ -154,8 +154,12 @@ All widgets bind to a variable by pointer and update live.
 | `image(name, &String)` · `ai(name, &String)` | `String*` | image URL / assistant note |
 | `table(title).row(label, &float, unit, dec)` | `float*` | key/value rows |
 
-**Layout:** `group(title)`, `separator(title)`, `tab(title)` (switchable panels), and
-`.span(2)` / `.span(3)` to widen any card (collapses on mobile).
+**Layout:** `group(title)`, `separator(title)`, `tab(title)` (switchable panels).
+
+**Sizes:** every widget sits on an iOS-style cell grid and has a sensible default footprint.
+Override it with `.size(RSIZE_S)` (1 cell, compact), `.size(RSIZE_M)` (full width) or
+`.size(RSIZE_L)` (full width + double height) — e.g. `dash.metric("CPU", &cpu, "%").size(RSIZE_L);`.
+Works on single widgets and on sensor presets: `dash.sensor("bme280", …).size(RSIZE_L)`.
 
 **Icons:** `.icon(RICON_THERMOMETER)` puts an IoT glyph in the card header. Built-in set:
 thermometer, water, flash, bulb, power, gauge, home, wifi, clock, signal, leaf, motion —
@@ -268,21 +272,35 @@ one device. No YAML.
 - **Minimal** — a few widgets over an access point.
 - **FirstBoot** — captive-portal Wi-Fi provisioning (signal levels, timezone), then your network.
 - **Layouts** — multi-page dashboard with the swipe-up page switcher + `accent()`/`timezone()`.
-- **AllWidgets** — every widget type, grouped by purpose, plus a sensor preset.
+- **Tabs** — switchable tab panels, with cards pinned above them.
+- **AllWidgets** — every widget type across five pages, from gauges to the robot face, map,
+  3D cube, terminal and thermal heatmap.
+- **WidgetSizes** — the cell grid: the same reading at `RSIZE_S` / `RSIZE_M` / `RSIZE_L`,
+  compact gauges, and a sensor preset resized as a group.
+- **FakeSensors** — the whole `<RisalFake.h>` toolbox: drifting values, the day/night
+  greenhouse, GPS route playback, a fake BLE scan and record-&-replay — no hardware attached.
+- **SensorTemplates** — `dash.sensor("bme280", …)` presets, tuned with `.chart()` / `.size()`.
+- **Multilingual** — `dash.translate()`: the whole UI (your titles included) switches EN/RU/UZ/AR.
+- **ESP32-C6-LCD-1.47** — the big showcase: web dashboard + a 13-slide LCD carousel, real BLE
+  scan, live weather, robot eyes; split into `display.h` / `led.h` / `i18n.h` / `sensors.h` /
+  `weather.h` / `ble.h` so the sketch stays readable.
+- **ESP32-S3-DualCore** — a heavy worker on core 0 while the dashboard stays smooth on core 1.
 
 ## Footprint
 
 RisalDash is **Zero-Waste**: a widget type you never call is stripped by the linker, so it costs
-nothing. Measured on ESP32 (Arduino) — flash added by the *first* use of each type (its C++ + CSS
-+ JS), over the bare ESPAsyncWebServer baseline:
+nothing. Measured on ESP32 (Arduino core 3.3) — flash added by the *first* use of each type (its
+C++ + CSS + JS), over an empty RisalDash dashboard:
 
-| Widget | + flash | Widget | + flash |
-|---|---|---|---|
-| `led` | ~1.3 KB | `metric` | ~2.3 KB |
-| `badge` | ~1.6 KB | `table` | ~2.4 KB |
-| `ai` | ~1.8 KB | `slider` | ~2.4 KB |
-| `number` | ~1.8 KB | `gauge` | ~3.1 KB |
-| `toggle` | ~2.0 KB | `chart` | ~3.4 KB |
+| Widget | + flash | Widget | + flash | Widget | + flash |
+|---|---|---|---|---|---|
+| `led` | ~1.8 KB | `metric` | ~2.4 KB | `slider` | ~2.9 KB |
+| `heatmap` | ~1.8 KB | `cube` | ~2.4 KB | `terminal` | ~3.2 KB |
+| `log` | ~1.9 KB | `text` | ~2.4 KB | `face` | ~3.3 KB |
+| `image` | ~1.9 KB | `number` | ~2.5 KB | `table` | ~3.3 KB |
+| `badge` | ~2.0 KB | `toggle` | ~2.6 KB | `chart` | ~3.5 KB |
+| `ai` | ~2.0 KB | `map` | ~2.7 KB | `gauge` | ~4.3 KB |
+| | | | | `select` | ~4.6 KB |
 
 Extra instances of a type you already use are a few bytes each. Unused types: **0 bytes** — that's
 the point.
