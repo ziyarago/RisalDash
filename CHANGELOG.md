@@ -3,7 +3,10 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0] — 2026-07-07
+
+Building blocks and starting points: a multi-line input, tunable sensor templates, gauge looks, and
+two ready-to-ship dashboard templates.
 
 ### Added
 - **`dash.textarea(name, &str)`** — multi-line text input bound to a `String`, for notes, a small
@@ -16,6 +19,9 @@ All notable changes to RisalDash are documented here. The format loosely follows
 - **Gauge design variants** — `dash.gauge(...).variant("ring" | "semi" | "bar")`: the full-circle
   ring (default), a speedometer half-circle, or a linear bar. Same data, three looks; pick what
   fits the card size and the quantity.
+- **Ready-made dashboard templates** — `examples/Templates/Greenhouse` and
+  `examples/Templates/EnergyMonitor`: complete, opinionated dashboards you copy, bind to your
+  pins/sensors, and ship. They showcase the sensor presets, gauge variants and multi-page layout.
 
 ## [0.7.0] — 2026-07-07
 
