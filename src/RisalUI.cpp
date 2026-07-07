@@ -517,6 +517,12 @@ TextWidget& RisalUI::text(const char* name, String* val, TextWidget::Cb cb) {
   return *w;
 }
 
+TextareaWidget& RisalUI::textarea(const char* name, String* val, TextareaWidget::Cb cb) {
+  TextareaWidget* w = new TextareaWidget(name, name, val, cb);
+  _add(w);
+  return *w;
+}
+
 LogWidget& RisalUI::log(const char* name, uint8_t lines) {
   LogWidget* w = new LogWidget(name, name, lines);
   _add(w);

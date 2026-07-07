@@ -120,6 +120,7 @@ class RisalUI {
   LayoutWidget& layout(const char* name, const char* icon = nullptr);
   LabelWidget&  label(const char* name, String* val);
   TextWidget&   text(const char* name, String* val, TextWidget::Cb cb = nullptr);
+  TextareaWidget& textarea(const char* name, String* val, TextareaWidget::Cb cb = nullptr);  // multi-line
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);

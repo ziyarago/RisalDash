@@ -3,6 +3,13 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`dash.textarea(name, &str)`** — multi-line text input bound to a `String`, for notes, a small
+  JSON/config blob, or any longer field. Rounds out the custom UI primitives (input · textarea ·
+  select · tabs). Not in ESPUI.
+
 ## [0.7.0] — 2026-07-07
 
 Device chrome that remembers itself: the status bar shows only the radios your board has, the

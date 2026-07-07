@@ -920,6 +920,11 @@ static const char RW_LABEL_JS[] PROGMEM =
 static const char RW_TEXT_JS[] PROGMEM =
   "R.W.text={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,i.value);});},"
   "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
+static const char RW_TEXTAREA_CSS[] PROGMEM =
+  ".tarea{width:100%;min-height:92px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:14.5px/1.5 var(--font);padding:10px 12px;resize:vertical;box-sizing:border-box}";
+static const char RW_TEXTAREA_JS[] PROGMEM =
+  "R.W.textarea={init:function(el){var t=el.querySelector('textarea');if(t)t.addEventListener('change',function(){R.send(el.dataset.key,t.value);});},"
+  "update:function(el,v){var t=el.querySelector('textarea');if(t&&document.activeElement!==t)t.value=v;}};";
 static const char RW_LOG_JS[] PROGMEM =
   "R.W.log={update:function(el,v){var e=el.querySelector('.log');if(e)e.innerHTML=v;}};";
 
@@ -957,6 +962,29 @@ class TextWidget : public Widget {
     out.print(F("<input class=\"tinp\" type=\"text\" value=\""));
     if (_val) rwAttr(out, *_val);
     out.print(F("\">"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { String v = _val ? *_val : String(); if (!_seen || v != _last) { _seen = true; _last = v; return true; } return false; }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_val ? *_val : String()); out += '"'; }
+  void applyCommand(const String& v) override { if (_val) *_val = v; if (_cb) _cb(v); }
+ private:
+  String* _val; Cb _cb; String _last; bool _seen = false;
+};
+
+// ── Control: multi-line text input (bound to a String) ──
+class TextareaWidget : public Widget {
+ public:
+  using Cb = std::function<void(const String&)>;
+  TextareaWidget(const char* key, const char* title, String* val, Cb cb) : Widget(key, title), _val(val), _cb(cb) {}
+  const char* typeId() const override { return "textarea"; }
+  const char* css() const override { return RW_TEXTAREA_CSS; }
+  const char* js() const override { return RW_TEXTAREA_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<textarea class=\"tarea\" rows=\"4\">"));
+    if (_val) rwAttr(out, *_val);  // element content, still needs &/</> escaping
+    out.print(F("</textarea>"));
     cardClose(out);
   }
   bool hasState() const override { return true; }

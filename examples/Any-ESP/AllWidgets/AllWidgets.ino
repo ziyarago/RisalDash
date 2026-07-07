@@ -39,6 +39,7 @@ void setup() {
 
   dash.group("Inputs");
   dash.text("Hostname", &devName, [](const String& v) { (void)v; });
+  dash.textarea("Notes", &note, [](const String& v) { (void)v; });  // multi-line, bound to a String
   dash.password("Wi-Fi key", &wifiKey, [](const String& v) { (void)v; });
   dash.time("Boot time", &boot);
   dash.date("Service day", &svcDay);
