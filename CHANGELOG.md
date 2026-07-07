@@ -3,7 +3,10 @@
 All notable changes to RisalDash are documented here. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [semver](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] — 2026-07-07
+
+Device chrome that remembers itself: the status bar shows only the radios your board has, the
+Settings you pick survive a reboot, and the clock is real.
 
 ### Added
 - **`dash.gsm()` / `dash.bluetooth()`** — status-bar radios. Wi-Fi always shows (the device serves
