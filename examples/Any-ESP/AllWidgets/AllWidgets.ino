@@ -21,7 +21,9 @@ void setup() {
 
   dash.group("Display");
   dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
-  dash.gauge("Voltage", &volts, 0, 14, "V");
+  dash.gauge("Voltage", &volts, 0, 14, "V");                    // ring (default)
+  dash.gauge("Humidity", &hum, 0, 100, "%").variant("semi");   // speedometer half-circle
+  dash.gauge("Pressure", &pres, 950, 1050, "hPa").variant("bar");  // linear bar
   dash.chart("Temperature", &temp, "C").span(2);
   dash.stat("RSSI", &rssi, "dBm").decimals(0);
   dash.progress("RAM", &ram, "%");

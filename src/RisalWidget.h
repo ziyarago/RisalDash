@@ -11,9 +11,14 @@
 // ── Per-type CSS (single TU: included only by RisalUI.cpp) ──
 static const char RW_GAUGE_CSS[] PROGMEM =
   ".gauge{display:grid;place-items:center;position:relative;padding:4px 0}"
-  ".gauge svg{transform:rotate(-90deg)}"
-  ".gauge .gv{position:absolute;font:800 22px/1 var(--font);font-variant-numeric:tabular-nums}"
-  ".gauge .gv .unit{font-size:11px}";
+  ".gauge.ring svg{transform:rotate(-90deg)}"
+  ".gauge .gv{position:absolute;font:800 22px/1 var(--font);font-variant-numeric:tabular-nums;text-align:center}"
+  ".gauge .gv .unit{font-size:11px}"
+  ".gauge.semi .gv{top:auto;bottom:16px}"
+  ".gauge.bar{display:block;padding:10px 2px}"
+  ".gauge.bar .gv{position:static;display:block;text-align:start;margin-bottom:9px}"
+  ".gauge .gbar{width:100%;height:10px;border-radius:6px;background:var(--bg3);overflow:hidden}"
+  ".gauge .gbar>i{display:block;height:100%;background:var(--grad);border-radius:6px;transition:width .4s}";
 
 static const char RW_TOGGLE_CSS[] PROGMEM =
   ".tg{display:flex;align-items:center;justify-content:space-between}"
@@ -30,7 +35,8 @@ static const char RW_METRIC_JS[] PROGMEM =
 static const char RW_GAUGE_JS[] PROGMEM =
   "R.W.gauge={update:function(el,v){var lo=+el.dataset.min,hi=+el.dataset.max,"
   "f=Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));"
-  "var a=el.querySelector('.arc');if(a)a.style.strokeDashoffset=263.9*(1-f);"
+  "var a=el.querySelector('.arc');if(a)a.style.strokeDashoffset=100*(1-f);"       // ring + semi (pathLength=100)
+  "var bar=el.querySelector('.gbar>i');if(bar)bar.style.width=(f*100)+'%';"        // bar variant
   "var b=el.querySelector('.gv b');if(b)b.textContent=(+v).toFixed(1);}};";
 
 static const char RW_TOGGLE_JS[] PROGMEM =
@@ -202,6 +208,8 @@ class GaugeWidget : public Widget {
   const char* typeId() const override { return "gauge"; }
   const char* css() const override { return RW_GAUGE_CSS; }
   const char* js() const override { return RW_GAUGE_JS; }
+  // Visual variant: "ring" (default, full circle) · "semi" (speedometer half-circle) · "bar" (linear).
+  GaugeWidget& variant(const char* v) { _variant = v; return *this; }
 
   void card(Print& out) override {
     cardOpen(out);
@@ -209,16 +217,35 @@ class GaugeWidget : public Widget {
     float span = (_hi - _lo) != 0 ? (_hi - _lo) : 1;
     float f = (v - _lo) / span;
     f = f < 0 ? 0 : (f > 1 ? 1 : f);
-    out.print(F("<div class=\"gauge\"><svg width=\"116\" height=\"116\" viewBox=\"0 0 116 116\">"
-                "<circle cx=\"58\" cy=\"58\" r=\"42\" fill=\"none\" stroke=\"var(--bg3)\" stroke-width=\"9\"/>"
-                "<circle class=\"arc\" cx=\"58\" cy=\"58\" r=\"42\" fill=\"none\" stroke=\"url(#rg)\" stroke-width=\"9\" "
-                "stroke-linecap=\"round\" stroke-dasharray=\"263.9\" stroke-dashoffset=\""));
-    out.print(263.9f * (1.0f - f), 1);
-    out.print(F("\"/></svg><div class=\"gv\"><b>"));
-    out.print(v, 1);
-    out.print(F("</b> <span class=\"unit\">"));
-    out.print(_unit ? _unit : "");
-    out.print(F("</span></div></div>"));
+    const bool bar = _variant[0] == 'b', semi = _variant[0] == 's';
+    out.print(F("<div class=\"gauge "));
+    out.print(bar ? "bar" : semi ? "semi" : "ring");
+    out.print(F("\">"));
+    if (bar) {
+      out.print(F("<div class=\"gv\"><b>"));
+      out.print(v, 1);
+      out.print(F("</b> <span class=\"unit\">"));
+      out.print(_unit ? _unit : "");
+      out.print(F("</span></div><div class=\"gbar\"><i style=\"width:"));
+      out.print(f * 100.0f, 0);
+      out.print(F("%\"></i></div>"));
+    } else {
+      out.print(F("<svg width=\"116\" height=\"116\" viewBox=\"0 0 116 116\">"));
+      if (semi) {  // top half-circle, endpoints on the horizontal diameter (unambiguous arc)
+        out.print(F("<path d=\"M16 58 A42 42 0 0 1 100 58\" fill=\"none\" stroke=\"var(--bg3)\" stroke-width=\"9\" stroke-linecap=\"round\" pathLength=\"100\"/>"
+                    "<path class=\"arc\" d=\"M16 58 A42 42 0 0 1 100 58\" fill=\"none\" stroke=\"url(#rg)\" stroke-width=\"9\" stroke-linecap=\"round\" pathLength=\"100\" stroke-dasharray=\"100\" stroke-dashoffset=\""));
+      } else {  // full ring
+        out.print(F("<circle cx=\"58\" cy=\"58\" r=\"42\" fill=\"none\" stroke=\"var(--bg3)\" stroke-width=\"9\" pathLength=\"100\"/>"
+                    "<circle class=\"arc\" cx=\"58\" cy=\"58\" r=\"42\" fill=\"none\" stroke=\"url(#rg)\" stroke-width=\"9\" stroke-linecap=\"round\" pathLength=\"100\" stroke-dasharray=\"100\" stroke-dashoffset=\""));
+      }
+      out.print(100.0f * (1.0f - f), 1);
+      out.print(F("\"/></svg><div class=\"gv\"><b>"));
+      out.print(v, 1);
+      out.print(F("</b> <span class=\"unit\">"));
+      out.print(_unit ? _unit : "");
+      out.print(F("</span></div>"));
+    }
+    out.print(F("</div>"));
     cardClose(out);
   }
 
@@ -243,6 +270,7 @@ class GaugeWidget : public Widget {
   float* _val;
   float _lo, _hi;
   const char* _unit;
+  const char* _variant = "ring";
   float _last = NAN;
 };
 

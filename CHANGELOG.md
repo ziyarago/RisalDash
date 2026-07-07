@@ -13,6 +13,9 @@ All notable changes to RisalDash are documented here. The format loosely follows
   `.chart()` adds a live trend chart for every quantity, `.size(RSIZE_S/M/L)` resizes the readouts.
   So the same preset ships as a compact card, a big readout, or a full readout-plus-trend layout.
   New `examples/Any-ESP/SensorTemplates`.
+- **Gauge design variants** — `dash.gauge(...).variant("ring" | "semi" | "bar")`: the full-circle
+  ring (default), a speedometer half-circle, or a linear bar. Same data, three looks; pick what
+  fits the card size and the quantity.
 
 ## [0.7.0] — 2026-07-07
 
