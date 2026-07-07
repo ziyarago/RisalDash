@@ -28,6 +28,30 @@
 #define RISAL_MAX_WIDGETS 32
 #endif
 
+// Handle returned by dash.sensor() so a preset can be tuned as a template: resize all its readouts
+// (.size()) or add a trend chart for every quantity (.chart()). Chain right after sensor():
+//   dash.sensor("bme280", &t, &h, &p).chart().size(RSIZE_L);
+class RisalUI;
+class SensorGroup {
+ public:
+  explicit SensorGroup(RisalUI* ui) : _ui(ui) {}
+  SensorGroup& size(RSize s) {  // resize the preset's readouts (charts keep their own default)
+    for (uint8_t i = 0; i < _n; i++)
+      if (_w[i]) _w[i]->size(s);
+    return *this;
+  }
+  SensorGroup& chart();  // add a history chart for each quantity not already shown as one
+ private:
+  friend class RisalUI;
+  RisalUI* _ui;
+  Widget* _w[4] = {nullptr, nullptr, nullptr, nullptr};      // readout widgets (for .size())
+  float* _p[4] = {nullptr, nullptr, nullptr, nullptr};       // bound variables (for .chart())
+  const char* _title[4] = {nullptr, nullptr, nullptr, nullptr};
+  const char* _unit[4] = {nullptr, nullptr, nullptr, nullptr};
+  bool _isChart[4] = {false, false, false, false};           // already a chart -> .chart() skips it
+  uint8_t _n = 0;
+};
+
 class RisalUI {
  public:
   enum Theme { DARK, LIGHT, AUTO };
@@ -134,8 +158,8 @@ class RisalUI {
   AiWidget&     ai(const char* name, String* note);
 
   // Sensor preset (quantity-based): expands a known sensor into the right widgets.
-  // e.g. dash.sensor("bme280", &temp, &hum, &pres);
-  void sensor(const char* id, float* p0 = nullptr, float* p1 = nullptr, float* p2 = nullptr, float* p3 = nullptr);
+  // e.g. dash.sensor("bme280", &temp, &hum, &pres); chain .chart() / .size() to tune the template.
+  SensorGroup sensor(const char* id, float* p0 = nullptr, float* p1 = nullptr, float* p2 = nullptr, float* p3 = nullptr);
 
   // Push changed widget values to clients over the WebSocket (throttled). Call from loop().
   void update();

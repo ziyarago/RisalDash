@@ -9,6 +9,10 @@ All notable changes to RisalDash are documented here. The format loosely follows
 - **`dash.textarea(name, &str)`** — multi-line text input bound to a `String`, for notes, a small
   JSON/config blob, or any longer field. Rounds out the custom UI primitives (input · textarea ·
   select · tabs). Not in ESPUI.
+- **Sensor templates are tunable** — `dash.sensor(...)` now returns a handle you can chain:
+  `.chart()` adds a live trend chart for every quantity, `.size(RSIZE_S/M/L)` resizes the readouts.
+  So the same preset ships as a compact card, a big readout, or a full readout-plus-trend layout.
+  New `examples/Any-ESP/SensorTemplates`.
 
 ## [0.7.0] — 2026-07-07
 

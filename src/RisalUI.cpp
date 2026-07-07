@@ -172,20 +172,37 @@ const uint8_t RSENSOR_COUNT = sizeof(RSENSORS) / sizeof(RSENSORS[0]);
 
 RisalUI::RisalUI(const char* title) : _title(title) {}
 
-void RisalUI::sensor(const char* id, float* p0, float* p1, float* p2, float* p3) {
+SensorGroup RisalUI::sensor(const char* id, float* p0, float* p1, float* p2, float* p3) {
+  SensorGroup g(this);
   const RSensor* s = nullptr;
   for (uint8_t i = 0; i < RSENSOR_COUNT; i++)
     if (strcmp(id, RSENSORS[i].id) == 0) { s = &RSENSORS[i]; break; }
-  if (!s) return;
+  if (!s) return g;  // unknown preset -> empty group (chaining is a no-op)
   float* p[4] = {p0, p1, p2, p3};
   for (uint8_t i = 0; i < s->n && i < 4; i++) {
     const RMeasure& m = s->m[i];
+    Widget* w = nullptr;
     switch (m.kind) {
-      case K_GAUGE: gauge(m.title, p[i], m.lo, m.hi, m.unit); break;
-      case K_CHART: chart(m.title, p[i], m.unit); break;
-      default:      metric(m.title, p[i], m.unit); break;
+      case K_GAUGE: w = &gauge(m.title, p[i], m.lo, m.hi, m.unit); break;
+      case K_CHART: w = &chart(m.title, p[i], m.unit); break;
+      default:      w = &metric(m.title, p[i], m.unit); break;
     }
+    g._w[i] = w;               // remember the readout so .size() / .chart() can act on the group
+    g._p[i] = p[i];
+    g._title[i] = m.title;
+    g._unit[i] = m.unit;
+    g._isChart[i] = (m.kind == K_CHART);
+    g._n++;
   }
+  return g;
+}
+
+// Add a history chart for every quantity that isn't already a chart (the readouts stay; the charts
+// are appended after them). Bound to the same variables, so they trend live like any dash.chart().
+SensorGroup& SensorGroup::chart() {
+  for (uint8_t i = 0; i < _n; i++)
+    if (!_isChart[i] && _p[i]) _ui->chart(_title[i], _p[i], _unit[i]);
+  return *this;
 }
 
 void RisalUI::begin() {
