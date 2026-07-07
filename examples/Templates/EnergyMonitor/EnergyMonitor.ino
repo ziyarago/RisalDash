@@ -23,7 +23,7 @@ void setup() {
   dash.gauge("Power", &watts, 0, 3000, "W");                 // ring
   dash.gauge("Voltage", &volts, 180, 260, "V").variant("semi");
   dash.gauge("Current", &amps, 0, 16, "A").variant("bar");
-  dash.chart("Load", &watts, "W").span(2);
+  dash.chart("Load", &watts, "W");
 
   // ── Billing ──
   dash.layout("Billing", RICON_HOME);

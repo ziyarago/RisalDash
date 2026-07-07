@@ -8,6 +8,7 @@
 //
 // Served over a plain access point — connect to "RisalDash-Demo" and open http://192.168.4.1/
 #include <RisalUI.h>
+#include <math.h>
 #include <string.h>
 
 RisalUI dash("RisalDash");
@@ -57,7 +58,7 @@ void setup() {
 
   // ── Page 2: Climate ──
   dash.layout("Climate", RICON_THERMOMETER);
-  dash.chart("Humidity", &hum, "%").span(2);
+  dash.chart("Humidity", &hum, "%");
   dash.slider("Target", &target, 16, 30, [](int v) { (void)v; /* setSetpoint(v) */ });
   dash.select("Mode", "Auto,Eco,Boost", &mode, [](int i) { (void)i; });
   dash.toggle("Heater", &heater, [](bool on) { (void)on; });
@@ -69,6 +70,6 @@ void setup() {
 void loop() {
   // Simulate movement so the dashboard looks alive.
   cpu = 30 + (millis() / 200 % 55);
-  temp += 0.03f * ((millis() / 1000 % 2) ? 1 : -1);
+  temp = 24.0f + 2.0f * sinf(millis() * 0.0005f);
   dash.update();  // push changed values to the browser over WebSocket
 }

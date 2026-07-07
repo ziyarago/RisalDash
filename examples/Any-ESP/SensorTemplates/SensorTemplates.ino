@@ -4,6 +4,7 @@
 //   .size(s)  — resize the readouts (RSIZE_S compact · RSIZE_M · RSIZE_L big)
 // Served over a plain access point — connect to "RisalDash-Demo" and open http://192.168.4.1/
 #include <RisalUI.h>
+#include <math.h>
 
 RisalUI dash("Sensors");
 
@@ -29,7 +30,7 @@ void setup() {
 }
 
 void loop() {
-  t += 0.02f * ((millis() / 1500 % 2) ? 1 : -1);
+  t = 24.0f + 1.5f * sinf(millis() * 0.0004f);
   w = v * i;
   dash.update();  // stream changed values (and chart history) to the browser
 }

@@ -3,6 +3,7 @@
 // tabs. Served over a plain access point — connect to "RisalDash-Demo" and open
 // http://192.168.4.1/   (For full multi-page navigation with a swipe-up sheet, see Layouts.)
 #include <RisalUI.h>
+#include <math.h>
 
 RisalUI dash("Showcase");
 
@@ -34,6 +35,6 @@ void setup() {
 
 void loop() {
   ram = 50 + (millis() / 300 % 40);
-  temp += 0.03f * ((millis() / 1000 % 2) ? 1 : -1);
+  temp = 24.0f + 2.0f * sinf(millis() * 0.0005f);
   dash.update();
 }

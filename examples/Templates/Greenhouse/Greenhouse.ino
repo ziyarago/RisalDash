@@ -22,7 +22,7 @@ void setup() {
   dash.layout("Climate", RICON_THERMOMETER);
   dash.gauge("Air temp", &airT, 0, 50, "C");                 // ring
   dash.gauge("Humidity", &airH, 0, 100, "%").variant("semi");
-  dash.chart("Trend", &airT, "C").span(2);
+  dash.chart("Trend", &airT, "C");
   dash.number("Target", &target, 16, 32, 1, [](int v) { (void)v; /* setpoint */ });
   dash.toggle("Fan", &fan, [](bool on) { (void)on; /* digitalWrite(FAN_PIN, on) */ });
 
