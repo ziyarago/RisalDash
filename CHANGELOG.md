@@ -5,17 +5,56 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-08
+
+A structural release: the library got split into readable modules and audited end to end on real
+boards (ESP8266 D1 mini + ESP32-C6) — the firmware got smaller on every target while gaining
+features and fixing bugs the audit surfaced.
+
 ### Added
-- **More LCD widget styles (ESP32-C6 example)** — the panel gains four read-only render styles beyond
-  gauge/metric/stat/badge/chart: an **LED indicator**, a **progress bar**, a **multi-metric grid**
-  (several readings on one screen), and a **thermal heatmap** (jet colormap, e.g. MLX90640). The
-  carousel now has 13 slides; controls (toggle/slider/…) stay web-only since the panel has no touch.
+- **`dash.forgetWiFi()`** — erase the saved credentials and reboot into the captive setup portal
+  (previously only possible by erasing flash). See the new `01_Start/WifiSetup` example.
+- **Live status-bar telemetry** — the Wi-Fi RSSI in the status bar now updates every ~5 s over the
+  WebSocket (reserved `_rssi` key); a bound real battery (`dash.battery`) rides along as `_bat`.
+- **Themed time & color pickers** — `dash.time()` opens an hour/minute popover scrolled to the
+  current value; `dash.color()` opens a 16-swatch grid (also used by the Settings modal). No more
+  native OS pickers clashing with the theme; all four popovers (select/date/time/color) now close
+  each other and lift their card above neighbours.
+- **New examples** — `WidgetSizes` (the S/M/L cell grid), `FakeSensors` (the whole RisalFake
+  toolbox), `UiKit` (every structural element in one sketch), `WifiSetup` (the provisioning
+  circle), and a `Wemos-D1-Mini` board showcase (real onboard LED/A0/heap + a fake demo page).
+- **Cyrillic LCD labels (ESP32-C6 example)** — Russian slide labels render via a compact U8g2 font.
+- **More LCD widget styles (ESP32-C6 example)** — LED indicator, progress bar, multi-metric grid
+  and a thermal heatmap; the carousel now has 13 slides.
 
 ### Changed
-- **ESP32-C6 example now does a real BLE scan** (NimBLE) instead of the simulated feed: a continuous,
-  non-blocking scan fills a deduped table and the "Nearby" panel lists real devices by signal, live
-  alongside the Wi-Fi dashboard. (Zigbee stays a mock — Wi-Fi and 802.15.4 can't share the C6 radio
-  at once.)
+- **The source got a structure** — `RisalWidget.h` (1459 lines) is now an umbrella over
+  `src/widgets/{base,icons,display,controls,inputs,visual,layout}.h`; `RisalUI.cpp` (1183 lines)
+  split into core + Render/Provision/Api/Sensors/Mqtt translation units; assets share one PROGMEM
+  copy. Public API unchanged; flash SHRANK on every board (up to −2.2 KB) and ESP8266 freed 816 B
+  of RAM.
+- **`examples/` is a learning path** — numbered categories (`01_Start` → `05_Boards`) with an
+  index README; the Arduino IDE menu now reads in order.
+- **`RISAL_MAX_WIDGETS` default 32 → 48** — widgets past the cap were silently dropped.
+- **The browser tab shows the device title**, not the brand.
+- **The mobile nav drawer hides when `layout()` pages exist** — the swipe pager owns navigation.
+- **First paint is localized** — toggle/led render Вкл/Выкл (etc.) immediately; badge labels and
+  radio options run through `dash.translate()`.
+- **ESP32-C6 example now does a real BLE scan** (NimBLE) instead of the simulated feed, live
+  alongside the Wi-Fi dashboard; its sketch slimmed 533 → ~275 lines by moving translations, data
+  sources, weather and BLE into their own headers.
+
+### Fixed
+- **The linear gauge (`.variant("bar")`) never rendered correctly** — its `bar` class collided
+  with the core `.bar` (metric track) CSS, which clipped the value inside a 7-px pill. The variant
+  now emits class `lin`.
+- **Uzbek strings were corrupted** by a greedy hex escape (`»c` → out-of-range char): «Oʻchiq»
+  now renders correctly everywhere.
+- **Removed dead weight** shipped with every page: the unused `.lng`/`.lhandle`/orbs CSS+DOM, the
+  no-op `.span()` API, and the never-wired `lang/` generator.
+
+### Removed
+- **`.span()`** — the size presets (`.size(RSIZE_S/M/L)`) replaced it long ago; it did nothing.
 
 ## [0.8.1] — 2026-07-07
 
