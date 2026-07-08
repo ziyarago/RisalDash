@@ -172,7 +172,7 @@ static const char RW_SELECT_JS[] PROGMEM =
   "box.addEventListener('click',function(e){var o=e.target.closest('.rsel-opt');"
   "if(o){opts.forEach(function(x){x.classList.remove('on');});o.classList.add('on');"
   "cur.textContent=o.textContent;open(false);R.send(el.dataset.key,+o.dataset.i);}"
-  "else{open(!box.classList.contains('open'));}});"
+  "else{var o=!box.classList.contains('open');document.body.click();open(o);}});"
   "document.addEventListener('click',function(e){if(!box.contains(e.target))open(false);});},"
   "update:function(el,v){var box=el.querySelector('.rsel');if(!box)return;"
   "box.querySelectorAll('.rsel-opt').forEach(function(o){var on=+o.dataset.i===+v;o.classList.toggle('on',on);"
