@@ -1,4 +1,4 @@
-// Auto-wrapped copy of examples/ESP32-C6-LCD-1_47 (.ino -> .cpp needs the explicit Arduino.h include).
+// Auto-wrapped copy of examples/05_Boards/ESP32-C6-LCD-1_47 (.ino -> .cpp needs the explicit Arduino.h include).
 #include <Arduino.h>
 // ESP32-C6 (Waveshare C6-LCD-1.47) web-controlled display carousel. Thirteen LCD slides showcase
 // the render styles — QR address, gauge, metric+bar, stat, badge, sparkline, robot eyes, weather,

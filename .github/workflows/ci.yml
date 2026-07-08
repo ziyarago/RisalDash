@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [Minimal, FirstBoot, Layouts, Tabs, AllWidgets, Multilingual, SensorTemplates, WidgetSizes, FakeSensors]
+        example: [Minimal, FirstBoot, WifiSetup, Layouts, Tabs, UiKit, AllWidgets, Multilingual, SensorTemplates, WidgetSizes, FakeSensors]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +34,8 @@ jobs:
       - name: Build ${{ matrix.example }} (ESP32 + ESP8266)
         run: |
           set -o pipefail   # without this, `| tee` would mask a failed build
-          cp "examples/Any-ESP/${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
+          # examples live in numbered category folders (01_Start/…); glob the category
+          cp examples/*/"${{ matrix.example }}/${{ matrix.example }}.ino" ci/src/main.cpp
           cd ci
           pio run -e esp32dev -e nodemcuv2 -e d1_mini 2>&1 | tee build.log
 

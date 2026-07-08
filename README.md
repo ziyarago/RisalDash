@@ -271,6 +271,7 @@ one device. No YAML.
 
 - **Minimal** — a few widgets over an access point.
 - **FirstBoot** — captive-portal Wi-Fi provisioning (signal levels, timezone), then your network.
+- **WifiSetup** — the full provisioning circle, incl. `dash.forgetWiFi()` back to the portal.
 - **Layouts** — multi-page dashboard with the swipe-up page switcher + `accent()`/`timezone()`.
 - **Tabs** — switchable tab panels, with cards pinned above them.
 - **AllWidgets** — every widget type across five pages, from gauges to the robot face, map,
@@ -280,11 +281,13 @@ one device. No YAML.
 - **FakeSensors** — the whole `<RisalFake.h>` toolbox: drifting values, the day/night
   greenhouse, GPS route playback, a fake BLE scan and record-&-replay — no hardware attached.
 - **SensorTemplates** — `dash.sensor("bme280", …)` presets, tuned with `.chart()` / `.size()`.
+- **UiKit** — the interface skeleton: pages, groups, separators, sizes, icons, `.gear()`, chrome.
 - **Multilingual** — `dash.translate()`: the whole UI (your titles included) switches EN/RU/UZ/AR.
 - **ESP32-C6-LCD-1.47** — the big showcase: web dashboard + a 13-slide LCD carousel, real BLE
   scan, live weather, robot eyes; split into `display.h` / `led.h` / `i18n.h` / `sensors.h` /
   `weather.h` / `ble.h` so the sketch stays readable.
 - **ESP32-S3-DualCore** — a heavy worker on core 0 while the dashboard stays smooth on core 1.
+- **Wemos-D1-Mini** — all-real-hardware ESP8266 showcase: onboard LED, A0, live heap/RSSI.
 
 ## Footprint
 
