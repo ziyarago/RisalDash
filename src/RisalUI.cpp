@@ -199,6 +199,16 @@ void RisalUI::update() {
     if (_mqttHost && _mqtt.connected()) _mqttPublish(_widgets[i]);
 #endif
   }
+  // Status-bar extras: live Wi-Fi RSSI (and the real battery, when bound) every ~5 s.
+  // Reserved "_" keys are handled by the client runtime itself, not by widgets.
+  if (WiFi.status() == WL_CONNECTED && now - _lastSbPush > 5000) {
+    _lastSbPush = now;
+    if (any) s += ',';
+    s += "\"_rssi\":";
+    s += String(WiFi.RSSI());
+    if (_battery) { s += ",\"_bat\":"; s += String(*_battery); }
+    any = true;
+  }
   s += "}";
   if (any) _ws.textAll(s);
   _ws.cleanupClients();

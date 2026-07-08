@@ -100,6 +100,25 @@ void RisalUI::_handlePref(AsyncWebServerRequest* req) {
   req->send(200, "text/plain", "ok");
 }
 
+// Erase the saved credentials (NVS / EEPROM) and schedule a reboot — begin() then finds no
+// network and raises the captive setup portal.
+void RisalUI::forgetWiFi() {
+#if defined(ESP32)
+  Preferences pr;
+  pr.begin("risaldash", false);
+  pr.remove("ssid");
+  pr.remove("pass");
+  pr.end();
+#elif defined(ESP8266)
+  struct { uint32_t magic; char s[33]; char p[65]; int tz; } c = {};  // zeroed magic = no creds
+  EEPROM.begin(sizeof(c));
+  EEPROM.put(0, c);
+  EEPROM.commit();
+  EEPROM.end();
+#endif
+  _rebootAt = millis() + 900;
+}
+
 bool RisalUI::_tryStation(const char* ssid, const char* pass, uint32_t timeoutMs) {
   // We persist credentials ourselves (NVS). Stop the ESP8266 SDK from auto-connecting to a stale
   // cached AP (e.g. a neighbour's network it once saw) and clear any old STA config first, so only

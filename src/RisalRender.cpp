@@ -47,9 +47,13 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     if (!dup) { seen[sc++] = c; out.print(FPSTR(c)); }
   }
 
-  uint8_t groups = 0;
-  for (uint8_t i = 0; i < _count; i++)
+  uint8_t groups = 0, layCount = 0;
+  bool hasTabs = false;
+  for (uint8_t i = 0; i < _count; i++) {
     if (strcmp(_widgets[i]->typeId(), "group") == 0) groups++;
+    if (strcmp(_widgets[i]->typeId(), "tab") == 0) hasTabs = true;
+    if (strcmp(_widgets[i]->typeId(), "layout") == 0) layCount++;
+  }
 
   out.print(FPSTR(RISAL_BODY_OPEN));
   // Resolve theme before paint: saved choice → configured mode → prefers-color-scheme (AUTO).
@@ -61,14 +65,15 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
   out.print(FPSTR(RISAL_BODY_CHROME));
   out.print(_title);
   out.print(FPSTR(RISAL_BODY_MID));
-  // Hamburger → opens the nav drawer (mobile only; only when there are groups to jump to).
-  if (groups)
+  // Hamburger → the nav drawer (mobile only). Only for single-page dashboards with groups:
+  // with layout() pages the swipe pager + nav strip own navigation, a drawer would double it.
+  if (groups && !layCount)
     out.print(F("<button class=\"burg\" onclick=\"R.openNav(true)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" "
                 "stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button>"));
   // Language / theme / accent now live in the Settings modal (appbar gear → RISAL_APPBAR_END).
   out.print(FPSTR(RISAL_APPBAR_END));
   // Nav drawer: scrim + off-canvas list of groups (anchors to each section header).
-  if (groups) {
+  if (groups && !layCount) {
     out.print(F("<div class=\"scrim\" onclick=\"R.openNav(false)\"></div><aside class=\"drawer\"><h4>"));
     out.print(_title);
     out.print(F("</h4>"));
@@ -83,13 +88,6 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     out.print(F("</aside>"));
   }
   out.print(FPSTR(RISAL_DEFS));
-
-  bool hasTabs = false;
-  uint8_t layCount = 0;
-  for (uint8_t i = 0; i < _count; i++) {
-    if (strcmp(_widgets[i]->typeId(), "tab") == 0) hasTabs = true;
-    if (strcmp(_widgets[i]->typeId(), "layout") == 0) layCount++;
-  }
 
   if (_count == 0) {
     out.print(F("<main class=\"grid\">"));

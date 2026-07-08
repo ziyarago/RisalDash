@@ -107,6 +107,10 @@ class RisalUI {
   RisalUI& enableMCP(const char* token) { _mcpToken = token; return *this; }
   // Over-the-air firmware update at GET/POST /update. Call before begin().
   RisalUI& enableOTA() { _ota = true; return *this; }
+  // Erase the saved Wi-Fi credentials and reboot into the first-boot setup portal (~1 s later,
+  // so a pending HTTP response can flush). Wire it to a button:
+  //   dash.button("Wi-Fi", "Forget network", [](){ dash.forgetWiFi(); });
+  void forgetWiFi();
 #ifdef RISAL_ENABLE_MQTT
   // Mirror widget state to MQTT: publishes <baseTopic>/<key> (retained) on change and
   // subscribes to <baseTopic>/<key>/set for inbound commands. STA mode only.
@@ -243,5 +247,6 @@ class RisalUI {
   Widget* _widgets[RISAL_MAX_WIDGETS];
   uint8_t _count = 0;
   uint32_t _lastPush = 0;
+  uint32_t _lastSbPush = 0;  // status-bar extras (_rssi/_bat) push throttle
   uint16_t _interval = 250;  // min ms between WS pushes
 };
