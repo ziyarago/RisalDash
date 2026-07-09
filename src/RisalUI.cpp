@@ -72,6 +72,7 @@ LayoutWidget& RisalUI::layout(const char* name, const char* icon) {
 LabelWidget& RisalUI::label(const char* name, String* val) { return _make<LabelWidget>(name, name, val); }
 TextWidget& RisalUI::text(const char* name, String* val, TextWidget::Cb cb) { return _make<TextWidget>(name, name, val, cb); }
 TextareaWidget& RisalUI::textarea(const char* name, String* val, TextareaWidget::Cb cb) { return _make<TextareaWidget>(name, name, val, cb); }
+RadioBrowserWidget& RisalUI::radioBrowser(const char* name, String* val, RadioBrowserWidget::Cb cb) { return _make<RadioBrowserWidget>(name, name, val, cb); }
 LogWidget& RisalUI::log(const char* name, uint8_t lines) { return _make<LogWidget>(name, name, lines); }
 PasswordWidget& RisalUI::password(const char* name, String* val, PasswordWidget::Cb cb) { return _make<PasswordWidget>(name, name, val, cb); }
 TimeWidget& RisalUI::time(const char* name, String* val, TimeWidget::Cb cb) { return _make<TimeWidget>(name, name, val, cb); }

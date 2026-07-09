@@ -48,11 +48,12 @@ class SensorGroup {
  private:
   friend class RisalUI;
   RisalUI* _ui;
-  Widget* _w[4] = {nullptr, nullptr, nullptr, nullptr};      // readout widgets (for .size())
-  float* _p[4] = {nullptr, nullptr, nullptr, nullptr};       // bound variables (for .chart())
-  const char* _title[4] = {nullptr, nullptr, nullptr, nullptr};
-  const char* _unit[4] = {nullptr, nullptr, nullptr, nullptr};
-  bool _isChart[4] = {false, false, false, false};           // already a chart -> .chart() skips it
+  static const uint8_t CAP = 8;      // max quantities per sensor (SEN5x etc. have up to 8)
+  Widget* _w[CAP] = {nullptr};       // readout widgets (for .size())
+  float* _p[CAP] = {nullptr};        // bound variables (for .chart())
+  const char* _title[CAP] = {nullptr};
+  const char* _unit[CAP] = {nullptr};
+  bool _isChart[CAP] = {false};      // already a chart -> .chart() skips it
   uint8_t _n = 0;
 };
 
@@ -156,6 +157,9 @@ class RisalUI {
   LabelWidget&  label(const char* name, String* val);
   TextWidget&   text(const char* name, String* val, TextWidget::Cb cb = nullptr);
   TextareaWidget& textarea(const char* name, String* val, TextareaWidget::Cb cb = nullptr);  // multi-line
+  // Editable radio-station list: drag to reorder, inline-edit name/URL, add/remove. Value round-trips
+  // as "Name | URL | Meta" (one per line) — same shape as textarea, so parsing/persistence is yours.
+  RadioBrowserWidget& radioBrowser(const char* name, String* val, RadioBrowserWidget::Cb cb = nullptr);
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);
@@ -170,7 +174,9 @@ class RisalUI {
 
   // Sensor preset (quantity-based): expands a known sensor into the right widgets.
   // e.g. dash.sensor("bme280", &temp, &hum, &pres); chain .chart() / .size() to tune the template.
-  SensorGroup sensor(const char* id, float* p0 = nullptr, float* p1 = nullptr, float* p2 = nullptr, float* p3 = nullptr);
+  SensorGroup sensor(const char* id, float* p0 = nullptr, float* p1 = nullptr, float* p2 = nullptr,
+                     float* p3 = nullptr, float* p4 = nullptr, float* p5 = nullptr, float* p6 = nullptr,
+                     float* p7 = nullptr);
 
   // Push changed widget values to clients over the WebSocket (throttled). Call from loop().
   void update();

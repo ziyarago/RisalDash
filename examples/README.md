@@ -32,6 +32,20 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 |---|---|
 | **Greenhouse** | Climate + soil + pump control, ready to wire to a BME280 and relays. |
 | **EnergyMonitor** | Live V/A/W, kWh + cost, mains toggle — bind a PZEM-004T or INA219. |
+| **AirQuality** | SEN55 preset (PM1/2.5/4/10 + VOC + NOx + T/H) + CO₂/HCHO — driven by `RisalFakeAir`. |
+| **PowerMeter** | PZEM-004T preset (V/A/W/kWh + PF/Hz) — `RisalFakePower` cycles a household load. |
+| **WeatherStation** | Wind / gust / direction / rain + UV + ambient — `RisalFakeWeather`. |
+| **MotionIMU** | 3D orientation cube + accel/gyro (mpu6050) + compass — `RisalFakeIMU`. |
+| **WeightScale** | HX711 load cell in kg/g — `RisalFakeWeight` settles onto swapped items. |
+| **WaterQuality** | TDS / pH / turbidity / soil / tank level — generic fakes. |
+| **WaterMeter** | Flow rate + litres total + pulse (YF-S201) — `RisalFakeFlow`. |
+| **BatteryBMS** | SoC / pack V / current / temp / cell (Daly-style) — `RisalFakeBattery`. |
+| **HealthMonitor** | Heart rate + SpO₂ (MAX30102) — `RisalFakeHealth`. |
+| **GasSafety** | Smoke + CO alarms (MQ-2/MQ-7) with trip LEDs — `RisalFakeGas`. |
+
+Every one runs with **no hardware** — each `dash.sensor("…")` preset is paired with a matching
+`RisalFake*` bundle, so the whole dashboard builds and demos on the bench, then swaps to a real
+driver with the variable names unchanged.
 
 ## 05_Boards — board showcases (specific hardware)
 | Sketch | Board | What it shows |

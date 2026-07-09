@@ -10,3 +10,4 @@
 #include "widgets/inputs.h"
 #include "widgets/visual.h"
 #include "widgets/layout.h"
+#include "widgets/radio.h"

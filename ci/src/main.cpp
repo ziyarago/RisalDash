@@ -1,124 +1,110 @@
-// Reference of EVERY RisalDash widget, split into swipeable pages by purpose.
-// Display readouts, controls, text inputs, data cards and the rich visual widgets
-// (robot face, Leaflet map, 3D cube, terminal, thermal heatmap) — all live at once.
-// The map and the image load remote content, so those two cards want internet on the
-// *client*; everything else is fully offline. Served over a plain access point:
-// connect to "RisalDash-Demo" and open http://192.168.4.1/
-#include <RisalUI.h>
-#include <math.h>
+// Hardware verification probe for the Hosyond 2.8" ESP32-S3 touch module (lcdwiki pinout).
+// Exercises every peripheral and reports to serial: ILI9341 LCD (colour bars + text), FT6336
+// capacitive touch (draw dots where you tap), WS2812 RGB blink, SDIO card mount, battery ADC.
+// Temporary CI payload — not an example.
+#include <Arduino.h>
+#include <Wire.h>
+#include <Arduino_GFX_Library.h>
+#include <SD_MMC.h>
 
-RisalUI dash("Showcase");
+// lcdwiki: LCD CS=10 DC=46 SCK=12 MOSI=11 MISO=13 BL=45 · touch SDA=16 SCL=15 INT=17 RST=18
+// RGB=42 · SD CLK=38 CMD=40 D0-3=39/41/48/47 · battery ADC=9
+enum { P_CS = 10, P_DC = 46, P_SCK = 12, P_MOSI = 11, P_MISO = 13, P_BL = 45 };
+enum { T_SDA = 16, T_SCL = 15, T_RST = 18, T_INT = 17 };
 
-// Display values
-float cpu = 42, volts = 12.1f, temp = 24.3f, rssi = -52, hum = 55, pres = 1013;
-int   ram = 60, pumpState = 0;            // pumpState: 0 ok · 1 warn · 2 bad
-bool  linkUp = true;
-// Control values
-int   bright = 128, fanSpeed = 2, mode = 1, lightMode = 0;
-bool  pump = false;
-// Input values (controls bound to String state)
-String devName = "greenhouse-01", wifiKey = "", boot = "08:30", svcDay = "2026-06-27", led = "#22d3ee";
-String note = "All systems nominal — no action needed.";
-String imgUrl = "https://picsum.photos/480/300";  // any URL the *client* can reach
-// Visual values
-int mood = 1;                              // robot face: 0..9
-float gpsLat = 41.311f, gpsLon = 69.279f;  // map marker (fake circle below)
-float pitch = 0, roll = 0, yaw = 0;        // 3D cube orientation
-LogWidget* eventLog = nullptr;
-TerminalWidget* term = nullptr;
-HeatmapWidget* heat = nullptr;
-static const int TW = 16, TH = 12;
-float thermal[TW * TH];
+Arduino_DataBus *bus = new Arduino_ESP32SPI(P_DC, P_CS, P_SCK, P_MOSI, P_MISO);
+Arduino_GFX *gfx = new Arduino_ILI9341(bus, GFX_NOT_DEFINED, 0 /* rotation */, false);
+
+bool touchOk = false;
 
 void setup() {
-  dash.timezone(180);
+  Serial.begin(115200);
+  delay(2500);
+  Serial.println("=== Hosyond 2.8 S3 probe ===");
 
-  // ── Page 1: display readouts ──
-  dash.layout("Display", RICON_GAUGE);
-  dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
-  dash.gauge("Voltage", &volts, 0, 14, "V");                       // ring (default)
-  dash.gauge("Humidity", &hum, 0, 100, "%").variant("semi");       // speedometer half
-  dash.gauge("Pressure", &pres, 950, 1050, "hPa").variant("bar");  // linear bar
-  dash.chart("Temperature", &temp, "C");
-  dash.separator("Small stats");
-  dash.stat("RSSI", &rssi, "dBm").decimals(0);
-  dash.progress("RAM", &ram, "%");
-  dash.badge("Pump state", &pumpState).labels("running", "idle", "fault");
-  dash.led("Link", &linkUp);
-  dash.label("Device", &devName);
+  // ── LCD ──
+  bool lcd = gfx->begin();
+  pinMode(P_BL, OUTPUT);
+  digitalWrite(P_BL, HIGH);  // backlight on (if the panel stays dark, polarity is inverted)
+  Serial.printf("[lcd] begin=%d\n", lcd);
+  const uint16_t C[] = {RGB565_RED, RGB565_GREEN, RGB565_BLUE, RGB565_YELLOW, RGB565_CYAN, RGB565_MAGENTA};
+  for (int i = 0; i < 6; i++) gfx->fillRect(0, i * 53, 240, 53, C[i]);
+  gfx->setTextColor(RGB565_WHITE);
+  gfx->setTextSize(2);
+  gfx->setCursor(10, 10);
+  gfx->print("RisalDash probe");
+  gfx->setCursor(10, 40);
+  gfx->print("tap the screen!");
 
-  // ── Page 2: controls ──
-  dash.layout("Controls", RICON_POWER);
-  dash.toggle("Pump", &pump, [](bool on) { pumpState = on ? 0 : 1; });
-  dash.slider("Brightness", &bright, 0, 255, [](int v) { (void)v; });
-  dash.number("Fan speed", &fanSpeed, 0, 5, 1, [](int v) { (void)v; });
-  dash.select("Mode", "Eco,Comfort,Boost", &mode, [](int i) { (void)i; });
-  dash.radio("Light", "Off,Warm,Cool", &lightMode, [](int i) { (void)i; });
-  dash.button("Reboot", "Restart", []() { ESP.restart(); });
+  // ── Touch: FT6336 @0x38 on SDA=16 SCL=15 (hardware reset first) ──
+  pinMode(T_RST, OUTPUT);
+  digitalWrite(T_RST, LOW);
+  delay(10);
+  digitalWrite(T_RST, HIGH);
+  delay(300);
+  Wire.begin(T_SDA, T_SCL, 400000);
+  for (uint8_t a = 0x08; a <= 0x77; a++) {  // full bus scan so we see everything on it
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) Serial.printf("[i2c] found 0x%02X\n", a);
+  }
+  Wire.beginTransmission(0x38);
+  Wire.write(0xA6);  // FT63xx firmware version reg
+  if (Wire.endTransmission(false) == 0 && Wire.requestFrom(0x38, 1) == 1) {
+    Serial.printf("[touch] FT6336 fw=0x%02X\n", Wire.read());
+    touchOk = true;
+  } else {
+    Serial.println("[touch] FT6336 NOT responding at 0x38");
+  }
 
-  // ── Page 3: text & value inputs ──
-  dash.layout("Inputs", RICON_HOME);
-  dash.text("Hostname", &devName, [](const String& v) { (void)v; });
-  dash.textarea("Notes", &note, [](const String& v) { (void)v; });
-  dash.password("Wi-Fi key", &wifiKey, [](const String& v) { (void)v; });
-  dash.time("Boot time", &boot);
-  dash.date("Service day", &svcDay);
-  dash.color("LED color", &led);
+  // ── Fingerprint the new device at 0x77: Bosch chip-id reg 0xD0 / DPS310 reg 0x0D ──
+  for (uint8_t reg : {0xD0, 0x0D}) {
+    Wire.beginTransmission(0x77);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) == 0 && Wire.requestFrom(0x77, 1) == 1)
+      Serial.printf("[0x77] reg 0x%02X = 0x%02X\n", reg, Wire.read());
+  }
+  // Bosch id map: BMP180=0x55 · BMP280=0x58 · BME280=0x60 · BME680=0x61 · BMP388=0x50 · DPS310(0x0D)=0x10
 
-  // ── Page 4: data cards ──
-  dash.layout("Data", RICON_CLOCK);
-  dash.table("Sensors")
-      .row("Temperature", &temp, "C", 1)
-      .row("Humidity", &hum, "%", 0)
-      .row("Pressure", &pres, "hPa", 0);
-  eventLog = &dash.log("Events", 5);
-  dash.image("Camera", &imgUrl);  // any live JPEG/PNG URL (IP cam snapshot…)
-  dash.ai("Assistant", &note);
+  // ── RGB (WS2812 on 42): blink red -> green -> blue ──
+  neopixelWrite(42, 40, 0, 0); delay(250);
+  neopixelWrite(42, 0, 40, 0); delay(250);
+  neopixelWrite(42, 0, 0, 40); delay(250);
+  neopixelWrite(42, 0, 0, 0);
+  Serial.println("[rgb] blinked on GPIO42");
 
-  // ── Page 5: rich visual widgets ──
-  dash.layout("Visual", RICON_MOTION);
-  dash.face("Robot", &mood).size(RSIZE_L);
-  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood);
-  dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // client needs internet (Leaflet tiles)
-  dash.cube("Orientation", &pitch, &roll, &yaw).size(RSIZE_L);
-  heat = &dash.heatmap("Thermal cam", TW, TH);        // MLX90640-style, fake frames below
-  term = &dash.terminal("Shell", [](const String& cmd) {
-    if (!term) return;
-    if (cmd == "help") term->print("cmds: help, heap, uptime");
-    else if (cmd == "heap") term->print(String(ESP.getFreeHeap()) + " bytes free");
-    else if (cmd == "uptime") term->print(String(millis() / 1000) + " s");
-    else term->print("unknown: " + cmd + " (try 'help')");
-  });
-  term->print("RisalDash console - type 'help'");
+  // ── SD over SDIO 4-bit ──
+  SD_MMC.setPins(38, 40, 39, 41, 48, 47);
+  if (SD_MMC.begin("/sdcard", false)) {
+    Serial.printf("[sd] mounted, size=%llu MB, type=%d\n", SD_MMC.cardSize() / 1048576ULL, SD_MMC.cardType());
+  } else {
+    Serial.println("[sd] mount FAILED (no card inserted?)");
+  }
 
-  dash.beginAP("RisalDash-Demo", "12345678");
+  // ── Battery ADC ──
+  Serial.printf("[bat] GPIO9 = %lu mV (raw, before divider math)\n", (unsigned long)analogReadMilliVolts(9));
+  Serial.println("=== probe ready — tap the screen ===");
 }
 
-uint32_t lastLog = 0, lastHeat = 0;
+uint32_t lastHb = 0;
 
 void loop() {
-  // Simulate movement so every page looks alive.
-  cpu = 30 + (millis() / 200 % 55);
-  temp = 24.0f + 2.5f * sinf(millis() * 0.0005f);  // bounded wander, ~22..27 C
-  gpsLat = 41.311f + 0.004f * sinf(millis() * 0.0003f);  // circle for the map marker
-  gpsLon = 69.279f + 0.004f * cosf(millis() * 0.0003f);
-  pitch = 30.0f * sinf(millis() * 0.0009f);              // wobble for the 3D cube
-  roll = 25.0f * sinf(millis() * 0.0013f);
-  yaw = fmodf(millis() * 0.03f, 360.0f);
-  if (eventLog && millis() - lastLog > 4000) {
-    lastLog = millis();
-    eventLog->print("tick " + String(millis() / 1000) + "s  heap=" + ESP.getFreeHeap());
-  }
-  if (heat && millis() - lastHeat > 500) {               // fake thermal frame — moving hotspot
-    lastHeat = millis();
-    float ph = millis() * 0.001f;
-    float hx = TW / 2.0f + TW / 3.0f * sinf(ph), hy = TH / 2.0f + TH / 3.0f * cosf(ph * 0.7f);
-    for (int y = 0; y < TH; y++)
-      for (int x = 0; x < TW; x++) {
-        float dx = x - hx, dy = y - hy;
-        thermal[y * TW + x] = 22.0f + 15.0f * expf(-(dx * dx + dy * dy) / 10.0f);
+  if (touchOk) {
+    Wire.beginTransmission(0x38);
+    Wire.write(0x02);  // TD_STATUS: number of touch points, then P1 XY
+    if (Wire.endTransmission(false) == 0 && Wire.requestFrom(0x38, 5) == 5) {
+      uint8_t n = Wire.read() & 0x0F;
+      uint8_t xh = Wire.read(), xl = Wire.read(), yh = Wire.read(), yl = Wire.read();
+      if (n > 0 && n < 3) {
+        int x = ((xh & 0x0F) << 8) | xl;
+        int y = ((yh & 0x0F) << 8) | yl;
+        Serial.printf("[touch] n=%d x=%d y=%d\n", n, x, y);
+        gfx->fillCircle(x, y, 6, RGB565_WHITE);
       }
-    heat->frame(thermal);
+    }
   }
-  dash.update();
+  if (millis() - lastHb > 3000) {
+    lastHb = millis();
+    Serial.printf("[hb] heap=%u psram=%u\n", ESP.getFreeHeap(), ESP.getFreePsram());
+  }
+  delay(30);
 }
