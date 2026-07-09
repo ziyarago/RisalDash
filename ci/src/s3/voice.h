@@ -23,6 +23,7 @@ static const size_t MP3_CAP = 320 * 1024;                       // reply MP3 bud
 
 enum State { IDLE = 0, LISTENING, THINKING, SPEAKING, DONE, ERROR };
 static volatile int state = IDLE;
+static volatile int mood = 1;   // robot mood for the reply (from the proxy's X-Mood; eyes() index)
 static String transcript, reply, errMsg;
 
 static uint8_t *_wav = nullptr;   // [WAV header][PCM] — PSRAM
@@ -85,8 +86,8 @@ inline void turn() {
   http.setTimeout(30000);
   if (!http.begin(VOICE_ENDPOINT)) { state = ERROR; errMsg = "begin failed"; return; }
   http.addHeader("Content-Type", "audio/wav");
-  const char *H[] = {"X-Transcript", "X-Reply", "X-Error"};
-  http.collectHeaders(H, 3);
+  const char *H[] = {"X-Transcript", "X-Reply", "X-Error", "X-Mood"};
+  http.collectHeaders(H, 4);
   int code = http.POST(_wav, 44 + pcmBytes);
   if (code != 200) {
     errMsg = http.header("X-Error").length() ? _urlDecode(http.header("X-Error")) : (String("HTTP ") + code);
@@ -96,7 +97,8 @@ inline void turn() {
   }
   transcript = _urlDecode(http.header("X-Transcript"));
   reply = _urlDecode(http.header("X-Reply"));
-  Serial.printf("[voice] heard: %s\n[voice] reply: %s\n", transcript.c_str(), reply.c_str());
+  { String mh = http.header("X-Mood"); if (mh.length()) mood = mh.toInt(); }  // Claude's mood for the reply
+  Serial.printf("[voice] heard: %s\n[voice] reply(mood=%d): %s\n", transcript.c_str(), (int)mood, reply.c_str());
 
   int len = http.getSize();
   WiFiClient *st = http.getStreamPtr();

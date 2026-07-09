@@ -355,10 +355,10 @@ void loop() {
     // while thinking, cheerful while speaking, dizzy on error — otherwise the user's chosen mood.
     int effMood = mood;
     switch (voice::state) {
-      case voice::LISTENING: effMood = 4; break;   // surprised = wide, attentive
-      case voice::THINKING:  effMood = 9; break;   // eyes dart side to side
-      case voice::SPEAKING:  effMood = 1; break;   // happy = talking
-      case voice::ERROR:     effMood = 8; break;   // dizzy
+      case voice::LISTENING: effMood = 4; break;          // surprised = wide, attentive
+      case voice::THINKING:  effMood = 9; break;          // eyes dart side to side
+      case voice::SPEAKING:  effMood = voice::mood; break; // Claude's mood for THIS reply
+      case voice::ERROR:     effMood = 8; break;          // dizzy
       default: break;
     }
     bool blink = (millis() % 3800) < 130;
