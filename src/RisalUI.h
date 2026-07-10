@@ -252,6 +252,10 @@ class RisalUI {
   int16_t _scanN = 0;  // Wi-Fi networks found once at portal start (cached; see _startPortal)
   Widget* _widgets[RISAL_MAX_WIDGETS];
   uint8_t _count = 0;
+  // Structure revision: bumped whenever the widget set changes (incl. runtime-added widgets after
+  // begin(), e.g. MQTT auto-discovery). Pushed as "_struct" so open clients reload to pull new tiles.
+  uint16_t _structRev = 0;
+  uint16_t _lastStruct = 0xFFFF;
   uint32_t _lastPush = 0;
   uint32_t _lastSbPush = 0;  // status-bar extras (_rssi/_bat) push throttle
   uint16_t _interval = 250;  // min ms between WS pushes

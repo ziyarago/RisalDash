@@ -43,7 +43,7 @@ RisalUI& RisalUI::theme(Theme t) {
 }
 
 void RisalUI::_add(Widget* w) {
-  if (_count < RISAL_MAX_WIDGETS) _widgets[_count++] = w;
+  if (_count < RISAL_MAX_WIDGETS) { _widgets[_count++] = w; _structRev++; }  // bump so clients reload
 }
 
 MetricWidget& RisalUI::metric(const char* name, float* val, const char* unit) { return _make<MetricWidget>(name, name, val, unit); }
@@ -87,12 +87,11 @@ AiWidget& RisalUI::ai(const char* name, String* note) { return _make<AiWidget>(n
 
 // Full current state as JSON (shared by the WS connect snapshot and GET /api/state).
 String RisalUI::_stateJson() {
-  String s = "{";
-  bool first = true;
+  String s = "{\"_struct\":";  // structure revision first, so clients record the baseline on connect
+  s += String(_structRev);
   for (uint8_t i = 0; i < _count; i++) {
     if (!_widgets[i]->hasState()) continue;
-    if (!first) s += ',';
-    first = false;
+    s += ',';
     _widgets[i]->writeKV(s);
   }
   s += "}";
@@ -202,6 +201,14 @@ void RisalUI::update() {
   }
   // Status-bar extras: live Wi-Fi RSSI (and the real battery, when bound) every ~5 s.
   // Reserved "_" keys are handled by the client runtime itself, not by widgets.
+  // Structure changed (runtime widget added/discovered) -> tell open clients to reload for new tiles.
+  if (_structRev != _lastStruct) {
+    _lastStruct = _structRev;
+    if (any) s += ',';
+    s += "\"_struct\":";
+    s += String(_structRev);
+    any = true;
+  }
   if (WiFi.status() == WL_CONNECTED && now - _lastSbPush > 5000) {
     _lastSbPush = now;
     if (any) s += ',';

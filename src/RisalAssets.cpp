@@ -241,6 +241,9 @@ const char RISAL_RUNTIME_JS[] PROGMEM =
   // reserved keys (leading underscore) drive the status bar, not widgets
   "if(k==='_rssi'){if(window.RSB&&RSB.setRssi)RSB.setRssi(st[k]);continue;}"
   "if(k==='_bat'){if(window.RSB&&RSB.setBat)RSB.setBat(st[k]);continue;}"
+  // structure revision: the widget set changed on the device (e.g. a runtime-discovered tile) —
+  // reload once to pull the new page. First value just records the baseline.
+  "if(k==='_struct'){if(window.__rev!==undefined&&window.__rev!==st[k])location.reload();window.__rev=st[k];continue;}"
   "var e=document.querySelectorAll('[data-key=\"'+k+'\"]');"
   "for(var i=0;i<e.length;i++){var w=R.W[e[i].dataset.type];if(w&&w.update)w.update(e[i],st[k]);}}},"
   "connect:function(){var s=this,p=location.protocol==='https:'?'wss':'ws';"
