@@ -12,6 +12,13 @@ dist/
 *.log
 .claude/
 
+# secrets — never commit tokens/keys. The real api-keys.env lives on the Desktop,
+# outside this repo, but these patterns block any copy that lands in the tree.
+*.env
+!*.env.example
+api-keys.env
+.espressif/
+
 # website lives in its own project, not in the public library repo
 web/
 
