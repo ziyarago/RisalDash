@@ -151,7 +151,7 @@ void setup() {
   // the LCD slide picker + auto-slide interval, and the RGB LED mode/colour. (Language is the
   // library's built-in Settings switcher; the LCD follows it via dash.language() in loop().)
   dash.toggle("Auto-slide", &autoSlide, [](bool on) { (void)on; prefs.putInt("auto", autoSlide); }).gear();
-  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather,Pump,Backlight,Overview,Thermal", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
+  dash.select("Show", "Address,Air temp,Humidity,Soil,Pressure,Air quality,Trend,Robot,Weather,Pump,Backlight,Overview,Thermal,BLE", &showSel, [](int i) { (void)i; prefs.putInt("show", showSel); }).gear();
   dash.number("Slide sec", &slideSec, 2, 30, 1, [](int i) { (void)i; prefs.putInt("sec", slideSec); }).gear();
   dash.slider("Backlight", &backlight, 5, 100, [](int i) { (void)i; prefs.putInt("bl", backlight); lcd::backlight(backlight); }).gear();
   dash.select("LED mode", "Off,Manual,Per-widget,Gradient", &ledMode, [](int i) { (void)i; prefs.putInt("led", ledMode); led::apply(ledMode, ledColor, curSlide); }).gear();
@@ -169,7 +169,7 @@ void setup() {
   wx::begin();                    // weather fetcher task — its blocking HTTPS never stalls loop()
 }
 
-uint32_t lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastZb = 0, lastMulti = 0, lastHeatDraw = 0;
+uint32_t lastSwap = 0, lastLed = 0, lastHb = 0, lastChart = 0, lastEmo = 0, lastZb = 0, lastMulti = 0, lastHeatDraw = 0, lastBleDraw = 0;
 
 // Choose the visible slide (auto-cycle, or the pinned one), and repaint its static chrome on change.
 void updateSlide() {
@@ -226,6 +226,18 @@ void drawSlideValue() {
       lcd::multiValue(cells, 4);
     } break;
     case 13: if (millis() - lastHeatDraw > 450) { lastHeatDraw = millis(); lcd::heatmapValue(thermal, TW, TH, 20, 40); } break;  // thermal cam
+    case 14: if (millis() - lastBleDraw > 2000) {  // real BLE scan: nearby devices + decoded beacon
+      lastBleDraw = millis();
+      static bleScan::Dev dv[6];
+      int m = bleScan::snapshot(dv, 6);
+      const char *nm[6]; int rs[6]; bool sn[6];
+      bool haveB = false; float bt = 0; int bh = 0, bb = 0;
+      for (int i = 0; i < m; i++) {
+        nm[i] = dv[i].name; rs[i] = dv[i].rssi; sn[i] = dv[i].sensor;
+        if (dv[i].sensor && !haveB) { haveB = true; bt = dv[i].temp; bh = dv[i].hum; bb = dv[i].batt; }
+      }
+      lcd::bleSlideValue(nm, rs, sn, m, haveB, bt, bh, bb);
+    } break;
   }
 }
 

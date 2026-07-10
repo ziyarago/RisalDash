@@ -28,7 +28,7 @@ static const uint16_t C_AMBER = RGB565(240, 190, 90);
 static const uint16_t C_RED = RGB565(240, 120, 110);
 static const uint16_t C_LOVE = RGB565(255, 92, 138);
 
-static const int NUM_SLIDES = 13;             // …Weather · Pump(LED) · Backlight(progress) · Overview(multi) · Thermal(heatmap)
+static const int NUM_SLIDES = 14;             // …Backlight(progress) · Overview(multi) · Thermal(heatmap) · BLE(nearby)
 static const int GX = 86, GY = 190, GR = 72;  // gauge centre + ring radius
 
 // ── LCD localization ─────────────────────────────────────────────────────────
@@ -190,6 +190,40 @@ inline void slideStatic(int s, const String &ip, const char *version) {
     slideLabel(tr(T_OVERVIEW), C_TEAL);
   } else if (s == 13) {
     slideLabel(tr(T_THERMAL), C_RED);
+  } else if (s == 14) {
+    slideLabel("BLE nearby", C_LOVE);   // real NimBLE scan (universal term, no translation needed)
+  }
+}
+
+// BLE slide value — a decoded Xiaomi temp/hum beacon card (if any) + the nearby-device list with
+// signal bars, strongest first. Fed plain arrays from the sketch so display.h stays decoupled from ble.h.
+inline void bleSlideValue(const char *const *names, const int *rssi, const bool *isSensor, int n,
+                          bool haveBeacon, float bt, int bh, int bb) {
+  _gfx->fillRect(0, 78, 172, 210, C_BG);
+  int y = 84;
+  if (haveBeacon) {
+    _gfx->fillRoundRect(12, y, 148, 52, 12, C_CARD);
+    _gfx->drawRoundRect(12, y, 148, 52, 12, C_LOVE);
+    _gfx->setTextSize(1); _gfx->setTextColor(C_INK3); _gfx->setCursor(22, y + 8); _gfx->print("Xiaomi sensor");
+    char b[24];
+    if (bb) { snprintf(b, sizeof(b), "%d%%", bb); _gfx->setCursor(124, y + 8); _gfx->print(b); }  // battery
+    snprintf(b, sizeof(b), "%.1f\xF7""C  %d%%", bt, bh);   // \xF7 = degree in this font
+    _gfx->setTextSize(2); _gfx->setTextColor(C_TEAL); _gfx->setCursor(22, y + 26); _gfx->print(b);
+    y += 60;
+  }
+  if (n == 0) { centerText("scanning...", 150, 2, C_INK3); return; }
+  for (int i = 0; i < n && y < 280; i++) {
+    char nm[15]; strncpy(nm, names[i], 14); nm[14] = 0;
+    _gfx->setTextSize(1);
+    _gfx->setTextColor(isSensor[i] ? C_LOVE : C_INK);
+    _gfx->setCursor(14, y); _gfx->print(nm);
+    // signal bars (right), then the dBm number under them
+    int bars = rssi[i] > -55 ? 4 : rssi[i] > -68 ? 3 : rssi[i] > -80 ? 2 : 1;
+    for (int k = 0; k < 4; k++)
+      _gfx->fillRect(130 + k * 8, y + 8 - k * 2, 5, 3 + k * 2, k < bars ? C_GREEN : C_TRACK);
+    char r[10]; snprintf(r, sizeof(r), "%d", rssi[i]);
+    _gfx->setTextColor(C_INK3); _gfx->setCursor(14, y + 11); _gfx->print(r); _gfx->print("dBm");
+    y += 28;
   }
 }
 
