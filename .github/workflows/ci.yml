@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [Minimal, FirstBoot, WifiSetup, Layouts, Tabs, UiKit, AllWidgets, Multilingual, SensorTemplates, WidgetSizes, FakeSensors, AirQuality, PowerMeter, WeatherStation, MotionIMU, WeightScale, WaterQuality, BatteryBMS, HealthMonitor, GasSafety, WaterMeter]
+        example: [Minimal, FirstBoot, WifiSetup, Layouts, Tabs, UiKit, AllWidgets, Multilingual, SensorTemplates, WidgetSizes, FakeSensors, AirQuality, PowerMeter, WeatherStation, MotionIMU, WeightScale, WaterQuality, BatteryBMS, HealthMonitor, GasSafety, WaterMeter, AquariumController, SmartHome, CNCMachine, Printer3D]
     steps:
       - uses: actions/checkout@v4
 

@@ -42,6 +42,10 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 | **BatteryBMS** | SoC / pack V / current / temp / cell (Daly-style) — `RisalFakeBattery`. |
 | **HealthMonitor** | Heart rate + SpO₂ (MAX30102) — `RisalFakeHealth`. |
 | **GasSafety** | Smoke + CO alarms (MQ-2/MQ-7) with trip LEDs — `RisalFakeGas`. |
+| **AquariumController** | Water temp/pH/TDS/level + pump/filter/heater/light + feeder — `RisalFake` probes. |
+| **SmartHome** | Lights/motion/climate/door/curtains/power + scenes — `RisalFakeEnv` + presence. |
+| **CNCMachine** | Spindle RPM/current/temp + e-stop + status + error log — `RisalFake`. |
+| **Printer3D** | Hotend/bed temp + progress + fan/speed + e-stop — ramps to target, fake print. |
 
 Every one runs with **no hardware** — each `dash.sensor("…")` preset is paired with a matching
 `RisalFake*` bundle, so the whole dashboard builds and demos on the bench, then swaps to a real
