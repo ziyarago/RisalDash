@@ -5,6 +5,37 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-07-10
+
+"A fake for every sensor." A big sensor + example release: build a full dashboard for almost any
+sensor with no hardware, then swap in the real driver with your variable names unchanged.
+
+### Added
+- **Sensor presets grown to ~60** across every category — `dash.sensor("id", …)` now maps up to
+  **8 quantities** per sensor (was 4) and gained a `stat` readout kind. New presets span air quality
+  (SEN55, PMS5003, SDS011, SPS30, SGP30/40/41, ENS160, MH-Z19, SFA30), power/energy/BMS (INA226,
+  CT-clamp, HLW8012/CSE7766, Daly-style `bms`), light + UV (LTR390, VEML6075), weight (HX711,
+  NAU7802), flow/pulse (`flow`, `pulse`, `rpm`), IMU + compass (MPU6050/9250 with gyro, BNO055,
+  QMC5883L), thermocouples (MAX6675/31855/31865), weather, water quality (TDS/pH/turbidity),
+  health (MAX30102), gas (MQ-2/7/9), and a `system` diagnostics preset.
+- **9 new `RisalFake*` bundles** — `RisalFakePower, RisalFakeAir, RisalFakeIMU, RisalFakeWeight,
+  RisalFakeWeather, RisalFakeBattery, RisalFakeFlow, RisalFakeHealth, RisalFakeGas` — realistic,
+  correlated models (a room fills with CO₂ then airs out, a mains load cycles, a battery cycles…),
+  one paired with each sensor category.
+- **`radioBrowser` widget** — an editable list (drag to reorder, inline-edit name/URL, add/remove);
+  its value round-trips as `Name | URL | Meta` lines, so parsing/persistence stays yours.
+- **10 new `04_Templates` examples**, each a preset paired with its fake and buildable with no
+  hardware: AirQuality, PowerMeter, WeatherStation, MotionIMU, WeightScale, WaterQuality, WaterMeter,
+  BatteryBMS, HealthMonitor, GasSafety — plus AquariumController, SmartHome, CNCMachine, Printer3D.
+- **ESP32-S3 board showcase** gains internet radio via the ES8311 codec (editable station list) and
+  a mic → proxy (Whisper → Claude → TTS) voice assistant whose robot eyes reflect the reply's mood.
+- **ESP32-C6 showcase** gains a live BLE slide: nearby devices with signal bars + a decoded
+  Xiaomi temp/humidity beacon (ATC/pvvx + MiBeacon).
+
+### Changed
+- `dash.sensor()` signature extended to 8 optional pointer params (backward compatible — existing
+  calls are unchanged). CI matrix now builds 25 examples.
+
 ## [0.9.0] — 2026-07-08
 
 A structural release: the library got split into readable modules and audited end to end on real
