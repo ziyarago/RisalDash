@@ -24,9 +24,10 @@ PicoMQTT::Server mqtt;
 // ── On-board LCD: a live device list on the panel (so the hub looks finished, not dark) ──
 // ⚠ HEAT: never drive the backlight above ~50% on these Waveshare boards.
 enum { PIN_DC = 15, PIN_CS = 14, PIN_SCK = 7, PIN_MOSI = 6, PIN_RST = 21, PIN_BL = 22 };
-static const uint16_t C_BG = RGB565(20, 26, 40), C_TEAL = RGB565(45, 222, 190),
-                      C_GREEN = RGB565(120, 230, 150), C_INK = RGB565(238, 242, 250),
-                      C_INK3 = RGB565(120, 132, 150), C_LINE = RGB565(50, 58, 76);
+static const uint16_t C_BG = RGB565(9, 13, 21), C_TEAL = RGB565(45, 222, 190),
+                      C_GREEN = RGB565(52, 211, 153), C_INK = RGB565(234, 240, 251),
+                      C_INK3 = RGB565(96, 107, 130), C_LINE = RGB565(40, 48, 66),
+                      C_AMBER = RGB565(245, 185, 74), C_OFF = RGB565(86, 95, 115);
 static Arduino_DataBus* _bus = nullptr;
 static Arduino_GFX* gfx = nullptr;
 
@@ -154,27 +155,47 @@ void lcdBegin() {
   analogWrite(PIN_BL, 43 * 255 / 100);   // 43% backlight (heat-safe)
 }
 
-// Redraw the device list. Called from loop() only when something changed.
+// Boot splash — the RisalHub wordmark, shown for a moment at power-on.
+void lcdSplash() {
+  if (!gfx) return;
+  gfx->fillScreen(C_BG);
+  gfx->setTextSize(4);
+  gfx->setTextColor(C_INK);  gfx->setCursor(26, 116); gfx->print("Risal");
+  gfx->setTextColor(C_TEAL); gfx->setCursor(50, 158); gfx->print("Hub");
+  gfx->setTextSize(1); gfx->setTextColor(C_INK3); gfx->setCursor(44, 212); gfx->print("smart home hub");
+}
+
+// Redraw the panel: wordmark + a big "how many on" summary + a device list with colour-coded dots.
 void lcdRender() {
   if (!gfx) return;
   gfx->fillScreen(C_BG);
-  gfx->setTextColor(C_TEAL); gfx->setTextSize(2); gfx->setCursor(12, 12); gfx->print("RISAL HUB");
+  gfx->setTextSize(2); gfx->setCursor(12, 12);
+  gfx->setTextColor(C_INK);  gfx->print("Risal");
+  gfx->setTextColor(C_TEAL); gfx->print("Hub");
   gfx->setTextColor(C_INK3); gfx->setTextSize(1); gfx->setCursor(12, 34);
   gfx->print(WiFi.localIP().toString().c_str());
-  gfx->drawFastHLine(12, 52, 148, C_LINE);
+
+  int on = 0, issue = 0;
+  for (int i = 0; i < NDEV; i++) {
+    if (devices[i].power) on++;
+    if (devices[i].transport == T_BLE && !devices[i].linked) issue++;
+  }
+  gfx->setTextColor(C_GREEN); gfx->setTextSize(5); gfx->setCursor(12, 52); gfx->print(on);
+  gfx->setTextSize(1); gfx->setTextColor(C_INK3);
+  gfx->setCursor(56, 58); gfx->print("ON");
+  gfx->setCursor(56, 72); gfx->print("of "); gfx->print(NDEV);
+  gfx->setCursor(12, 106);
+  if (issue) { gfx->setTextColor(C_AMBER); gfx->print(issue); gfx->print(" offline"); }
+  else { gfx->setTextColor(C_INK3); gfx->print("all linked"); }
+  gfx->drawFastHLine(12, 124, 148, C_LINE);
 
   for (int i = 0; i < NDEV; i++) {
-    int y = 66 + i * 62;
-    gfx->setTextColor(C_INK); gfx->setTextSize(2); gfx->setCursor(12, y);
-    gfx->print(devices[i].name);
-    bool on = devices[i].power;
-    gfx->setTextColor(on ? C_GREEN : C_INK3); gfx->setTextSize(2); gfx->setCursor(12, y + 22);
-    gfx->print(on ? "\xF7 ON" : "\xF7 OFF");   // 0xF7 ~ round dot in the classic font
-    gfx->setTextColor(devices[i].linked ? C_TEAL : C_INK3); gfx->setTextSize(1); gfx->setCursor(96, y + 26);
-    gfx->print(devices[i].transport == T_BLE ? (devices[i].linked ? "BLE linked" : "BLE  ...") : "MQTT");
+    int y = 140 + i * 26;
+    uint16_t dc = devices[i].power ? C_GREEN
+                : (devices[i].transport == T_BLE && !devices[i].linked) ? C_AMBER : C_OFF;
+    gfx->fillCircle(17, y + 4, 4, dc);
+    gfx->setTextColor(C_INK); gfx->setTextSize(1); gfx->setCursor(30, y); gfx->print(devices[i].name);
   }
-  gfx->setTextColor(C_INK3); gfx->setTextSize(1); gfx->setCursor(12, 300);
-  gfx->print(NDEV); gfx->print(" devices");
 }
 
 // A tiny signature of what's on screen, so we only redraw on change (no flicker/CPU waste).
@@ -186,7 +207,9 @@ uint32_t lcdSig() {
 
 void setup() {
   dash.timezone(300);
-  lcdBegin();   // light the panel immediately
+  lcdBegin();     // light the panel immediately
+  lcdSplash();    // RisalHub logo at power-on
+  delay(1500);    // hold the splash a moment
 
   prefs.begin("hub", false);                         // restore saved settings
   freshenerPin = prefs.getString("pin", "9999");
@@ -215,6 +238,9 @@ void setup() {
   dash.badge("MQTT msgs", &msgCount);
   feed = &dash.log("MQTT feed", 6);
 
+  // First boot with no saved Wi-Fi -> RisalDash raises a captive-portal AP "RisalHub" for setup.
+  // Once credentials are saved it joins the network and serves the dashboard.
+  dash.apName("RisalHub");
   dash.begin();
 
   mqtt.subscribe("#", [](const char* topic, const char* payload) {
@@ -229,6 +255,7 @@ void setup() {
   });
   mqtt.begin();
 
+  lcdRender();        // show the device list before the (blocking) BLE scan, not a frozen splash
   linkBleDevices();   // connect + login BLE drivers once WiFi is up
 }
 
