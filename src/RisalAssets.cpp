@@ -87,6 +87,12 @@ const char RISAL_CSS[] PROGMEM =
   ".lnav-name{flex:1;height:42px;border:1px solid var(--line2);border-radius:13px;background:var(--glass);"
   "backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);color:var(--ink1);cursor:pointer;"
   "font:800 13px var(--font);letter-spacing:.17em;text-transform:uppercase}"
+  ".botnav{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;justify-content:space-around;align-items:center;"
+  "padding:8px 6px calc(10px + env(safe-area-inset-bottom));background:var(--bg2);border-top:1px solid var(--line);"
+  "backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}"
+  ".bn-item{flex:1;min-width:0;background:none;border:none;cursor:pointer;color:var(--ink3);display:flex;flex-direction:column;"
+  "align-items:center;gap:4px;padding:5px 2px;font:600 10.5px var(--font);transition:color .15s}"
+  ".bn-item svg{width:22px;height:22px;fill:currentColor}.bn-item.on{color:var(--acc)}"
   ".lscrim{position:fixed;inset:0;z-index:80;background:oklch(0 0 0 / .45);opacity:0;pointer-events:none;transition:opacity .25s}"
   ".lscrim.on{opacity:1;pointer-events:auto}"
   ".lsheet{position:fixed;left:0;right:0;bottom:0;z-index:90;background:var(--bg2);border-top:1px solid var(--line2);"
@@ -191,14 +197,15 @@ const char RISAL_LAYOUTS_JS[] PROGMEM = R"js((function(){
 var sheet=document.querySelector('.lsheet'),scrim=document.querySelector('.lscrim'),lays=document.querySelector('.lays');
 var nameEl=document.getElementById('lnavN'),aL=document.getElementById('lnavL'),aR=document.getElementById('lnavR');
 if(!sheet||!lays)return;
+if(document.querySelector('.botnav'))document.body.style.paddingBottom='78px';
 var N=lays.querySelectorAll('.lay').length;
 function set(o){sheet.classList.toggle('on',o);scrim.classList.toggle('on',o);}
 function nm(i){var s=document.querySelector('.ltile[data-lay="'+i+'"] span');return s?s.textContent:'';}
 function cur(){return Math.max(0,Math.min(N-1,Math.round(lays.scrollLeft/lays.clientWidth)));}
-function mark(i){document.querySelectorAll('.ltile').forEach(function(t){t.classList.toggle('on',+t.dataset.lay===i);});
+function mark(i){document.querySelectorAll('.ltile,.bn-item').forEach(function(t){t.classList.toggle('on',+t.dataset.lay===i);});
   if(nameEl)nameEl.textContent=nm(i);if(aL)aL.disabled=i<=0;if(aR)aR.disabled=i>=N-1;}
 function go(i){i=Math.max(0,Math.min(N-1,i));lays.scrollTo({left:i*lays.clientWidth,behavior:'smooth'});mark(i);set(false);window.scrollTo(0,0);}
-document.querySelectorAll('.ltile').forEach(function(t){t.addEventListener('click',function(){go(+t.dataset.lay);});});
+document.querySelectorAll('.ltile,.bn-item').forEach(function(t){t.addEventListener('click',function(){go(+t.dataset.lay);});});
 var tmr;lays.addEventListener('scroll',function(){clearTimeout(tmr);tmr=setTimeout(function(){mark(cur());},90);},{passive:true});
 window.RL={open:function(o){set(!!o);},go:go,cur:cur};
 var a=+(lays.dataset.active||0);requestAnimationFrame(function(){lays.scrollLeft=a*lays.clientWidth;mark(a);});

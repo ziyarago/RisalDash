@@ -97,7 +97,9 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     // Multi-page mode: swipe/arrow between pages. `active` (the selected page) is passed in — the
     // request object isn't available during chunked rendering.
     // Nav strip under the appbar: [‹]  PAGE NAME  [›]  (name taps open the tile sheet).
-    out.print(F("<nav class=\"lnav\"><button class=\"lnav-a\" id=\"lnavL\" aria-label=\"prev\" onclick=\"RL.go(RL.cur()-1)\">"
+    // Skipped when a bottom tab bar is chosen (dash.bottomNav()).
+    if (!_bottomNav)
+      out.print(F("<nav class=\"lnav\"><button class=\"lnav-a\" id=\"lnavL\" aria-label=\"prev\" onclick=\"RL.go(RL.cur()-1)\">"
                  "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 18l-6-6 6-6\"/></svg></button>"
                  "<button class=\"lnav-name\" id=\"lnavN\" onclick=\"RL.open(1)\"></button>"
                  "<button class=\"lnav-a\" id=\"lnavR\" aria-label=\"next\" onclick=\"RL.go(RL.cur()+1)\">"
@@ -152,6 +154,27 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
       out.print(F("</span></button>"));
     }
     out.print(F("</div></div>"));
+    // Bottom tab bar (dash.bottomNav()) — one tab per visible page, icon + name, syncs with the pager.
+    if (_bottomNav) {
+      out.print(F("<nav class=\"botnav\">"));
+      int bi = -1;
+      for (uint8_t k = 0; k < _count; k++) {
+        if (strcmp(_widgets[k]->typeId(), "layout") != 0) continue;
+        LayoutWidget* blw = static_cast<LayoutWidget*>(_widgets[k]);
+        if (!blw->visible()) continue;
+        bi++;
+        out.print(F("<button class=\"bn-item\" data-lay=\""));
+        out.print(bi);
+        out.print(F("\" onclick=\"RL.go("));
+        out.print(bi);
+        out.print(F(")\"><svg viewBox=\"0 0 24 24\"><path d=\""));
+        out.print(FPSTR(blw->iconPath() ? blw->iconPath() : RICON_HOME));
+        out.print(F("\"/></svg><span>"));
+        out.print(rI18n(_widgets[k]->key()));
+        out.print(F("</span></button>"));
+      }
+      out.print(F("</nav>"));
+    }
   } else if (!hasTabs) {
     out.print(F("<main class=\"grid\">"));
     for (uint8_t i = 0; i < _count; i++)

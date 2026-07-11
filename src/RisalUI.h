@@ -88,6 +88,9 @@ class RisalUI {
   // Visual effects (orbs + appbar backdrop-blur) — on by default. effects(false) flattens
   // them for weak boards / lower GPU load, keeping the same colors.
   RisalUI& effects(bool on) { _effects = on; return *this; }
+  // Multi-page navigation as a bottom tab bar (one tab per page) instead of the top ‹ name › strip.
+  // App-like; pairs well with a device hub. Call before begin().
+  RisalUI& bottomNav(bool on = true) { _bottomNav = on; return *this; }
   // Status-bar timezone, in minutes from UTC (e.g. 180 = +03:00). Default Riyadh.
   // Normally chosen on the first-boot portal and saved; this sets the default.
   RisalUI& timezone(int minutes) { _tz = minutes; return *this; }
@@ -258,6 +261,7 @@ class RisalUI {
   String _langStore;  // backs _langCode when the language is restored from NVS (stable storage)
   bool _rtl = false;
   bool _effects = true;
+  bool _bottomNav = false;   // multi-page nav as a bottom tab bar (dash.bottomNav())
   bool _gsm = false;  // status-bar GSM/cellular bars — only if the board has a modem
   bool _bt = false;   // status-bar Bluetooth glyph — only when BT is active
   int _tz = 180;

@@ -35,8 +35,9 @@ static Arduino_GFX* gfx = nullptr;
 enum Transport { T_MQTT, T_BLE };
 
 struct Device {
-  const char* name;         // shown on the control card
+  const char* name;         // shown on the control card (web)
   const char* emoji;        // card icon
+  const char* lcd;          // Latin name for the Latin-only LCD font
   Transport   transport;
   bool        power;        // bound to the card's Power toggle
   bool        linked;       // BLE: connected+logged in / MQTT: always true
@@ -57,12 +58,12 @@ struct Device {
 
 // ── THE DRIVER TABLE — add a device = add a row ──
 Device devices[] = {
-  { "Air Freshener", "\xF0\x9F\xAB\xA7", T_BLE,  false, false,   // 🫧
+  { "Освежитель", "\xF0\x9F\xAB\xA7", "Freshener", T_BLE,  false, false,   // 🫧
     nullptr, nullptr, nullptr,                 // (no MQTT)
     "YGZK", "9999",                            // BLE name prefix + PIN
     {0x2D, 0x09}, 2, {0x2D, 0x08}, 2,          // on / off command bytes
     nullptr, nullptr, nullptr, -127 },
-  { "Sonoff Plug",   "\xF0\x9F\x94\x8C", T_MQTT, false, true,    // 🔌
+  { "Розетка",   "\xF0\x9F\x94\x8C", "Plug", T_MQTT, false, true,    // 🔌
     "cmnd/plug/POWER", "ON", "OFF",            // MQTT command topic + payloads
     nullptr, nullptr, {0}, 0, {0}, 0,          // (no BLE)
     nullptr, nullptr, nullptr, -127 },
@@ -204,7 +205,7 @@ void lcdRender() {
     uint16_t dc = devices[i].power ? C_GREEN
                 : (devices[i].transport == T_BLE && !devices[i].linked) ? C_AMBER : C_OFF;
     gfx->fillCircle(17, y + 4, 4, dc);
-    gfx->setTextColor(C_INK); gfx->setTextSize(1); gfx->setCursor(30, y); gfx->print(devices[i].name);
+    gfx->setTextColor(C_INK); gfx->setTextSize(1); gfx->setCursor(30, y); gfx->print(devices[i].lcd);
   }
 }
 
@@ -217,6 +218,8 @@ uint32_t lcdSig() {
 
 void setup() {
   dash.timezone(300);
+  dash.lang("ru");       // Russian UI (On/Off, status bar)
+  dash.bottomNav();      // app-like bottom tab bar instead of the top strip
   lcdBegin();     // light the panel immediately
   lcdSplash();    // RisalHub logo at power-on
   delay(1500);    // hold the splash a moment
@@ -229,15 +232,15 @@ void setup() {
   for (int i = 0; i < NDEV; i++) devices[i].power = prefs.getBool((String("p") + i).c_str(), false);
 
   // Settings page — transport status + editable, persisted device config.
-  dash.layout("Settings", RICON_SIGNAL);
-  dash.label("MQTT broker", &brokerStatus);
+  dash.layout("Настройки", RICON_SIGNAL);
+  dash.label("MQTT брокер", &brokerStatus);
   dash.toggle("Bluetooth", &bleOn, [](bool on) { prefs.putBool("ble", on); });   // applies on next boot
-  dash.slider("Brightness", &backlight, 5, 50, [](int v) { applyBacklight(); prefs.putInt("bl", v); });  // ≤50% (heat)
-  dash.password("Freshener PIN", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
+  dash.slider("Яркость", &backlight, 5, 50, [](int v) { applyBacklight(); prefs.putInt("bl", v); });  // ≤50% (heat)
+  dash.password("PIN освежителя", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
 
   // Overview page — at-a-glance home summary, then one composite device card per driver.
-  dash.layout("Overview", RICON_HOME);
-  dash.summary("Home", &homeHeadline, &homeDetail, &homeMood);
+  dash.layout("Обзор", RICON_HOME);
+  dash.summary("Дом", &homeHeadline, &homeDetail, &homeMood);
   for (int i = 0; i < NDEV; i++) {
     dash.deviceCard(devices[i].name, devices[i].emoji, &devices[i].power, &devices[i].linked,
         [i](bool on) {
@@ -248,15 +251,15 @@ void setup() {
   }
 
   // Devices page — a dense technical table (à la a Zigbee gateway's device page).
-  dash.layout("Devices", RICON_HOME);
+  dash.layout("Устройства", RICON_HOME);
   dash.deviceTable("Devices", &tableData);
 
   // Map page — radial topology of the hub + its devices.
-  dash.layout("Map", RICON_SIGNAL);
+  dash.layout("Карта", RICON_SIGNAL);
   dash.network("Network", &netData);
 
   // Discovery page — MQTT visibility.
-  dash.layout("Discovery", RICON_SIGNAL);
+  dash.layout("Журнал", RICON_SIGNAL);
   dash.badge("MQTT msgs", &msgCount);
   feed = &dash.log("MQTT feed", 6);
 
@@ -310,8 +313,8 @@ void loop() {
         if (devices[i].transport == T_BLE && !devices[i].linked) issue++;
       }
       homeMood = issue ? 1 : 0;
-      homeHeadline = issue ? (String(issue) + " offline") : (on ? "Running" : "All quiet");
-      homeDetail = String(NDEV) + " devices · " + String(on) + " on";
+      homeHeadline = issue ? (String(issue) + " офлайн") : (on ? "Работает" : "Всё спокойно");
+      homeDetail = String(NDEV) + " устройств · " + String(on) + " вкл";
       netData = "";
       tableData = "";
       for (int i = 0; i < NDEV; i++) {
