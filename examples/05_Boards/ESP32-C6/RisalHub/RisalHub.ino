@@ -15,6 +15,7 @@
 #include <ArduinoJson.h>
 #include <BLEDevice.h>
 #include <WiFi.h>
+#include <Preferences.h>           // persist hub settings (PIN, transports) to NVS
 #include <Arduino_GFX_Library.h>   // Waveshare C6-LCD-1.47 (ST7789 172x320)
 
 RisalUI dash("Risal Hub");
@@ -64,6 +65,12 @@ Device devices[] = {
 };
 const int NDEV = sizeof(devices) / sizeof(devices[0]);
 
+// Persisted settings (NVS) — editable live from the Settings page.
+Preferences prefs;
+String freshenerPin = "9999";      // BLE login PIN (0x8F + PIN)
+bool   bleOn = true;               // enable BLE device linking
+String brokerStatus = "running :1883";
+
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
 int msgCount = 0;
@@ -94,6 +101,7 @@ static BLERemoteCharacteristic* pick(BLERemoteService* s, const char* uuid) {
 }
 
 void linkBleDevices() {
+  if (!bleOn) return;   // Bluetooth disabled in Settings
   bool anyBle = false;
   for (int i = 0; i < NDEV; i++) if (devices[i].transport == T_BLE) anyBle = true;
   if (!anyBle) return;
@@ -119,9 +127,10 @@ void linkBleDevices() {
       if (!d.ch) d.ch = pick(ae, "0000ae03-0000-1000-8000-00805f9b34fb");
     }
     if (!d.ch) continue;
-    if (d.pin) {                                     // login: 0x8F + PIN
+    if (d.pin) {                                     // login: 0x8F + configurable PIN (from NVS)
       uint8_t login[1 + 8]; login[0] = 0x8F;
-      size_t pl = strlen(d.pin); memcpy(login + 1, d.pin, pl);
+      size_t pl = freshenerPin.length(); if (pl > 8) pl = 8;
+      memcpy(login + 1, freshenerPin.c_str(), pl);
       d.ch->writeValue(login, 1 + pl, false);
     }
     d.linked = true;
@@ -169,6 +178,16 @@ uint32_t lcdSig() {
 void setup() {
   dash.timezone(300);
   lcdBegin();   // light the panel immediately
+
+  prefs.begin("hub", false);                         // restore saved settings
+  freshenerPin = prefs.getString("pin", "9999");
+  bleOn = prefs.getBool("ble", true);
+
+  // Settings page — transport status + editable, persisted device config.
+  dash.layout("Settings", RICON_SIGNAL);
+  dash.label("MQTT broker", &brokerStatus);
+  dash.toggle("Bluetooth", &bleOn, [](bool on) { prefs.putBool("ble", on); });   // applies on next boot
+  dash.password("Freshener PIN", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
 
   // Devices page — a control card per driver.
   dash.layout("Devices", RICON_HOME);
