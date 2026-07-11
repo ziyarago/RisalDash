@@ -2,19 +2,20 @@
 // The protocol was recovered from the vendor APK (com.bluetooth.rasma): commands are written RAW to the
 // device's write characteristic (no framing/CRC). A login frame must be sent first:
 //
-//   login    : 0x8F + <password ASCII>        (default candidates: "0000000" or "1111111")
+//   login    : 0x8F + <password ASCII>        (device PIN, 4 digits, e.g. "9999" — factory default "0000")
 //   power on : 0x2D 0x09                        (total-control byte: lamp<4> 1<3> demo<2> fan<1> onOff<0>)
 //   power off: 0x2D 0x08
 //   aroma    : 0x2A <index> 0x02 <fan/fog bits> 0x00   (5 bytes)
 //
 // Write characteristic: the vendor's fff0/fff6 model differs per hardware. This unit (YGZK-XXJ-TJ)
-// exposes an HM-10 style UART (ffe0/ffe2) plus a vendor service (ae30). We write to ffe2 and fall back
-// to ae01/ae03 if ffe2 is absent. EXPERIMENTAL: verify on hardware; toggling physically runs the device.
+// exposes an HM-10 style UART (ffe0/ffe2) plus a vendor service (ae30). We write to ffe2 (with an
+// ae01/ae03 fallback). VERIFIED on hardware: login 0x8F+PIN then 0x2D 0x09 / 0x2D 0x08 turns the
+// diffuser on/off (confirmed by stopping it mid-timer).
 #include <RisalUI.h>
 #include <BLEDevice.h>
 
 #define TARGET   "YGZK"       // freshener advertised-name prefix
-#define PASSWORD "0000000"    // try "0000000", then "1111111" if login is rejected
+#define PASSWORD "9999"       // your device PIN (4 digits; factory default is usually "0000")
 
 RisalUI dash("Freshener");
 bool power = false, linked = false;
