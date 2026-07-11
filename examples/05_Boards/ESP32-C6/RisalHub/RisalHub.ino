@@ -72,6 +72,9 @@ String freshenerPin = "9999";      // BLE login PIN (0x8F + PIN)
 bool   bleOn = true;               // enable BLE device linking
 String brokerStatus = "running :1883";
 
+// Per-device status-widget names (stable storage so each card has a unique, readable key).
+String ledName[NDEV];
+
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
 int msgCount = 0;
@@ -203,7 +206,8 @@ void setup() {
       sendPower(devices[i], on);
       prefs.putBool((String("p") + i).c_str(), on);   // remember across reboots
     });
-    dash.led(devices[i].transport == T_BLE ? "  linked" : "  online", &devices[i].linked);
+    ledName[i] = String(devices[i].name) + (devices[i].transport == T_BLE ? " · link" : " · online");
+    dash.led(ledName[i].c_str(), &devices[i].linked);
   }
 
   // Discovery page — MQTT visibility.
