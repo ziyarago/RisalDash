@@ -7,24 +7,23 @@
 // driver can drive. State rides one key as "power,online,level" (e.g. "1,1,64"); commands come back as
 // "p1"/"p0" (toggle) or "l64" (slider).
 static const char RW_DEVCARD_CSS[] PROGMEM =
-  ".devcard{padding:16px 16px 15px;position:relative;overflow:hidden}"
-  ".devcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad);opacity:.85}"
-  ".dc-top{display:flex;align-items:center;gap:12px}"
-  ".dc-ic{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;"
+  ".devcard{padding:14px 14px 13px}"
+  ".dc-hd{display:flex;align-items:flex-start;justify-content:space-between}"
+  ".dc-ic{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;"
     "background:var(--field);border:1px solid var(--line2);transition:.25s}"
   ".devcard.on .dc-ic{background:var(--grad);border-color:transparent}"
-  ".dc-tt{flex:1;min-width:0}"
-  ".dc-nm{font:700 16px var(--font);color:var(--ink1);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-  ".dc-sub{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--ink2)}"
-  ".dc-dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:none}"
+  ".dc-nm{font:700 14px var(--font);color:var(--ink1);letter-spacing:-.01em;margin-top:12px;"
+    "white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+  ".dc-sub{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:11.5px;color:var(--ink2)}"
+  ".dc-dot{width:6px;height:6px;border-radius:50%;background:var(--ink3);flex:none}"
   ".dc-dot.ok{background:oklch(0.78 0.15 152);box-shadow:0 0 8px oklch(0.78 0.15 152 / .8)}"
   ".dc-dot.bad{background:oklch(0.72 0.18 15);box-shadow:0 0 8px oklch(0.72 0.18 15 / .7)}"
-  ".dc-sw{flex:none;width:46px;height:27px;border-radius:99px;border:none;background:var(--line2);"
+  ".dc-sw{flex:none;width:42px;height:25px;border-radius:99px;border:none;background:var(--line2);"
     "padding:3px;cursor:pointer;transition:.22s}"
-  ".dc-sw i{display:block;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .22s;box-shadow:0 1px 3px rgba(0,0,0,.4)}"
-  ".devcard.on .dc-sw{background:var(--grad)}.devcard.on .dc-sw i{transform:translateX(19px)}"
-  ".dc-lv{margin-top:15px}"
-  ".dc-lvl{display:flex;justify-content:space-between;font:700 10.5px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}"
+  ".dc-sw i{display:block;width:19px;height:19px;border-radius:50%;background:#fff;transition:transform .22s;box-shadow:0 1px 3px rgba(0,0,0,.4)}"
+  ".devcard.on .dc-sw{background:var(--grad)}.devcard.on .dc-sw i{transform:translateX(17px)}"
+  ".dc-lv{margin-top:14px}"
+  ".dc-lvl{display:flex;justify-content:space-between;font:700 10px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}"
   ".dc-lv input{width:100%;margin-top:8px;accent-color:var(--acc);height:6px}";
 
 static const char RW_DEVCARD_JS[] PROGMEM =
@@ -55,15 +54,18 @@ class DeviceCardWidget : public Widget {
 
   void card(Print& out) override {
     bool on = _power && *_power;
-    out.print(F("<section class=\"card m devcard"));
+    out.print(F("<section class=\"card "));
+    out.print(_level ? F("m") : F("s"));   // tile (2-up) unless it carries a slider
+    out.print(F(" devcard"));
     if (on) out.print(F(" on"));
     out.print(F("\" data-type=\"devcard\" data-key=\""));
     out.print(_key);
     out.print(F("\" data-on=\""));  out.print(rwOnOff(true));
     out.print(F("\" data-off=\"")); out.print(rwOnOff(false));
-    out.print(F("\"><div class=\"dc-top\"><span class=\"dc-ic\">"));
+    out.print(F("\"><div class=\"dc-hd\"><span class=\"dc-ic\">"));
     out.print(_emoji ? _emoji : "\xC2\xB7");
-    out.print(F("</span><div class=\"dc-tt\"><div class=\"dc-nm\">"));
+    out.print(F("</span><button class=\"dc-sw\" onclick=\"R.W.devcard.tog(this)\"><i></i></button></div>"));
+    out.print(F("<div class=\"dc-nm\">"));
     out.print(rI18n(_title));
     out.print(F("</div><div class=\"dc-sub\"><span class=\"dc-dot "));
     out.print(_online ? (*_online ? "ok" : "bad") : "");
@@ -71,7 +73,7 @@ class DeviceCardWidget : public Widget {
     if (_sub) { out.print(_sub); out.print(F(" · ")); }
     out.print(F("<span class=\"dc-state\">"));
     out.print(rwOnOff(on));
-    out.print(F("</span></div></div><button class=\"dc-sw\" onclick=\"R.W.devcard.tog(this)\"><i></i></button></div>"));
+    out.print(F("</span></div>"));
     if (_level) {
       out.print(F("<div class=\"dc-lv\"><div class=\"dc-lvl\"><span>Intensity</span><span class=\"dc-lvv\">"));
       out.print(*_level); out.print(F("%</span></div><input type=\"range\" min=\"0\" max=\"100\" value=\""));
