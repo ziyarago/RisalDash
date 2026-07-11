@@ -173,3 +173,51 @@ class SummaryWidget : public Widget {
   int* _mood;
   RwTracked<String> _trk;
 };
+
+// ── Device table: a dense technical list of every device (like a Zigbee gateway's device page) —
+// icon, name, link quality, transport, address, last-seen. Bind a String* you fill with one device
+// per record: "emoji~name~transport~addr~link~lastseen;".
+static const char RW_DEVTABLE_CSS[] PROGMEM =
+  ".dtbl{width:100%;overflow-x:auto;margin-top:6px}"
+  ".dtbl table{width:100%;border-collapse:collapse;font-size:12.5px}"
+  ".dtbl th{text-align:left;font:700 10px var(--font);letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);"
+    "padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}"
+  ".dtbl td{padding:9px 9px;border-bottom:1px solid var(--line);color:var(--ink2);white-space:nowrap}"
+  ".dtbl tr:last-child td{border-bottom:none}"
+  ".dt-nm{color:var(--ink1);font-weight:700}.dt-ic{font-size:16px}"
+  ".dt-addr{font:600 11px var(--mono);color:var(--ink3)}.dt-link{font-weight:800}"
+  ".dt-tr{display:inline-block;padding:2px 8px;border-radius:999px;font:700 10px var(--font);color:var(--ink2);border:1px solid var(--line2)}";
+
+static const char RW_DEVTABLE_JS[] PROGMEM =
+  "R.W.devtable={update:function(el,v){"
+  "var ds=(''+v).split(';').filter(function(x){return x;}).map(function(d){return d.split('~');});"
+  "var h='<table><thead><tr><th></th><th>Device</th><th>Link</th><th>Type</th><th>Address</th><th>Seen</th></tr></thead><tbody>';"
+  "ds.forEach(function(p){var l=+p[4]||0,c=l>60?'#34d399':(l>30?'#f5b94a':(l>0?'#fb7185':'#565f73'));"
+  "h+='<tr><td class=\"dt-ic\">'+(p[0]||'')+'</td><td class=\"dt-nm\">'+(p[1]||'')+'</td>'"
+  "+'<td class=\"dt-link\" style=\"color:'+c+'\">'+(l||'\\u2014')+'</td>'"
+  "+'<td><span class=\"dt-tr\">'+(p[2]||'')+'</span></td>'"
+  "+'<td class=\"dt-addr\">'+(p[3]||'\\u2014')+'</td><td>'+(p[5]||'\\u2014')+'</td></tr>';});"
+  "h+='</tbody></table>';el.querySelector('.dt-body').innerHTML=h;}};";
+
+class DeviceTableWidget : public Widget {
+ public:
+  DeviceTableWidget(const char* key, const char* title, String* data) : Widget(key, title), _data(data) {
+    _size = RSIZE_L;
+  }
+  const char* typeId() const override { return "devtable"; }
+  const char* css() const override { return RW_DEVTABLE_CSS; }
+  const char* js() const override { return RW_DEVTABLE_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"dtbl\"><div class=\"dt-body\"></div></div>"));
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { return _trk.changed(_data ? *_data : String()); }
+  void writeKV(String& out) override {
+    out += '"'; out += _key; out += "\":\""; out += rwJsonEsc(_data ? *_data : String()); out += '"';
+  }
+ private:
+  String* _data;
+  RwTracked<String> _trk;
+};

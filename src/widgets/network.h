@@ -19,7 +19,8 @@ static const char RW_NETWORK_JS[] PROGMEM =
   "var ds=(''+v).split(';').filter(function(x){return x;}).map(function(d){var p=d.split('~');"
   "return{n:p[0]||'',e:p[1]||'',o:p[2]==='1',l:+p[3]||0,a:p[4]||''};});"
   "var W=320,H=210,cx=W/2,cy=H/2,R=Math.min(cx,cy)-44,n=ds.length||1;"
-  "var pts=ds.map(function(d,i){var a=-Math.PI/2+i*2*Math.PI/n;return{x:cx+R*Math.cos(a),y:cy+R*Math.sin(a)};});"
+  "var a0=n<=2?0:-Math.PI/2;"   // 2 nodes read better left/right than top/bottom
+  "var pts=ds.map(function(d,i){var a=a0+i*2*Math.PI/n;return{x:cx+R*Math.cos(a),y:cy+R*Math.sin(a)};});"
   "var s='<svg viewBox=\"0 0 '+W+' '+H+'\"><defs><linearGradient id=\"nmg\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">'"
   "+'<stop offset=\"0\" stop-color=\"#22d3ee\"/><stop offset=\"1\" stop-color=\"#34d399\"/></linearGradient></defs>';"
   "ds.forEach(function(d,i){var p=pts[i];var c=!d.o?'#565f73':(d.l>60?'#34d399':(d.l>30?'#f5b94a':'#fb7185'));"

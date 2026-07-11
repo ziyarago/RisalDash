@@ -52,6 +52,7 @@ struct Device {
   BLEAddress* addr;         // filled by the scan
   BLERemoteCharacteristic* ch;
   BLEClient* client;        // kept to check the link + re-assert state
+  int rssi;                 // last advertised RSSI (BLE), for the map's link quality
 };
 
 // ── THE DRIVER TABLE — add a device = add a row ──
@@ -60,11 +61,11 @@ Device devices[] = {
     nullptr, nullptr, nullptr,                 // (no MQTT)
     "YGZK", "9999",                            // BLE name prefix + PIN
     {0x2D, 0x09}, 2, {0x2D, 0x08}, 2,          // on / off command bytes
-    nullptr, nullptr, nullptr },
+    nullptr, nullptr, nullptr, -127 },
   { "Sonoff Plug",   "\xF0\x9F\x94\x8C", T_MQTT, false, true,    // 🔌
     "cmnd/plug/POWER", "ON", "OFF",            // MQTT command topic + payloads
     nullptr, nullptr, {0}, 0, {0}, 0,          // (no BLE)
-    nullptr, nullptr, nullptr },
+    nullptr, nullptr, nullptr, -127 },
 };
 const int NDEV = sizeof(devices) / sizeof(devices[0]);
 
@@ -78,6 +79,7 @@ String brokerStatus = "running :1883";
 String homeHeadline = "Starting…", homeDetail = "";
 int    homeMood = 0;               // 0 good · 1 warn · 2 alarm
 String netData;                    // network-map records: "name~emoji~online~link~addr;"
+String tableData;                  // device-table records: "emoji~name~transport~addr~link~lastseen;"
 
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
@@ -99,8 +101,10 @@ class ScanCB : public BLEAdvertisedDeviceCallbacks {
     if (!a.haveName()) return;
     String n = a.getName().c_str();
     for (int i = 0; i < NDEV; i++)
-      if (devices[i].transport == T_BLE && !devices[i].addr && n.startsWith(devices[i].bleMatch))
-        devices[i].addr = new BLEAddress(a.getAddress());
+      if (devices[i].transport == T_BLE && n.startsWith(devices[i].bleMatch)) {
+        if (!devices[i].addr) devices[i].addr = new BLEAddress(a.getAddress());
+        devices[i].rssi = a.getRSSI();   // for the map's link quality
+      }
   }
 };
 
@@ -237,7 +241,11 @@ void setup() {
       .sub(devices[i].transport == T_BLE ? "BLE" : "MQTT");
   }
 
-  // Map page — radial topology of the hub + its devices (à la a Zigbee gateway).
+  // Devices page — a dense technical table (à la a Zigbee gateway's device page).
+  dash.layout("Devices", RICON_HOME);
+  dash.deviceTable("Devices", &tableData);
+
+  // Map page — radial topology of the hub + its devices.
   dash.layout("Map", RICON_SIGNAL);
   dash.network("Network", &netData);
 
@@ -299,11 +307,15 @@ void loop() {
       homeHeadline = issue ? (String(issue) + " offline") : (on ? "Running" : "All quiet");
       homeDetail = String(NDEV) + " devices · " + String(on) + " on";
       netData = "";
+      tableData = "";
       for (int i = 0; i < NDEV; i++) {
         Device& d = devices[i];
-        int link = d.linked ? (d.power ? 99 : 82) : 0;   // placeholder link quality (real RSSI later)
-        netData += String(d.name) + "~" + d.emoji + "~" + (d.linked ? "1" : "0") + "~" +
-                   String(link) + "~" + (d.transport == T_BLE ? "BLE" : "MQTT") + ";";
+        int link = d.transport == T_MQTT ? (d.linked ? 96 : 0)                         // local net = strong
+                 : (d.linked ? constrain(map(d.rssi, -95, -45, 5, 99), 5, 99) : 0);     // BLE from RSSI
+        const char* tr = d.transport == T_BLE ? "BLE" : "MQTT";
+        netData += String(d.name) + "~" + d.emoji + "~" + (d.linked ? "1" : "0") + "~" + String(link) + "~" + tr + ";";
+        String addr = d.transport == T_BLE ? (d.addr ? String(d.addr->toString().c_str()) : String("scanning")) : String("local");
+        tableData += String(d.emoji) + "~" + d.name + "~" + tr + "~" + addr + "~" + String(link) + "~" + (d.linked ? "live" : "lost") + ";";
       }
       lcdRender();
     }

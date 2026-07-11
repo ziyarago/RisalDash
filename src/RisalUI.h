@@ -170,6 +170,9 @@ class RisalUI {
   // Network map: a radial topology of the hub + its devices, with link-quality edges. Bind a String*
   // filled with "name~emoji~online~link~addr;" per device.
   NetworkWidget& network(const char* name, String* data);
+  // Device table: a dense technical list of devices. Bind a String* filled with
+  // "emoji~name~transport~addr~link~lastseen;" per device.
+  DeviceTableWidget& deviceTable(const char* name, String* data);
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);
