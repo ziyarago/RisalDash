@@ -164,6 +164,9 @@ class RisalUI {
   // toggle, and an optional intensity slider (chain .level(&v, cb)). One tile per device.
   DeviceCardWidget& deviceCard(const char* name, const char* emoji, bool* power, bool* online = nullptr,
                                DeviceCardWidget::PowerCb cb = nullptr);
+  // At-a-glance hero: eyebrow + a big bound headline + a bound detail line; mood (0 good/1 warn/2 alarm)
+  // tints the gradient. Put it at the top of an overview page.
+  SummaryWidget& summary(const char* eyebrow, String* headline, String* detail, int* mood = nullptr);
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);

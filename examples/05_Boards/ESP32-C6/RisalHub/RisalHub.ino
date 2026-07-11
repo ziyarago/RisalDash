@@ -74,6 +74,10 @@ String freshenerPin = "9999";      // BLE login PIN (0x8F + PIN)
 bool   bleOn = true;               // enable BLE device linking
 String brokerStatus = "running :1883";
 
+// Home summary (the Overview hero).
+String homeHeadline = "Starting…", homeDetail = "";
+int    homeMood = 0;               // 0 good · 1 warn · 2 alarm
+
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
 int msgCount = 0;
@@ -220,8 +224,9 @@ void setup() {
   dash.toggle("Bluetooth", &bleOn, [](bool on) { prefs.putBool("ble", on); });   // applies on next boot
   dash.password("Freshener PIN", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
 
-  // Overview page — one composite device card per driver.
+  // Overview page — at-a-glance home summary, then one composite device card per driver.
   dash.layout("Overview", RICON_HOME);
+  dash.summary("Home", &homeHeadline, &homeDetail, &homeMood);
   for (int i = 0; i < NDEV; i++) {
     dash.deviceCard(devices[i].name, devices[i].emoji, &devices[i].power, &devices[i].linked,
         [i](bool on) {
@@ -275,9 +280,20 @@ void loop() {
     }
   }
 
-  if (millis() - lastLcd > 400) {   // redraw the panel only when a device state changed
+  if (millis() - lastLcd > 400) {   // recompute the home summary + redraw the panel on any change
     lastLcd = millis();
     uint32_t s = lcdSig();
-    if (s != lastSig) { lastSig = s; lcdRender(); }
+    if (s != lastSig) {
+      lastSig = s;
+      int on = 0, issue = 0;
+      for (int i = 0; i < NDEV; i++) {
+        if (devices[i].power) on++;
+        if (devices[i].transport == T_BLE && !devices[i].linked) issue++;
+      }
+      homeMood = issue ? 1 : 0;
+      homeHeadline = issue ? (String(issue) + " offline") : (on ? "Running" : "All quiet");
+      homeDetail = String(NDEV) + " devices · " + String(on) + " on";
+      lcdRender();
+    }
   }
 }

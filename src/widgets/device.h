@@ -114,3 +114,62 @@ class DeviceCardWidget : public Widget {
   LevelCb _lcb;
   RwTracked<String> _trk;
 };
+
+// ── Home summary: the at-a-glance hero at the top of an overview — an eyebrow, a big headline
+// (e.g. "All good" / "2 offline") and a detail line (counts). A mood (0 good / 1 warn / 2 alarm)
+// tints the gradient. Bind the two strings + the mood int; update them from your logic each tick.
+static const char RW_SUMMARY_CSS[] PROGMEM =
+  ".summary{padding:20px;background:linear-gradient(135deg,oklch(0.82 0.15 200 / .16),oklch(0.85 0.16 152 / .10));"
+    "border-color:oklch(0.85 0.16 152 / .32)}"
+  ".summary.warn{background:linear-gradient(135deg,oklch(0.83 0.16 85 / .16),oklch(0.83 0.16 85 / .05));border-color:oklch(0.83 0.16 85 / .4)}"
+  ".summary.bad{background:linear-gradient(135deg,oklch(0.72 0.18 15 / .16),oklch(0.72 0.18 15 / .05));border-color:oklch(0.72 0.18 15 / .4)}"
+  ".sm-eb{font:700 10px var(--font);letter-spacing:.16em;text-transform:uppercase;color:oklch(0.82 0.15 152)}"
+  ".summary.warn .sm-eb{color:oklch(0.83 0.16 85)}.summary.bad .sm-eb{color:oklch(0.74 0.18 15)}"
+  ".sm-big{font:800 25px var(--font);letter-spacing:-.02em;margin-top:6px;color:var(--ink1)}"
+  ".sm-sub{font-size:13px;color:var(--ink2);margin-top:8px}";
+
+static const char RW_SUMMARY_JS[] PROGMEM =
+  "R.W.summary={update:function(el,v){var s=''+v,m=s[0],r=s.slice(1).split('\\n');"
+  "el.classList.remove('warn','bad');if(m==='1')el.classList.add('warn');else if(m==='2')el.classList.add('bad');"
+  "var b=el.querySelector('.sm-big');if(b)b.textContent=r[0]||'';"
+  "var d=el.querySelector('.sm-sub');if(d)d.textContent=r[1]||'';}};";
+
+class SummaryWidget : public Widget {
+ public:
+  SummaryWidget(const char* key, const char* eyebrow, String* headline, String* detail, int* mood)
+      : Widget(key, eyebrow), _eb(eyebrow), _head(headline), _det(detail), _mood(mood) {}
+  const char* typeId() const override { return "summary"; }
+  const char* css() const override { return RW_SUMMARY_CSS; }
+  const char* js() const override { return RW_SUMMARY_JS; }
+  void card(Print& out) override {
+    int m = _mood ? *_mood : 0;
+    out.print(F("<section class=\"card m summary"));
+    out.print(m == 1 ? F(" warn") : (m == 2 ? F(" bad") : F("")));
+    out.print(F("\" data-type=\"summary\" data-key=\""));
+    out.print(_key);
+    out.print(F("\"><div class=\"sm-eb\">"));
+    out.print(rI18n(_eb));
+    out.print(F("</div><div class=\"sm-big\">"));
+    if (_head) rwAttr(out, *_head);
+    out.print(F("</div><div class=\"sm-sub\">"));
+    if (_det) rwAttr(out, *_det);
+    out.print(F("</div></section>"));
+  }
+  bool hasState() const override { return true; }
+  bool poll() override {
+    String s = String(_mood ? *_mood : 0) + (_head ? *_head : String()) + '|' + (_det ? *_det : String());
+    return _trk.changed(s);
+  }
+  void writeKV(String& out) override {
+    out += '"'; out += _key; out += "\":\"";
+    out += String(_mood ? *_mood : 0);
+    out += rwJsonEsc((_head ? *_head : String()) + "\n" + (_det ? *_det : String()));
+    out += '"';
+  }
+ private:
+  const char* _eb;
+  String* _head;
+  String* _det;
+  int* _mood;
+  RwTracked<String> _trk;
+};
