@@ -73,7 +73,10 @@ const int NDEV = sizeof(devices) / sizeof(devices[0]);
 Preferences prefs;
 String freshenerPin = "9999";      // BLE login PIN (0x8F + PIN)
 bool   bleOn = true;               // enable BLE device linking
+int    backlight = 43;             // LCD brightness % (capped ≤50 — Waveshare panels overheat higher)
 String brokerStatus = "running :1883";
+
+void applyBacklight() { analogWrite(PIN_BL, constrain(backlight, 5, 50) * 255 / 100); }
 
 // Home summary (the Overview hero).
 String homeHeadline = "Starting…", homeDetail = "";
@@ -159,7 +162,7 @@ void lcdBegin() {
   gfx = new Arduino_ST7789(_bus, PIN_RST, 0, true, 172, 320, 34, 0, 34, 0);
   gfx->begin();
   gfx->fillScreen(C_BG);
-  analogWrite(PIN_BL, 43 * 255 / 100);   // 43% backlight (heat-safe)
+  applyBacklight();   // heat-safe brightness (capped ≤50%)
 }
 
 // Boot splash — the RisalHub wordmark, shown for a moment at power-on.
@@ -221,12 +224,15 @@ void setup() {
   prefs.begin("hub", false);                         // restore saved settings
   freshenerPin = prefs.getString("pin", "9999");
   bleOn = prefs.getBool("ble", true);
+  backlight = prefs.getInt("bl", 43);
+  applyBacklight();
   for (int i = 0; i < NDEV; i++) devices[i].power = prefs.getBool((String("p") + i).c_str(), false);
 
   // Settings page — transport status + editable, persisted device config.
   dash.layout("Settings", RICON_SIGNAL);
   dash.label("MQTT broker", &brokerStatus);
   dash.toggle("Bluetooth", &bleOn, [](bool on) { prefs.putBool("ble", on); });   // applies on next boot
+  dash.slider("Brightness", &backlight, 5, 50, [](int v) { applyBacklight(); prefs.putInt("bl", v); });  // ≤50% (heat)
   dash.password("Freshener PIN", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
 
   // Overview page — at-a-glance home summary, then one composite device card per driver.
