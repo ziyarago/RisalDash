@@ -1,14 +1,15 @@
-// RisalHub Discovery Center (PoC) — a single ESP32-C6 that discovers devices across MULTIPLE transports
-// and turns them into beautiful tiles, no per-device code:
-//   • MQTT  — its own broker (PicoMQTT); parses Home Assistant discovery configs → runtime tiles.
-//   • BLE   — scans continuously (the C6's own radio); lists nearby devices with live RSSI.
-//   • Zigbee— shown as a slot for schema 3 (native coordinator + WiFi coexistence — separate sketch).
+// RisalHub — an all-in-one smart-home hub on a single ESP32-C6. It runs its OWN MQTT broker AND a
+// beautiful RisalDash dashboard, discovers devices across transports, and CONTROLS them with commands —
+// no PC, Pi or cloud.
 //
-// Three pages: Discovery (transport status + MQTT feed), Bluetooth (nearby BLE list), Devices (the
-// runtime-discovered tiles). Everything feeds the same runtime-widget engine + "_struct" live reload.
+// The heart of the product is the DRIVER TABLE below: a device = { transport, how-to-reach it, its
+// commands }. The hub renders a control card per device and dispatches commands by transport. Adding
+// support for a new gadget is one row in `devices[]`, not new plumbing.
+//   • BLE driver  — connect + optional login, then write command bytes (e.g. the RASMA aroma diffuser).
+//   • MQTT driver — publish a command topic to the built-in broker (e.g. a Tasmota/Sonoff plug).
 //
-// Build:  -D RISAL_MAX_WIDGETS=80   (headroom for discovered tiles)
-// Libs:   RisalDash, mlesniew/PicoMQTT, bblanchon/ArduinoJson  (BLE is core: <BLEDevice.h>)
+// Build:  -D RISAL_MAX_WIDGETS=80
+// Libs:   RisalDash, mlesniew/PicoMQTT, bblanchon/ArduinoJson   (BLE is core: <BLEDevice.h>)
 #include <RisalUI.h>
 #include <PicoMQTT.h>
 #include <ArduinoJson.h>
@@ -17,142 +18,138 @@
 RisalUI dash("Risal Hub");
 PicoMQTT::Server mqtt;
 
-// ── Transport status (Discovery page) ──
-int msgCount = 0, mqttDevices = 0, bleDevices = 0;
-bool bleOn = true;
-String zbStatus = "off - schema 3";
+// ── Driver model ──────────────────────────────────────────────────────────────────────────────────
+enum Transport { T_MQTT, T_BLE };
 
+struct Device {
+  const char* name;         // shown on the control card
+  Transport   transport;
+  bool        power;        // bound to the card's Power toggle
+  bool        linked;       // BLE: connected+logged in / MQTT: always true
+  // MQTT
+  const char* cmdTopic;     // e.g. "cmnd/plug/POWER"
+  const char* onMsg;        // e.g. "ON"
+  const char* offMsg;       // e.g. "OFF"
+  // BLE
+  const char* bleMatch;     // advertised-name prefix, e.g. "YGZK"
+  const char* pin;          // login PIN (0x8F + PIN), or nullptr for none
+  uint8_t     onCmd[4];  uint8_t onLen;   // power-on bytes
+  uint8_t     offCmd[4]; uint8_t offLen;  // power-off bytes
+  BLEAddress* addr;         // filled by the scan
+  BLERemoteCharacteristic* ch;
+};
+
+// ── THE DRIVER TABLE — add a device = add a row ──
+Device devices[] = {
+  { "Air Freshener", T_BLE,  false, false,
+    nullptr, nullptr, nullptr,                 // (no MQTT)
+    "YGZK", "9999",                            // BLE name prefix + PIN
+    {0x2D, 0x09}, 2, {0x2D, 0x08}, 2,          // on / off command bytes
+    nullptr, nullptr },
+  { "Sonoff Plug",   T_MQTT, false, true,
+    "cmnd/plug/POWER", "ON", "OFF",            // MQTT command topic + payloads
+    nullptr, nullptr, {0}, 0, {0}, 0,          // (no BLE)
+    nullptr, nullptr },
+};
+const int NDEV = sizeof(devices) / sizeof(devices[0]);
+
+// Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
-LogWidget* bleList = nullptr;
+int msgCount = 0;
 
-// ── MQTT auto-discovery registry ──
-struct Ent { String cfgTopic, name, stateTopic, unit; float fval; bool bval; char kind; };
-Ent ents[24];
-int entN = 0;
-bool known(const String& c) { for (int i = 0; i < entN; i++) if (ents[i].cfgTopic == c) return true; return false; }
-
-void addDiscovered(const String& cfgTopic, const String& comp, JsonDocument& d) {
-  if (entN >= 24 || known(cfgTopic)) return;
-  Ent& e = ents[entN];
-  e.cfgTopic = cfgTopic;
-  e.name = (const char*)(d["name"] | "Device");
-  e.stateTopic = (const char*)(d["state_topic"] | "");
-  e.unit = (const char*)(d["unit_of_measurement"] | "");
-  e.fval = 0; e.bval = false;
-  if (comp == "switch" || comp == "light") {
-    e.kind = 't';
-    String cmd = (const char*)(d["command_topic"] | "");
-    dash.toggle(e.name.c_str(), &e.bval, [cmd](bool on) { if (cmd.length()) mqtt.publish(cmd.c_str(), on ? "ON" : "OFF"); });
-  } else if (comp == "binary_sensor") {
-    e.kind = 'l'; dash.led(e.name.c_str(), &e.bval);
-  } else {
-    e.kind = 'm'; dash.metric(e.name.c_str(), &e.fval, e.unit.c_str());
+// ── Command dispatch: one entry point, routed by transport ──
+void sendPower(Device& d, bool on) {
+  if (d.transport == T_MQTT) {
+    mqtt.publish(d.cmdTopic, on ? d.onMsg : d.offMsg);
+  } else if (d.ch) {
+    uint8_t* c = on ? d.onCmd : d.offCmd;
+    d.ch->writeValue(c, on ? d.onLen : d.offLen, false);  // write-no-response, raw bytes
   }
-  entN++; mqttDevices = entN;
 }
 
-// ── BLE scan: a small live table, filled from the BLE task under a spinlock ──
-struct BleDev { char addr[18]; char name[22]; int rssi; uint32_t seen; };
-static const int BMAX = 16;
-static BleDev btab[BMAX];
-static int bcnt = 0;
-static portMUX_TYPE bmux = portMUX_INITIALIZER_UNLOCKED;
-
+// ── BLE: find each BLE driver by name during one scan pass ──
 class ScanCB : public BLEAdvertisedDeviceCallbacks {
-  void onResult(BLEAdvertisedDevice d) override {
-    char addr[18]; strncpy(addr, d.getAddress().toString().c_str(), 17); addr[17] = 0;
-    char name[22];
-    if (d.haveName()) { strncpy(name, d.getName().c_str(), 21); name[21] = 0; } else strcpy(name, "(no name)");
-    int rssi = d.getRSSI();
-    uint32_t now = millis();
-    portENTER_CRITICAL(&bmux);
-    int idx = -1;
-    for (int i = 0; i < bcnt; i++) if (strcmp(btab[i].addr, addr) == 0) { idx = i; break; }
-    if (idx < 0 && bcnt < BMAX) idx = bcnt++;
-    if (idx >= 0) { strcpy(btab[idx].addr, addr); strcpy(btab[idx].name, name); btab[idx].rssi = rssi; btab[idx].seen = now; }
-    portEXIT_CRITICAL(&bmux);
+  void onResult(BLEAdvertisedDevice a) override {
+    if (!a.haveName()) return;
+    String n = a.getName().c_str();
+    for (int i = 0; i < NDEV; i++)
+      if (devices[i].transport == T_BLE && !devices[i].addr && n.startsWith(devices[i].bleMatch))
+        devices[i].addr = new BLEAddress(a.getAddress());
   }
 };
-static ScanCB scanCb;
-static BLEScan* bleScan = nullptr;
 
-void bleBegin() {
-  BLEDevice::init("RisalHub");
-  bleScan = BLEDevice::getScan();
-  bleScan->setAdvertisedDeviceCallbacks(&scanCb, true);
-  bleScan->setActiveScan(true);
-  bleScan->setInterval(160);
-  bleScan->setWindow(80);
-  bleScan->start(0, nullptr, false);   // scan forever, non-blocking
+static BLERemoteCharacteristic* pick(BLERemoteService* s, const char* uuid) {
+  return s ? s->getCharacteristic(BLEUUID(uuid)) : nullptr;
 }
 
-// Rebuild the "Nearby BLE" list from the live table (throttled by the caller).
-void bleRefresh() {
-  if (!bleList) return;
-  BleDev snap[BMAX]; int n;
-  portENTER_CRITICAL(&bmux);
-  n = bcnt; for (int i = 0; i < n; i++) snap[i] = btab[i];
-  portEXIT_CRITICAL(&bmux);
-  bleDevices = n;
-  // Show up to 5 strongest, most-recent devices as "name  rssidBm".
-  // (The log holds the latest lines; print in RSSI order for a stable-ish view.)
-  for (int pass = 0; pass < 5 && pass < n; pass++) {
-    int best = -1;
-    for (int i = 0; i < n; i++) if (snap[i].rssi > -127 && (best < 0 || snap[i].rssi > snap[best].rssi)) best = i;
-    if (best < 0) break;
-    String line = String(snap[best].name) + "  " + snap[best].rssi + "dBm";
-    bleList->print(line);
-    snap[best].rssi = -127;  // mark consumed
+void linkBleDevices() {
+  bool anyBle = false;
+  for (int i = 0; i < NDEV; i++) if (devices[i].transport == T_BLE) anyBle = true;
+  if (!anyBle) return;
+
+  BLEDevice::init("RisalHub");
+  BLEScan* scan = BLEDevice::getScan();
+  static ScanCB cb;
+  scan->setAdvertisedDeviceCallbacks(&cb);
+  scan->setActiveScan(true);
+  for (int t = 0; t < 8; t++) scan->start(3, false);
+  scan->stop();
+
+  for (int i = 0; i < NDEV; i++) {
+    Device& d = devices[i];
+    if (d.transport != T_BLE || !d.addr) continue;
+    BLEClient* c = BLEDevice::createClient();
+    if (!c->connect(*d.addr)) continue;
+    // HM-10 UART (ffe2) first, then the vendor ae30 write chars.
+    d.ch = pick(c->getService(BLEUUID("0000ffe0-0000-1000-8000-00805f9b34fb")), "0000ffe2-0000-1000-8000-00805f9b34fb");
+    if (!d.ch) {
+      BLERemoteService* ae = c->getService(BLEUUID("0000ae30-0000-1000-8000-00805f9b34fb"));
+      d.ch = pick(ae, "0000ae01-0000-1000-8000-00805f9b34fb");
+      if (!d.ch) d.ch = pick(ae, "0000ae03-0000-1000-8000-00805f9b34fb");
+    }
+    if (!d.ch) continue;
+    if (d.pin) {                                     // login: 0x8F + PIN
+      uint8_t login[1 + 8]; login[0] = 0x8F;
+      size_t pl = strlen(d.pin); memcpy(login + 1, d.pin, pl);
+      d.ch->writeValue(login, 1 + pl, false);
+    }
+    d.linked = true;
   }
 }
 
 void setup() {
   dash.timezone(300);
 
-  // Page 1 — Discovery: transport status + MQTT feed.
-  dash.layout("Discovery", RICON_SIGNAL);
-  dash.badge("MQTT devices", &mqttDevices);
-  dash.badge("BLE devices", &bleDevices);
-  dash.badge("Messages", &msgCount);
-  dash.toggle("BLE scan", &bleOn, [](bool on) { if (bleScan) { if (on) bleScan->start(0, nullptr, false); else bleScan->stop(); } });
-  dash.label("Zigbee", &zbStatus);
-  feed = &dash.log("MQTT feed", 5);
-
-  // Page 2 — Bluetooth: nearby devices.
-  dash.layout("Bluetooth", RICON_WIFI);
-  bleList = &dash.log("Nearby BLE", 5);
-
-  // Page 3 — Devices: runtime-discovered MQTT tiles land here.
+  // Devices page — a control card per driver.
   dash.layout("Devices", RICON_HOME);
+  for (int i = 0; i < NDEV; i++) {
+    dash.toggle(devices[i].name, &devices[i].power, [i](bool on) { sendPower(devices[i], on); });
+    dash.led(devices[i].transport == T_BLE ? "  linked" : "  online", &devices[i].linked);
+  }
+
+  // Discovery page — MQTT visibility.
+  dash.layout("Discovery", RICON_SIGNAL);
+  dash.badge("MQTT msgs", &msgCount);
+  feed = &dash.log("MQTT feed", 6);
 
   dash.begin();
 
   mqtt.subscribe("#", [](const char* topic, const char* payload) {
     msgCount++;
-    String t = topic;
-    String line = t + " = " + payload;
+    String line = String(topic) + " = " + payload;
     if (line.length() > 60) line = line.substring(0, 59) + "…";
     if (feed) feed->print(line);
-    if (t.startsWith("homeassistant/") && t.endsWith("/config")) {
-      int s1 = t.indexOf('/'), s2 = t.indexOf('/', s1 + 1);
-      JsonDocument d;
-      if (!deserializeJson(d, payload)) addDiscovered(t, t.substring(s1 + 1, s2), d);
-      return;
-    }
-    for (int i = 0; i < entN; i++)
-      if (ents[i].stateTopic.length() && ents[i].stateTopic == t) {
-        if (ents[i].kind == 'm') ents[i].fval = String(payload).toFloat();
-        else { String p = payload; ents[i].bval = (p == "ON" || p == "on" || p == "1" || p == "true"); }
-      }
+    // reflect a Tasmota plug's real state back onto its card
+    for (int i = 0; i < NDEV; i++)
+      if (devices[i].transport == T_MQTT && String(topic) == "stat/plug/POWER")
+        devices[i].power = (String(payload) == "ON");
   });
   mqtt.begin();
 
-  bleBegin();
+  linkBleDevices();   // connect + login BLE drivers once WiFi is up
 }
 
-uint32_t lastBle = 0;
 void loop() {
   dash.update();
   mqtt.loop();
-  if (millis() - lastBle > 3000) { lastBle = millis(); bleRefresh(); }  // refresh the BLE list
 }
