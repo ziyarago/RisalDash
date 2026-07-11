@@ -11,3 +11,4 @@
 #include "widgets/visual.h"
 #include "widgets/layout.h"
 #include "widgets/radio.h"
+#include "widgets/device.h"

@@ -1,0 +1,114 @@
+#pragma once
+#include "base.h"
+
+// ── Device card: one composite tile for a whole device — emoji icon, name, a status line (a live
+// online/offline dot + a transport label + On/Off), a primary Power toggle, and an optional intensity
+// slider. Replaces the old "a toggle here, a status LED there" fragmentation with a single card that a
+// driver can drive. State rides one key as "power,online,level" (e.g. "1,1,64"); commands come back as
+// "p1"/"p0" (toggle) or "l64" (slider).
+static const char RW_DEVCARD_CSS[] PROGMEM =
+  ".devcard{padding:16px 16px 15px;position:relative;overflow:hidden}"
+  ".devcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad);opacity:.85}"
+  ".dc-top{display:flex;align-items:center;gap:12px}"
+  ".dc-ic{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;"
+    "background:var(--field);border:1px solid var(--line2);transition:.25s}"
+  ".devcard.on .dc-ic{background:var(--grad);border-color:transparent}"
+  ".dc-tt{flex:1;min-width:0}"
+  ".dc-nm{font:700 16px var(--font);color:var(--ink1);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+  ".dc-sub{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--ink2)}"
+  ".dc-dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex:none}"
+  ".dc-dot.ok{background:oklch(0.78 0.15 152);box-shadow:0 0 8px oklch(0.78 0.15 152 / .8)}"
+  ".dc-dot.bad{background:oklch(0.72 0.18 15);box-shadow:0 0 8px oklch(0.72 0.18 15 / .7)}"
+  ".dc-sw{flex:none;width:46px;height:27px;border-radius:99px;border:none;background:var(--line2);"
+    "padding:3px;cursor:pointer;transition:.22s}"
+  ".dc-sw i{display:block;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .22s;box-shadow:0 1px 3px rgba(0,0,0,.4)}"
+  ".devcard.on .dc-sw{background:var(--grad)}.devcard.on .dc-sw i{transform:translateX(19px)}"
+  ".dc-lv{margin-top:15px}"
+  ".dc-lvl{display:flex;justify-content:space-between;font:700 10.5px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}"
+  ".dc-lv input{width:100%;margin-top:8px;accent-color:var(--acc);height:6px}";
+
+static const char RW_DEVCARD_JS[] PROGMEM =
+  "R.W.devcard={"
+  "c:function(e){return e.closest('.devcard');},"
+  "tog:function(b){var c=this.c(b),on=!c.classList.contains('on');c.classList.toggle('on',on);"
+  "c.querySelector('.dc-state').textContent=on?c.dataset.on:c.dataset.off;R.send(c.dataset.key,on?'p1':'p0');},"
+  "lv:function(i){var c=this.c(i);c.querySelector('.dc-lvv').textContent=i.value+'%';R.send(c.dataset.key,'l'+i.value);},"
+  "update:function(el,v){var a=(''+v).split(',');var on=a[0]==='1';"
+  "el.classList.toggle('on',on);var st=el.querySelector('.dc-state');if(st)st.textContent=on?el.dataset.on:el.dataset.off;"
+  "var d=el.querySelector('.dc-dot');if(d)d.className='dc-dot '+(a[1]==='1'?'ok':(a[1]==='0'?'bad':''));"
+  "if(a[2]!==undefined&&a[2]!=='-1'){var r=el.querySelector('input[type=range]');"
+  "if(r&&document.activeElement!==r)r.value=a[2];var vv=el.querySelector('.dc-lvv');if(vv)vv.textContent=a[2]+'%';}}};";
+
+class DeviceCardWidget : public Widget {
+ public:
+  using PowerCb = std::function<void(bool)>;
+  using LevelCb = std::function<void(int)>;
+  DeviceCardWidget(const char* key, const char* title, const char* emoji, bool* power, bool* online, PowerCb cb)
+      : Widget(key, title), _emoji(emoji), _power(power), _online(online), _pcb(cb) {}
+
+  DeviceCardWidget& sub(const char* s) { _sub = s; return *this; }                    // transport label, e.g. "BLE"
+  DeviceCardWidget& level(int* lv, LevelCb cb) { _level = lv; _lcb = cb; return *this; }  // adds an intensity slider
+
+  const char* typeId() const override { return "devcard"; }
+  const char* css() const override { return RW_DEVCARD_CSS; }
+  const char* js() const override { return RW_DEVCARD_JS; }
+
+  void card(Print& out) override {
+    bool on = _power && *_power;
+    out.print(F("<section class=\"card m devcard"));
+    if (on) out.print(F(" on"));
+    out.print(F("\" data-type=\"devcard\" data-key=\""));
+    out.print(_key);
+    out.print(F("\" data-on=\""));  out.print(rwOnOff(true));
+    out.print(F("\" data-off=\"")); out.print(rwOnOff(false));
+    out.print(F("\"><div class=\"dc-top\"><span class=\"dc-ic\">"));
+    out.print(_emoji ? _emoji : "\xC2\xB7");
+    out.print(F("</span><div class=\"dc-tt\"><div class=\"dc-nm\">"));
+    out.print(rI18n(_title));
+    out.print(F("</div><div class=\"dc-sub\"><span class=\"dc-dot "));
+    out.print(_online ? (*_online ? "ok" : "bad") : "");
+    out.print(F("\"></span>"));
+    if (_sub) { out.print(_sub); out.print(F(" · ")); }
+    out.print(F("<span class=\"dc-state\">"));
+    out.print(rwOnOff(on));
+    out.print(F("</span></div></div><button class=\"dc-sw\" onclick=\"R.W.devcard.tog(this)\"><i></i></button></div>"));
+    if (_level) {
+      out.print(F("<div class=\"dc-lv\"><div class=\"dc-lvl\"><span>Intensity</span><span class=\"dc-lvv\">"));
+      out.print(*_level); out.print(F("%</span></div><input type=\"range\" min=\"0\" max=\"100\" value=\""));
+      out.print(*_level);
+      out.print(F("\" oninput=\"R.W.devcard.lv(this)\"></div>"));
+    }
+    out.print(F("</section>"));
+  }
+
+  bool hasState() const override { return true; }
+  bool poll() override {
+    String s;
+    s += (_power && *_power) ? '1' : '0';
+    s += (_online && *_online) ? '1' : '0';
+    s += _level ? String(*_level) : String();
+    return _trk.changed(s);
+  }
+  void writeKV(String& out) override {
+    out += '"'; out += _key; out += "\":\"";
+    out += (_power && *_power) ? '1' : '0'; out += ',';
+    out += (_online && *_online) ? '1' : '0'; out += ',';
+    out += _level ? String(*_level) : String("-1");
+    out += '"';
+  }
+  void applyCommand(const String& v) override {
+    if (v.length() < 1) return;
+    if (v[0] == 'p') { bool on = v.length() > 1 && v[1] == '1'; if (_power) *_power = on; if (_pcb) _pcb(on); }
+    else if (v[0] == 'l') { int lv = v.substring(1).toInt(); if (_level) *_level = lv; if (_lcb) _lcb(lv); }
+  }
+
+ private:
+  const char* _emoji;
+  const char* _sub = nullptr;
+  bool* _power;
+  bool* _online;
+  int* _level = nullptr;
+  PowerCb _pcb;
+  LevelCb _lcb;
+  RwTracked<String> _trk;
+};

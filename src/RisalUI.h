@@ -160,6 +160,10 @@ class RisalUI {
   // Editable radio-station list: drag to reorder, inline-edit name/URL, add/remove. Value round-trips
   // as "Name | URL | Meta" (one per line) — same shape as textarea, so parsing/persistence is yours.
   RadioBrowserWidget& radioBrowser(const char* name, String* val, RadioBrowserWidget::Cb cb = nullptr);
+  // Composite device card: emoji icon + name + live status (online dot + label + On/Off) + a Power
+  // toggle, and an optional intensity slider (chain .level(&v, cb)). One tile per device.
+  DeviceCardWidget& deviceCard(const char* name, const char* emoji, bool* power, bool* online = nullptr,
+                               DeviceCardWidget::PowerCb cb = nullptr);
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);

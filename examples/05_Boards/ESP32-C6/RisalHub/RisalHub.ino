@@ -36,6 +36,7 @@ enum Transport { T_MQTT, T_BLE };
 
 struct Device {
   const char* name;         // shown on the control card
+  const char* emoji;        // card icon
   Transport   transport;
   bool        power;        // bound to the card's Power toggle
   bool        linked;       // BLE: connected+logged in / MQTT: always true
@@ -55,12 +56,12 @@ struct Device {
 
 // ── THE DRIVER TABLE — add a device = add a row ──
 Device devices[] = {
-  { "Air Freshener", T_BLE,  false, false,
+  { "Air Freshener", "\xF0\x9F\xAB\xA7", T_BLE,  false, false,   // 🫧
     nullptr, nullptr, nullptr,                 // (no MQTT)
     "YGZK", "9999",                            // BLE name prefix + PIN
     {0x2D, 0x09}, 2, {0x2D, 0x08}, 2,          // on / off command bytes
     nullptr, nullptr, nullptr },
-  { "Sonoff Plug",   T_MQTT, false, true,
+  { "Sonoff Plug",   "\xF0\x9F\x94\x8C", T_MQTT, false, true,    // 🔌
     "cmnd/plug/POWER", "ON", "OFF",            // MQTT command topic + payloads
     nullptr, nullptr, {0}, 0, {0}, 0,          // (no BLE)
     nullptr, nullptr, nullptr },
@@ -72,9 +73,6 @@ Preferences prefs;
 String freshenerPin = "9999";      // BLE login PIN (0x8F + PIN)
 bool   bleOn = true;               // enable BLE device linking
 String brokerStatus = "running :1883";
-
-// Per-device status-widget names (stable storage so each card has a unique, readable key).
-String ledName[NDEV];
 
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
@@ -222,15 +220,15 @@ void setup() {
   dash.toggle("Bluetooth", &bleOn, [](bool on) { prefs.putBool("ble", on); });   // applies on next boot
   dash.password("Freshener PIN", &freshenerPin, [](const String& v) { prefs.putString("pin", v); });
 
-  // Devices page — a control card per driver.
-  dash.layout("Devices", RICON_HOME);
+  // Overview page — one composite device card per driver.
+  dash.layout("Overview", RICON_HOME);
   for (int i = 0; i < NDEV; i++) {
-    dash.toggle(devices[i].name, &devices[i].power, [i](bool on) {
-      sendPower(devices[i], on);
-      prefs.putBool((String("p") + i).c_str(), on);   // remember across reboots
-    });
-    ledName[i] = String(devices[i].name) + (devices[i].transport == T_BLE ? " · link" : " · online");
-    dash.led(ledName[i].c_str(), &devices[i].linked);
+    dash.deviceCard(devices[i].name, devices[i].emoji, &devices[i].power, &devices[i].linked,
+        [i](bool on) {
+          sendPower(devices[i], on);
+          prefs.putBool((String("p") + i).c_str(), on);   // remember across reboots
+        })
+      .sub(devices[i].transport == T_BLE ? "BLE" : "MQTT");
   }
 
   // Discovery page — MQTT visibility.
