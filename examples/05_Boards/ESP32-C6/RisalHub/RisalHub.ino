@@ -49,6 +49,7 @@ struct Device {
   uint8_t     offCmd[4]; uint8_t offLen;  // power-off bytes
   BLEAddress* addr;         // filled by the scan
   BLERemoteCharacteristic* ch;
+  BLEClient* client;        // kept to check the link + re-assert state
 };
 
 // ── THE DRIVER TABLE — add a device = add a row ──
@@ -57,11 +58,11 @@ Device devices[] = {
     nullptr, nullptr, nullptr,                 // (no MQTT)
     "YGZK", "9999",                            // BLE name prefix + PIN
     {0x2D, 0x09}, 2, {0x2D, 0x08}, 2,          // on / off command bytes
-    nullptr, nullptr },
+    nullptr, nullptr, nullptr },
   { "Sonoff Plug",   T_MQTT, false, true,
     "cmnd/plug/POWER", "ON", "OFF",            // MQTT command topic + payloads
     nullptr, nullptr, {0}, 0, {0}, 0,          // (no BLE)
-    nullptr, nullptr },
+    nullptr, nullptr, nullptr },
 };
 const int NDEV = sizeof(devices) / sizeof(devices[0]);
 
@@ -100,6 +101,30 @@ static BLERemoteCharacteristic* pick(BLERemoteService* s, const char* uuid) {
   return s ? s->getCharacteristic(BLEUUID(uuid)) : nullptr;
 }
 
+// Connect + find the write characteristic + login, for a device whose address we already know.
+// Used both at boot and by the reconnect loop — no scan, so it's quick enough to call from loop().
+bool linkOne(Device& d) {
+  if (!d.addr) return false;
+  if (!d.client) d.client = BLEDevice::createClient();
+  if (!d.client->isConnected() && !d.client->connect(*d.addr)) return false;
+  d.ch = pick(d.client->getService(BLEUUID("0000ffe0-0000-1000-8000-00805f9b34fb")), "0000ffe2-0000-1000-8000-00805f9b34fb");
+  if (!d.ch) {
+    BLERemoteService* ae = d.client->getService(BLEUUID("0000ae30-0000-1000-8000-00805f9b34fb"));
+    d.ch = pick(ae, "0000ae01-0000-1000-8000-00805f9b34fb");
+    if (!d.ch) d.ch = pick(ae, "0000ae03-0000-1000-8000-00805f9b34fb");
+  }
+  if (!d.ch) return false;
+  if (d.pin) {                                     // login: 0x8F + configurable PIN (from NVS)
+    uint8_t login[1 + 8]; login[0] = 0x8F;
+    size_t pl = freshenerPin.length(); if (pl > 8) pl = 8;
+    memcpy(login + 1, freshenerPin.c_str(), pl);
+    d.ch->writeValue(login, 1 + pl, false);
+  }
+  d.linked = true;
+  sendPower(d, d.power);   // restore the commanded state on (re)connect
+  return true;
+}
+
 void linkBleDevices() {
   if (!bleOn) return;   // Bluetooth disabled in Settings
   bool anyBle = false;
@@ -114,27 +139,8 @@ void linkBleDevices() {
   for (int t = 0; t < 8; t++) scan->start(3, false);
   scan->stop();
 
-  for (int i = 0; i < NDEV; i++) {
-    Device& d = devices[i];
-    if (d.transport != T_BLE || !d.addr) continue;
-    BLEClient* c = BLEDevice::createClient();
-    if (!c->connect(*d.addr)) continue;
-    // HM-10 UART (ffe2) first, then the vendor ae30 write chars.
-    d.ch = pick(c->getService(BLEUUID("0000ffe0-0000-1000-8000-00805f9b34fb")), "0000ffe2-0000-1000-8000-00805f9b34fb");
-    if (!d.ch) {
-      BLERemoteService* ae = c->getService(BLEUUID("0000ae30-0000-1000-8000-00805f9b34fb"));
-      d.ch = pick(ae, "0000ae01-0000-1000-8000-00805f9b34fb");
-      if (!d.ch) d.ch = pick(ae, "0000ae03-0000-1000-8000-00805f9b34fb");
-    }
-    if (!d.ch) continue;
-    if (d.pin) {                                     // login: 0x8F + configurable PIN (from NVS)
-      uint8_t login[1 + 8]; login[0] = 0x8F;
-      size_t pl = freshenerPin.length(); if (pl > 8) pl = 8;
-      memcpy(login + 1, freshenerPin.c_str(), pl);
-      d.ch->writeValue(login, 1 + pl, false);
-    }
-    d.linked = true;
-  }
+  for (int i = 0; i < NDEV; i++)
+    if (devices[i].transport == T_BLE) linkOne(devices[i]);
 }
 
 void lcdBegin() {
@@ -182,6 +188,7 @@ void setup() {
   prefs.begin("hub", false);                         // restore saved settings
   freshenerPin = prefs.getString("pin", "9999");
   bleOn = prefs.getBool("ble", true);
+  for (int i = 0; i < NDEV; i++) devices[i].power = prefs.getBool((String("p") + i).c_str(), false);
 
   // Settings page — transport status + editable, persisted device config.
   dash.layout("Settings", RICON_SIGNAL);
@@ -192,7 +199,10 @@ void setup() {
   // Devices page — a control card per driver.
   dash.layout("Devices", RICON_HOME);
   for (int i = 0; i < NDEV; i++) {
-    dash.toggle(devices[i].name, &devices[i].power, [i](bool on) { sendPower(devices[i], on); });
+    dash.toggle(devices[i].name, &devices[i].power, [i](bool on) {
+      sendPower(devices[i], on);
+      prefs.putBool((String("p") + i).c_str(), on);   // remember across reboots
+    });
     dash.led(devices[i].transport == T_BLE ? "  linked" : "  online", &devices[i].linked);
   }
 
@@ -218,10 +228,24 @@ void setup() {
   linkBleDevices();   // connect + login BLE drivers once WiFi is up
 }
 
-uint32_t lastSig = 0xFFFFFFFF, lastLcd = 0;
+uint32_t lastSig = 0xFFFFFFFF, lastLcd = 0, lastEnforce = 0;
 void loop() {
   dash.update();
   mqtt.loop();
+
+  // Keepalive: re-assert each linked BLE device's commanded state so its own internal timer can't
+  // override what the user set on the hub. Also detect a dropped link.
+  if (millis() - lastEnforce > 20000) {
+    lastEnforce = millis();
+    for (int i = 0; i < NDEV; i++) {
+      Device& d = devices[i];
+      if (d.transport != T_BLE) continue;
+      if (d.client && d.client->isConnected()) sendPower(d, d.power);   // re-assert (beats the device timer)
+      else if (bleOn && d.addr) { d.linked = false; linkOne(d); }       // dropped -> reconnect by address
+      else d.linked = false;
+    }
+  }
+
   if (millis() - lastLcd > 400) {   // redraw the panel only when a device state changed
     lastLcd = millis();
     uint32_t s = lcdSig();
