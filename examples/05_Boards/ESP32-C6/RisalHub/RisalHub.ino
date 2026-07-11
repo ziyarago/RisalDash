@@ -89,6 +89,26 @@ String tableData;                  // device-table records: "emoji~name~transpor
 LogWidget* feed = nullptr;
 int msgCount = 0;
 
+// ── BLE sensor (passive beacon): a Xiaomi LYWSD03MMC on ATC/pvvx firmware broadcasting BTHome v2
+// (service 0xFCD2) — temperature / humidity / battery in plaintext. Read from the scan, no connection.
+float senseT = 0, senseH = 0, senseBat = 0;
+bool  senseSeen = false;
+
+void decodeBTHome(const uint8_t* p, int len) {
+  if (len < 1 || (p[0] & 0x01)) return;   // bit0 = encrypted -> skip
+  int i = 1;
+  while (i + 1 < len) {
+    uint8_t obj = p[i++];
+    if (obj == 0x00) { i += 1; }                                                   // packet id
+    else if (obj == 0x01) { senseBat = p[i]; i += 1; }                             // battery %
+    else if (obj == 0x02) { senseT = (int16_t)(p[i] | (p[i + 1] << 8)) * 0.01f; i += 2; }   // temp °C
+    else if (obj == 0x03) { senseH = (uint16_t)(p[i] | (p[i + 1] << 8)) * 0.01f; i += 2; }  // humidity %
+    else if (obj == 0x0C) { i += 2; }                                              // voltage (skip)
+    else return;   // unknown object id -> stop (variable lengths)
+  }
+  senseSeen = true;
+}
+
 // ── Command dispatch: one entry point, routed by transport ──
 void sendPower(Device& d, bool on) {
   if (d.transport == T_MQTT) {
@@ -102,12 +122,20 @@ void sendPower(Device& d, bool on) {
 // ── BLE: find each BLE driver by name during one scan pass ──
 class ScanCB : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice a) override {
+    // Passive sensor beacon: BTHome v2 on service 0xFCD2 (Xiaomi LYWSD03MMC on ATC/pvvx firmware).
+    if (a.haveServiceData())
+      for (int i = 0; i < a.getServiceDataCount(); i++)
+        if (a.getServiceDataUUID(i).toString() == "0000fcd2-0000-1000-8000-00805f9b34fb") {
+          String d = a.getServiceData(i);
+          decodeBTHome((const uint8_t*)d.c_str(), d.length());
+        }
+    // Named BLE driver devices (e.g. the freshener): grab address + RSSI for connect + the map.
     if (!a.haveName()) return;
     String n = a.getName().c_str();
     for (int i = 0; i < NDEV; i++)
       if (devices[i].transport == T_BLE && n.startsWith(devices[i].bleMatch)) {
         if (!devices[i].addr) devices[i].addr = new BLEAddress(a.getAddress());
-        devices[i].rssi = a.getRSSI();   // for the map's link quality
+        devices[i].rssi = a.getRSSI();
       }
   }
 };
@@ -250,6 +278,10 @@ void setup() {
         })
       .sub(devices[i].transport == T_BLE ? "BLE" : "MQTT");
   }
+  // Passive BLE sensor (Xiaomi LYWSD03MMC on ATC/BTHome) — read-only tiles.
+  dash.metric("Температура", &senseT, "°C");
+  dash.metric("Влажность", &senseH, "%");
+  dash.metric("Батарея", &senseBat, "%");
 
   // Devices page — a dense technical table (à la a Zigbee gateway's device page).
   dash.layout("Устройства", RICON_HOME);
@@ -283,6 +315,8 @@ void setup() {
 
   lcdRender();        // show the device list before the (blocking) BLE scan, not a frozen splash
   linkBleDevices();   // connect + login BLE drivers once WiFi is up
+  // Keep scanning after connecting — passively read sensor beacons (BTHome) alongside the connection.
+  if (bleOn) { BLEScan* sc = BLEDevice::getScan(); sc->setActiveScan(false); sc->start(0, nullptr, false); }
 }
 
 uint32_t lastSig = 0xFFFFFFFF, lastLcd = 0, lastEnforce = 0;
