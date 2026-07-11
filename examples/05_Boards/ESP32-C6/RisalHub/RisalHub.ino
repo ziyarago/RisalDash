@@ -270,6 +270,7 @@ void setup() {
   // Overview page — at-a-glance home summary, then one composite device card per driver.
   dash.layout("Обзор", RICON_HOME);
   dash.summary("Дом", &homeHeadline, &homeDetail, &homeMood);
+  dash.separator("Устройства");
   for (int i = 0; i < NDEV; i++) {
     dash.deviceCard(devices[i].name, devices[i].emoji, &devices[i].power, &devices[i].linked,
         [i](bool on) {
@@ -278,7 +279,8 @@ void setup() {
         })
       .sub(devices[i].transport == T_BLE ? "BLE" : "MQTT");
   }
-  // Passive BLE sensor (Xiaomi LYWSD03MMC on ATC/BTHome) — read-only tiles.
+  // Passive BLE sensor (Xiaomi LYWSD03MMC) — its readings grouped under the device name.
+  dash.separator("Спальня · Xiaomi");
   dash.metric("Температура", &senseT, "°C");
   dash.metric("Влажность", &senseH, "%");
   dash.metric("Батарея", &senseBat, "%");
