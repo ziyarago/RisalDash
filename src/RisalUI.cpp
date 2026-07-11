@@ -75,6 +75,7 @@ TextareaWidget& RisalUI::textarea(const char* name, String* val, TextareaWidget:
 RadioBrowserWidget& RisalUI::radioBrowser(const char* name, String* val, RadioBrowserWidget::Cb cb) { return _make<RadioBrowserWidget>(name, name, val, cb); }
 DeviceCardWidget& RisalUI::deviceCard(const char* name, const char* emoji, bool* power, bool* online, DeviceCardWidget::PowerCb cb) { return _make<DeviceCardWidget>(name, name, emoji, power, online, cb); }
 SummaryWidget& RisalUI::summary(const char* eyebrow, String* headline, String* detail, int* mood) { return _make<SummaryWidget>(eyebrow, eyebrow, headline, detail, mood); }
+NetworkWidget& RisalUI::network(const char* name, String* data) { return _make<NetworkWidget>(name, name, data); }
 LogWidget& RisalUI::log(const char* name, uint8_t lines) { return _make<LogWidget>(name, name, lines); }
 PasswordWidget& RisalUI::password(const char* name, String* val, PasswordWidget::Cb cb) { return _make<PasswordWidget>(name, name, val, cb); }
 TimeWidget& RisalUI::time(const char* name, String* val, TimeWidget::Cb cb) { return _make<TimeWidget>(name, name, val, cb); }

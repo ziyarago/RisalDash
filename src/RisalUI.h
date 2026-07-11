@@ -167,6 +167,9 @@ class RisalUI {
   // At-a-glance hero: eyebrow + a big bound headline + a bound detail line; mood (0 good/1 warn/2 alarm)
   // tints the gradient. Put it at the top of an overview page.
   SummaryWidget& summary(const char* eyebrow, String* headline, String* detail, int* mood = nullptr);
+  // Network map: a radial topology of the hub + its devices, with link-quality edges. Bind a String*
+  // filled with "name~emoji~online~link~addr;" per device.
+  NetworkWidget& network(const char* name, String* data);
   LogWidget&    log(const char* name, uint8_t lines = 5);
   PasswordWidget& password(const char* name, String* val, PasswordWidget::Cb cb = nullptr);
   TimeWidget&   time(const char* name, String* val, TimeWidget::Cb cb = nullptr);

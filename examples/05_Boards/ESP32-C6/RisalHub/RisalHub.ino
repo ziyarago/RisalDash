@@ -77,6 +77,7 @@ String brokerStatus = "running :1883";
 // Home summary (the Overview hero).
 String homeHeadline = "Starting…", homeDetail = "";
 int    homeMood = 0;               // 0 good · 1 warn · 2 alarm
+String netData;                    // network-map records: "name~emoji~online~link~addr;"
 
 // Discovery feed (MQTT visibility).
 LogWidget* feed = nullptr;
@@ -236,6 +237,10 @@ void setup() {
       .sub(devices[i].transport == T_BLE ? "BLE" : "MQTT");
   }
 
+  // Map page — radial topology of the hub + its devices (à la a Zigbee gateway).
+  dash.layout("Map", RICON_SIGNAL);
+  dash.network("Network", &netData);
+
   // Discovery page — MQTT visibility.
   dash.layout("Discovery", RICON_SIGNAL);
   dash.badge("MQTT msgs", &msgCount);
@@ -293,6 +298,13 @@ void loop() {
       homeMood = issue ? 1 : 0;
       homeHeadline = issue ? (String(issue) + " offline") : (on ? "Running" : "All quiet");
       homeDetail = String(NDEV) + " devices · " + String(on) + " on";
+      netData = "";
+      for (int i = 0; i < NDEV; i++) {
+        Device& d = devices[i];
+        int link = d.linked ? (d.power ? 99 : 82) : 0;   // placeholder link quality (real RSSI later)
+        netData += String(d.name) + "~" + d.emoji + "~" + (d.linked ? "1" : "0") + "~" +
+                   String(link) + "~" + (d.transport == T_BLE ? "BLE" : "MQTT") + ";";
+      }
       lcdRender();
     }
   }

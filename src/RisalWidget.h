@@ -12,3 +12,4 @@
 #include "widgets/layout.h"
 #include "widgets/radio.h"
 #include "widgets/device.h"
+#include "widgets/network.h"
