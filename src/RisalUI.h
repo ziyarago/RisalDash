@@ -181,6 +181,9 @@ class RisalUI {
   // Push changed widget values to clients over the WebSocket (throttled). Call from loop().
   void update();
   RisalUI& interval(uint16_t ms) { _interval = ms; return *this; }
+  // Force connected clients to reload the page — call after flipping a visibleWhen() bool (or any
+  // change that alters which widgets/pages render) so the new structure appears live, not on refresh.
+  RisalUI& restructure() { _structRev++; return *this; }
 
  private:
   // One factory to rule them all: heap-allocate the widget, register it, hand back the

@@ -31,6 +31,12 @@ class LayoutWidget : public Widget {
   const char* typeId() const override { return "layout"; }
   void card(Print& out) override { (void)out; }  // a boundary marker, not a card
   const char* iconPath() const { return _icon; }
+  // Conditional page: bound to a bool, the page and its switcher tile render only while it is true.
+  // Flip the bool (its widget bumps the structure revision) so open clients reload and it appears/hides.
+  LayoutWidget& visibleWhen(bool* b) { _vis = b; return *this; }
+  bool visible() const { return !_vis || *_vis; }
+ private:
+  bool* _vis = nullptr;
 };
 
 static const char RW_SEP_CSS[] PROGMEM =

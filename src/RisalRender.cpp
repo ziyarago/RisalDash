@@ -114,16 +114,19 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     out.print(active);
     out.print(F("\">"));
     int li = -1;
-    bool open = false;
+    bool open = false, skip = false;
     for (; i < _count; i++) {
       if (strcmp(_widgets[i]->typeId(), "layout") == 0) {
-        if (open) out.print(F("</main>"));
+        if (open) { out.print(F("</main>")); open = false; }
+        // A page hidden by visibleWhen(): emit no <main>, skip its widgets, don't consume an index.
+        if (!static_cast<LayoutWidget*>(_widgets[i])->visible()) { skip = true; continue; }
+        skip = false;
         li++;
         out.print(F("<main class=\"grid lay\" data-lay=\""));
         out.print(li);
         out.print(F("\">"));
         open = true;
-      } else if (!_widgets[i]->isSetting()) {
+      } else if (!skip && !_widgets[i]->isSetting()) {
         _widgets[i]->card(out);
       }
     }
@@ -135,8 +138,9 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
     li = -1;
     for (uint8_t k = 0; k < _count; k++) {
       if (strcmp(_widgets[k]->typeId(), "layout") != 0) continue;
-      li++;
       LayoutWidget* lw = static_cast<LayoutWidget*>(_widgets[k]);
+      if (!lw->visible()) continue;   // hidden page: no switcher tile, no index
+      li++;
       out.print(F("<button class=\"ltile"));
       if (li == active) out.print(F(" on"));
       out.print(F("\" data-lay=\""));
