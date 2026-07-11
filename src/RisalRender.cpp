@@ -63,7 +63,9 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
                "var d=s==='dark'?true:s==='light'?false:matchMedia('(prefers-color-scheme:dark)').matches;"
                "var c=document.documentElement.classList;c.toggle('light',!d);c.toggle('dark',d);})();</script>"));
   out.print(FPSTR(RISAL_BODY_CHROME));
-  out.print(_title);
+  // Appbar brand: a custom wordmark (dash.brand("Risal<b>Hub</b>")) or the default "RisalDash · <title>".
+  if (_brand) out.print(_brand);
+  else { out.print(F("<b>RisalDash</b> &middot; ")); out.print(_title); }
   out.print(FPSTR(RISAL_BODY_MID));
   // Hamburger → the nav drawer (mobile only). Only for single-page dashboards with groups:
   // with layout() pages the swipe pager + nav strip own navigation, a drawer would double it.

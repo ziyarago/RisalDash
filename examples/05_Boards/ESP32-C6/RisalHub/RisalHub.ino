@@ -220,6 +220,7 @@ void setup() {
   dash.timezone(300);
   dash.lang("ru");       // Russian UI (On/Off, status bar)
   dash.bottomNav();      // app-like bottom tab bar instead of the top strip
+  dash.brand("Risal<b>Hub</b>");   // own wordmark instead of "RisalDash · …"
   lcdBegin();     // light the panel immediately
   lcdSplash();    // RisalHub logo at power-on
   delay(1500);    // hold the splash a moment

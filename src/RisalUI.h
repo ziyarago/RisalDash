@@ -71,6 +71,9 @@ class RisalUI {
   void beginAP(const char* ssid, const char* pass = nullptr);  // dashboard over a plain access point
   RisalUI& theme(Theme t);
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
+  // Replace the "RisalDash · <title>" appbar wordmark with your own HTML brand (a <b> gets the accent
+  // gradient), e.g. dash.brand("Risal<b>Hub</b>"). White-label the dashboard.
+  RisalUI& brand(const char* html) { _brand = html; return *this; }
   // UI language: "en" (default), "ru", "uz", "ar". "ar" switches the layout to RTL.
   RisalUI& lang(const char* code) { _langCode = code; _rtl = (code[0] == 'a' && code[1] == 'r'); return *this; }
   // Current effective UI language ("en"/"ru"/"uz"/"ar"). Reflects the Settings switcher (persisted to
@@ -256,6 +259,7 @@ class RisalUI {
   bool _running = false;
   bool _portal = false;
   const char* _apSsid = nullptr;
+  const char* _brand = nullptr;  // custom appbar wordmark (dash.brand())
   const char* _mcpToken = nullptr;
   const char* _langCode = "en";
   String _langStore;  // backs _langCode when the language is restored from NVS (stable storage)

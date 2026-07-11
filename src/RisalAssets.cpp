@@ -214,7 +214,7 @@ var a=+(lays.dataset.active||0);requestAnimationFrame(function(){lays.scrollLeft
 const char RISAL_BODY_OPEN[] PROGMEM = "</style></head><body>";
 
 const char RISAL_BODY_CHROME[] PROGMEM =
-  "<header class=\"appbar\"><div class=\"brand\"><b>RisalDash</b> &middot; ";
+  "<header class=\"appbar\"><div class=\"brand\">";
 
 const char RISAL_BODY_MID[] PROGMEM =
   "</div><span class=\"sp\"></span>";
