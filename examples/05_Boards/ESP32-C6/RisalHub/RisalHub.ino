@@ -14,9 +14,20 @@
 #include <PicoMQTT.h>
 #include <ArduinoJson.h>
 #include <BLEDevice.h>
+#include <WiFi.h>
+#include <Arduino_GFX_Library.h>   // Waveshare C6-LCD-1.47 (ST7789 172x320)
 
 RisalUI dash("Risal Hub");
 PicoMQTT::Server mqtt;
+
+// ── On-board LCD: a live device list on the panel (so the hub looks finished, not dark) ──
+// ⚠ HEAT: never drive the backlight above ~50% on these Waveshare boards.
+enum { PIN_DC = 15, PIN_CS = 14, PIN_SCK = 7, PIN_MOSI = 6, PIN_RST = 21, PIN_BL = 22 };
+static const uint16_t C_BG = RGB565(20, 26, 40), C_TEAL = RGB565(45, 222, 190),
+                      C_GREEN = RGB565(120, 230, 150), C_INK = RGB565(238, 242, 250),
+                      C_INK3 = RGB565(120, 132, 150), C_LINE = RGB565(50, 58, 76);
+static Arduino_DataBus* _bus = nullptr;
+static Arduino_GFX* gfx = nullptr;
 
 // ── Driver model ──────────────────────────────────────────────────────────────────────────────────
 enum Transport { T_MQTT, T_BLE };
@@ -117,8 +128,47 @@ void linkBleDevices() {
   }
 }
 
+void lcdBegin() {
+  _bus = new Arduino_ESP32SPI(PIN_DC, PIN_CS, PIN_SCK, PIN_MOSI, GFX_NOT_DEFINED);
+  gfx = new Arduino_ST7789(_bus, PIN_RST, 0, true, 172, 320, 34, 0, 34, 0);
+  gfx->begin();
+  gfx->fillScreen(C_BG);
+  analogWrite(PIN_BL, 43 * 255 / 100);   // 43% backlight (heat-safe)
+}
+
+// Redraw the device list. Called from loop() only when something changed.
+void lcdRender() {
+  if (!gfx) return;
+  gfx->fillScreen(C_BG);
+  gfx->setTextColor(C_TEAL); gfx->setTextSize(2); gfx->setCursor(12, 12); gfx->print("RISAL HUB");
+  gfx->setTextColor(C_INK3); gfx->setTextSize(1); gfx->setCursor(12, 34);
+  gfx->print(WiFi.localIP().toString().c_str());
+  gfx->drawFastHLine(12, 52, 148, C_LINE);
+
+  for (int i = 0; i < NDEV; i++) {
+    int y = 66 + i * 62;
+    gfx->setTextColor(C_INK); gfx->setTextSize(2); gfx->setCursor(12, y);
+    gfx->print(devices[i].name);
+    bool on = devices[i].power;
+    gfx->setTextColor(on ? C_GREEN : C_INK3); gfx->setTextSize(2); gfx->setCursor(12, y + 22);
+    gfx->print(on ? "\xF7 ON" : "\xF7 OFF");   // 0xF7 ~ round dot in the classic font
+    gfx->setTextColor(devices[i].linked ? C_TEAL : C_INK3); gfx->setTextSize(1); gfx->setCursor(96, y + 26);
+    gfx->print(devices[i].transport == T_BLE ? (devices[i].linked ? "BLE linked" : "BLE  ...") : "MQTT");
+  }
+  gfx->setTextColor(C_INK3); gfx->setTextSize(1); gfx->setCursor(12, 300);
+  gfx->print(NDEV); gfx->print(" devices");
+}
+
+// A tiny signature of what's on screen, so we only redraw on change (no flicker/CPU waste).
+uint32_t lcdSig() {
+  uint32_t s = 0;
+  for (int i = 0; i < NDEV; i++) s = s * 7 + (devices[i].power ? 1 : 0) * 2 + (devices[i].linked ? 1 : 0);
+  return s;
+}
+
 void setup() {
   dash.timezone(300);
+  lcdBegin();   // light the panel immediately
 
   // Devices page — a control card per driver.
   dash.layout("Devices", RICON_HOME);
@@ -149,7 +199,13 @@ void setup() {
   linkBleDevices();   // connect + login BLE drivers once WiFi is up
 }
 
+uint32_t lastSig = 0xFFFFFFFF, lastLcd = 0;
 void loop() {
   dash.update();
   mqtt.loop();
+  if (millis() - lastLcd > 400) {   // redraw the panel only when a device state changed
+    lastLcd = millis();
+    uint32_t s = lcdSig();
+    if (s != lastSig) { lastSig = s; lcdRender(); }
+  }
 }
