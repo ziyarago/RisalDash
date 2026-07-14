@@ -115,6 +115,11 @@ void RisalUI::_startServer() {
   });
   _server.on("/api/set", HTTP_ANY, [this](AsyncWebServerRequest* req) { _handleSet(req); });
   _server.on("/api/pref", HTTP_ANY, [this](AsyncWebServerRequest* req) { _handlePref(req); });
+  // Settings → "Reset Wi-Fi": erase saved credentials and reboot into the captive setup portal.
+  _server.on("/api/forget", HTTP_POST, [this](AsyncWebServerRequest* req) {
+    req->send(200, "text/plain", "ok");
+    forgetWiFi();  // clears creds + schedules the reboot (begin() then raises the portal)
+  });
   _server.on("/metrics", HTTP_GET, [this](AsyncWebServerRequest* req) { _handleMetrics(req); });
 
   if (_ota) {
