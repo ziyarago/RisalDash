@@ -1,62 +1,111 @@
-// RisalHub (schema 3, EXPERIMENTAL) — the "everything on one chip" hub: a single ESP32-C6 acts as a
-// native Zigbee COORDINATOR on its 802.15.4 radio AND serves the RisalDash web dashboard over WiFi at
-// the same time. If this coexistence is stable, no Sonoff bridge, no PC, no Pi, no cloud — the C6 pairs
-// Zigbee sensors directly and renders them beautifully. That is exactly what this sketch is here to
-// PROVE: does WiFi + Zigbee actually run together on one C6 under Arduino?
+// RisalHub Zigbee (schema 3) — the C6 as a NATIVE Zigbee coordinator + WiFi dashboard + LCD, all on one
+// chip. It pairs a Zigbee sensor (Sonoff SNZB-02: temperature + humidity) directly over its 802.15.4
+// radio — no bridge, no Pi, no cloud — and shows the readings on both the web dashboard and the panel
+// (a sliding carousel). This is the WiFi + Zigbee coexistence build.
 //
-// ⚠ STATUS: R&D / unverified. Espressif supports WiFi + 802.15.4 coexistence in ESP-IDF (the Zigbee
-// Gateway example), but on the Arduino side running both together is not a well-trodden path. Treat
-// this as a probe, not a finished feature. Schema 1 (ESP32-C6-Hub, external bridge + MQTT) is the
-// stable option meanwhile.
-//
-// BUILD REQUIREMENTS (this will NOT compile as a plain sketch):
-//   • ESP32 core 3.x with the Zigbee library, C6/H2 only (needs the 802.15.4 radio).
-//   • Arduino IDE:  Tools → Zigbee mode → "Zigbee ZCZR (coordinator/router)"  + a Zigbee partition scheme.
-//   • PlatformIO:   a Zigbee-enabled partition table + the Zigbee build defines; WiFi/802.15.4 coexistence
-//                   must be enabled in sdkconfig (CONFIG_ESP_COEX_SW_COEXIST_ENABLE). This is the hard part.
-//   • Libraries:    RisalDash, and the core-bundled "Zigbee.h".
+// Build (see platformio.ini): -D ZIGBEE_MODE_ZCZR  +  board_build.partitions = zigbee_single.csv
+// Libs: RisalDash, GFX Library for Arduino. Zigbee is a core library (Zigbee.h).
 #include <RisalUI.h>
+#include <WiFi.h>
+#include <Arduino_GFX_Library.h>
 #include "Zigbee.h"
 
-#define WIFI_SSID "your-wifi"
-#define WIFI_PASS "your-pass"
+RisalUI dash("Risal Zigbee");
 
-RisalUI dash("Risal Zigbee Hub");
+// ── LCD (Waveshare C6-LCD-1.47, ST7789 172x320) ──
+enum { PIN_DC = 15, PIN_CS = 14, PIN_SCK = 7, PIN_MOSI = 6, PIN_RST = 21, PIN_BL = 22 };
+static const uint16_t C_BG = RGB565(9, 13, 21), C_TEAL = RGB565(45, 222, 190),
+                      C_GREEN = RGB565(52, 211, 153), C_INK = RGB565(234, 240, 251),
+                      C_INK3 = RGB565(96, 107, 130), C_OFF = RGB565(86, 95, 115);
+static Arduino_DataBus* _bus = nullptr;
+static Arduino_GFX* gfx = nullptr;
 
-// A coordinator that binds to remote Zigbee temperature sensors and receives their reports.
-// (ZigbeeThermostat is the core's coordinator-role endpoint that consumes temperature clusters.)
-ZigbeeThermostat zbCoord(10);   // endpoint id
+// ── Zigbee coordinator + the SNZB-02's readings ──
+#define ZB_EP 5
+ZigbeeThermostat zbT(ZB_EP);
+float zbTemp = 0, zbHum = 0;
+bool  zbBound = false;
+void onTemp(float t) { zbTemp = t; }
+void onHum(float h) { zbHum = h; }
 
-float zbTemp = 0;      // last temperature received over Zigbee
-int   zbDevices = 0;   // devices bound to the coordinator
-bool  zbReady = false; // did the Zigbee stack come up alongside WiFi?
+// ── LCD carousel cards ──
+struct Card { const char* label; float* val; const char* unit; uint16_t col; };
+Card cards[] = {
+  {"TEMPERATURE", &zbTemp, "C", C_GREEN},
+  {"HUMIDITY",    &zbHum,  "%", C_TEAL},
+};
+const int NC = sizeof(cards) / sizeof(cards[0]);
+int curCard = 0;
 
-// Called by the Zigbee stack when a bound sensor reports a new temperature.
-void onZbTemperature(float t) {
-  zbTemp = t;
+void drawScreen(int idx, int xoff) {
+  if (!gfx) return;
+  gfx->fillScreen(C_BG);
+  gfx->setTextSize(2); gfx->setCursor(12, 12);
+  gfx->setTextColor(C_INK);  gfx->print("Risal");
+  gfx->setTextColor(C_TEAL); gfx->print("Hub");
+  gfx->setTextColor(zbBound ? C_GREEN : C_INK3); gfx->setTextSize(1); gfx->setCursor(12, 34);
+  gfx->print(zbBound ? "Zigbee - SNZB-02 linked" : "Zigbee - pairing...");
+  Card& c = cards[idx];
+  gfx->setTextColor(C_INK3); gfx->setTextSize(2); gfx->setCursor(12 + xoff, 92); gfx->print(c.label);
+  gfx->setTextColor(c.col); gfx->setTextSize(7); gfx->setCursor(12 + xoff, 128);
+  gfx->print((int)*c.val);
+  gfx->setTextSize(3); gfx->setTextColor(C_INK3); gfx->print(c.unit);
+  for (int i = 0; i < NC; i++) gfx->fillCircle(66 + i * 22, 296, 5, i == idx ? C_TEAL : C_OFF);
+}
+
+void slideTo(int next) {                 // new card slides in from the right
+  for (int x = 172; x > 0; x -= 20) drawScreen(next, x);
+  drawScreen(next, 0);
 }
 
 void setup() {
-  dash.timezone(300);
+  setCpuFrequencyMhz(80);   // heat-safe: the C6 runs hot at 160MHz, and two radios add to it
+  Serial.begin(115200);
+  dash.timezone(300);       // language defaults to English
+  dash.brand("Risal<b>Hub</b>");
 
-  // 1) WiFi + dashboard first (the web UI must be reachable regardless of Zigbee).
-  dash.layout("Zigbee", RICON_HOME);
-  dash.led("Zigbee up", &zbReady);
-  dash.badge("Paired devices", &zbDevices);
-  dash.metric("Zigbee temp", &zbTemp, "C");
-  dash.begin(WIFI_SSID, WIFI_PASS);
+  _bus = new Arduino_ESP32SPI(PIN_DC, PIN_CS, PIN_SCK, PIN_MOSI, GFX_NOT_DEFINED);
+  gfx = new Arduino_ST7789(_bus, PIN_RST, 0, true, 172, 320, 34, 0, 34, 0);
+  gfx->begin();
+  analogWrite(PIN_BL, 43 * 255 / 100);   // heat-safe backlight
+  drawScreen(0, 0);
 
-  // 2) Zigbee coordinator on the SAME chip — the coexistence moment of truth.
-  zbCoord.onTempReceive(onZbTemperature);
-  Zigbee.addEndpoint(&zbCoord);
-  zbReady = Zigbee.begin(ZIGBEE_COORDINATOR);   // returns false if the stack fails to start
-  if (zbReady) {
-    Zigbee.openNetwork(180);                     // permit join for 3 min so sensors can pair
+  // Web page — the sensor's readings.
+  dash.layout("Sensor", RICON_THERMOMETER);
+  dash.led("Zigbee", &zbBound);
+  dash.separator("SNZB-02 · Zigbee");
+  dash.metric("Temperature", &zbTemp, "°C");
+  dash.metric("Humidity", &zbHum, "%");
+  dash.begin();   // WiFi first (saved creds), then Zigbee below
+  Serial.print("[WiFi] status=");
+  Serial.print(WiFi.status() == WL_CONNECTED ? "connected  IP=" : "portal/AP  softAP=");
+  Serial.println(WiFi.status() == WL_CONNECTED ? WiFi.localIP() : WiFi.softAPIP());
+  WiFi.setSleep(true);   // modem sleep — cuts heat and quiets the shared 2.4GHz RF for 802.15.4
+
+  // Zigbee coordinator after WiFi is up (WiFi + 802.15.4 coexistence).
+  zbT.onTempReceive(onTemp);
+  zbT.onHumidityReceive(onHum);
+  zbT.setManufacturerAndModel("Risal", "Hub");
+  Zigbee.addEndpoint(&zbT);
+  Zigbee.setRebootOpenNetwork(180);
+  Serial.println("[ZB] starting coordinator...");
+  if (!Zigbee.begin(ZIGBEE_COORDINATOR)) {
+    Serial.println("[ZB] Zigbee.begin FAILED — restarting");
+    delay(1000);
+    ESP.restart();
   }
+  Serial.println("[ZB] coordinator up; opening network for 180s");
+  Zigbee.openNetwork(180);
 }
 
+uint32_t lastSlide = 0, lastDraw = 0;
 void loop() {
   dash.update();
-  zbDevices = zbCoord.getBoundDevices().size();  // reflect how many sensors have paired
-  delay(10);
+  if (zbT.bound() && !zbBound) {         // SNZB-02 joined + bound
+    zbBound = true;
+    zbT.setTemperatureReporting(0, 30, 1);
+  }
+  uint32_t now = millis();
+  if (now - lastSlide > 3500) { lastSlide = now; curCard = (curCard + 1) % NC; slideTo(curCard); lastDraw = now; }
+  else if (now - lastDraw > 1000) { lastDraw = now; drawScreen(curCard, 0); }   // refresh live value
 }
