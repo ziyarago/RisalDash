@@ -18,19 +18,18 @@ bool  led = false;
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
-  dash.timezone(300);
-  dash.lang("ru");
+  dash.timezone(300);   // language defaults to English; Settings has the EN/RU/UZ/AR switcher
 
   dash.layout("ESP32", RICON_HOME);
-  dash.separator("Плата");
+  dash.separator("Board");
   dash.metric("Touch T0", &touchVal);
-  dash.metric("Темп. чипа", &chipTemp, "°C");
-  dash.toggle("Светодиод", &led, [](bool on) { digitalWrite(LED_PIN, on); });
+  dash.metric("Chip temp", &chipTemp, "°C");
+  dash.toggle("LED", &led, [](bool on) { digitalWrite(LED_PIN, on); });
 
-  dash.separator("Погода (fake)");
-  dash.gauge("Ветер", &wind, 0, 40, "km/h");
-  dash.metric("Порыв", &gust, "km/h");
-  dash.chart("Ветер · тренд", &wind, "km/h");
+  dash.separator("Weather (fake)");
+  dash.gauge("Wind", &wind, 0, 40, "km/h");
+  dash.metric("Gust", &gust, "km/h");
+  dash.chart("Wind · trend", &wind, "km/h");
 
   dash.apName("RisalDash-ESP32");
   dash.begin();
