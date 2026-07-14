@@ -18,6 +18,7 @@ bool  led = false;
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);   // known state at boot — GPIO2 can latch its level across ESP.restart()
   dash.timezone(300);   // language defaults to English; Settings has the EN/RU/UZ/AR switcher
 
   dash.layout("ESP32", RICON_HOME);
