@@ -63,7 +63,7 @@ const char RISAL_CSS[] PROGMEM =
   ".grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}"
   ".card.s{grid-column:span 1;min-height:104px}.card.m{grid-column:span 2;min-height:92px}.card.l{grid-column:span 4;min-height:220px}"
   "@media(min-width:720px){.card.l{grid-column:span 2}}"
-  ".card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px;"
+  ".card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px;justify-content:space-between;"
   "backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);"
   "box-shadow:0 8px 28px oklch(0 0 0 / .34),inset 0 1px 0 oklch(1 0 0 / .10)}"
   ".card h3{font:700 11px/1 var(--font);letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center}"
