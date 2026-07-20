@@ -60,7 +60,10 @@ class FaceWidget : public Widget {
 // widget, unlike the offline-first core. Dark basemap to match the theme. Bind two floats; the marker
 // moves and leaves a trail.
 static const char RW_MAP_CSS[] PROGMEM =
-  ".rmap{height:260px;border-radius:12px;overflow:hidden;background:#0a1120}.rmap-c{height:100%;width:100%}";
+  // A map always spans the full grid width (span-4 stays span-4 even on wide screens, where .card.l
+  // would otherwise fall back to span-2).
+  ".card[data-type=map]{grid-column:1/-1}"
+  ".rmap{height:300px;border-radius:12px;overflow:hidden;background:#0a1120}.rmap-c{height:100%;width:100%}";
 static const char RW_MAP_JS[] PROGMEM = R"js(R.W.map={
 _ld:function(cb){if(window.L)return cb();
 if(!document.getElementById('lfcss')){var c=document.createElement('link');c.id='lfcss';c.rel='stylesheet';c.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(c);}
