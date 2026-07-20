@@ -255,22 +255,23 @@ void RisalUI::_renderRoot(Print& out, const char* eff, bool rtl, int active) {
                  "note:'Сохранено \\u00b7 на всех экранах',dark:'Тёмная',light:'Светлая',auto:'Авто',"
                  "signal:'Сигнал (dBm)',on:'Вкл',off:'Выкл',battery:'Батарея',"
                  "reset:'Сбросить Wi-Fi',resetc:'Забыть сохранённый Wi-Fi и перезапуститься в режим настройки?',"
-                 "resetd:'Сброшено. Подключитесь к сети настройки, чтобы настроить заново.'};"));
+                 "resetd:'Сброшено. Подключитесь к сети настройки, чтобы настроить заново.',update:'Обновить прошивку'};"));
   else if (strcmp(eff, "uz") == 0)
     out.print(F("window.RSL={set:'Sozlamalar',lang:'Til',theme:'Mavzu',accent:'Urg\xCA\xBBu',"
                  "note:'Saqlandi \\u00b7 barcha ekranlarda',dark:'Qorong\xCA\xBBi',light:'Yorug\xCA\xBB',auto:'Avto',"
                  "signal:'Signal (dBm)',on:'Yoniq',off:'O\xCA\xBB" "chiq',battery:'Batareya',"
                  "reset:'Wi-Fi ni tiklash',resetc:'Saqlangan Wi-Fi o\xCA\xBB" "chirilib, sozlash rejimiga qayta ishga tushirilsinmi?',"
-                 "resetd:'Tiklandi. Qayta sozlash uchun sozlash tarmog\xCA\xBBiga ulaning.'};"));
+                 "resetd:'Tiklandi. Qayta sozlash uchun sozlash tarmog\xCA\xBBiga ulaning.',update:'Proshivkani yangilash'};"));
   else if (strcmp(eff, "ar") == 0)
     out.print(F("window.RSL={set:'الإعدادات',lang:'اللغة',theme:'السمة',accent:'اللون',"
                  "note:'محفوظ \\u00b7 في كل الشاشات',dark:'داكن',light:'فاتح',auto:'تلقائي',"
                  "signal:'الإشارة (dBm)',on:'تشغيل',off:'إيقاف',battery:'البطارية',"
                  "reset:'إعادة ضبط الواي فاي',resetc:'نسيان شبكة الواي فاي المحفوظة وإعادة التشغيل في وضع الإعداد؟',"
-                 "resetd:'تمت إعادة الضبط. اتصل بشبكة الإعداد للتهيئة من جديد.'};"));
+                 "resetd:'تمت إعادة الضبط. اتصل بشبكة الإعداد للتهيئة من جديد.',update:'تحديث البرنامج'};"));
   out.print(F("window.RSACC="));
   out.print(_accent);
   out.print(F(";"));
+  if (_ota) out.print(F("window.ROTA=1;"));  // Settings shows an "Update firmware" button (-> /update)
   // Device settings: .gear() widgets are pulled out of the grid and listed in the Settings modal,
   // which reads their value from /api/state and writes via /api/set. (Toggles for now.)
   out.print(F("window.RSDEV=["));

@@ -12,12 +12,18 @@ RisalUI::RisalUI(const char* title) : _title(title) {}
 void RisalUI::begin() {
   _loadPrefs();
   // First-boot flow: saved creds -> try STA -> dashboard; else -> captive portal.
+  // Retry the join a few times before giving up — a single 15s attempt is flaky right after a soft
+  // reset or when a second radio (BLE/802.15.4) shares the 2.4GHz front end, and one timeout should
+  // not drop a configured device into setup mode.
   String ss, pw;
-  if (_loadCreds(ss, pw) && _tryStation(ss.c_str(), pw.c_str(), 15000)) {
-    _startServer();
-  } else {
-    _startPortal();
-  }
+  bool joined = false;
+  if (_loadCreds(ss, pw))
+    for (uint8_t i = 0; i < 3 && !joined; i++) {
+      joined = _tryStation(ss.c_str(), pw.c_str(), 12000);
+      if (!joined) delay(500);
+    }
+  if (joined) _startServer();
+  else _startPortal();
 }
 
 void RisalUI::begin(const char* ssid, const char* pass) {
@@ -51,6 +57,7 @@ GaugeWidget& RisalUI::gauge(const char* name, float* val, float mn, float mx, co
 ToggleWidget& RisalUI::toggle(const char* name, bool* val, ToggleWidget::Cb cb) { return _make<ToggleWidget>(name, name, val, cb); }
 SliderWidget& RisalUI::slider(const char* name, int* val, int mn, int mx, SliderWidget::Cb cb) { return _make<SliderWidget>(name, name, val, mn, mx, cb); }
 ButtonWidget& RisalUI::button(const char* name, const char* label, ButtonWidget::Cb cb) { return _make<ButtonWidget>(name, name, label, cb); }
+LinkWidget& RisalUI::link(const char* name, const char* label, const char* url) { return _make<LinkWidget>(name, name, label, url); }
 BadgeWidget& RisalUI::badge(const char* name, int* val) { return _make<BadgeWidget>(name, name, val); }
 LedWidget& RisalUI::led(const char* name, bool* val) { return _make<LedWidget>(name, name, val); }
 ProgressWidget& RisalUI::progress(const char* name, int* val, const char* unit) { return _make<ProgressWidget>(name, name, val, unit); }

@@ -137,6 +137,8 @@ class RisalUI {
   ToggleWidget& toggle(const char* name, bool* val, ToggleWidget::Cb cb = nullptr);
   SliderWidget& slider(const char* name, int* val, int mn, int mx, SliderWidget::Cb cb = nullptr);
   ButtonWidget& button(const char* name, const char* label, ButtonWidget::Cb cb);
+  // A button that opens a URL (custom page like "/tracks", or any dashboard): dash.link("Tracks", "Open", "/tracks")
+  LinkWidget&   link(const char* name, const char* label, const char* url);
   BadgeWidget&  badge(const char* name, int* val);
   LedWidget&    led(const char* name, bool* val);
   ProgressWidget& progress(const char* name, int* val, const char* unit = "%");

@@ -75,6 +75,30 @@ static const char RW_SLIDER_JS[] PROGMEM =
 static const char RW_BUTTON_JS[] PROGMEM =
   "R.W.button={init:function(el){var b=el.querySelector('.act');if(b)b.addEventListener('click',function(){R.send(el.dataset.key,true);});}};";
 
+// ── Control: link — a button that navigates to a URL (a custom page like /tracks, /update, or any
+//    other dashboard). Client-side navigation, no server round-trip. ──
+static const char RW_LINK_CSS[] PROGMEM =
+  ".lnk{height:46px;border-radius:13px;background:var(--grad);color:var(--acc-ink);font:700 15px var(--font);"
+  "width:100%;display:grid;place-items:center;text-decoration:none;box-sizing:border-box}";
+class LinkWidget : public Widget {
+ public:
+  LinkWidget(const char* key, const char* title, const char* label, const char* url)
+      : Widget(key, title), _label(label), _url(url) {}
+  const char* typeId() const override { return "link"; }
+  const char* css() const override { return RW_LINK_CSS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<a class=\"lnk\" href=\""));
+    out.print(_url);
+    out.print(F("\">"));
+    out.print(rI18n(_label ? _label : _title));
+    out.print(F("</a>"));
+    cardClose(out);
+  }
+ private:
+  const char* _label; const char* _url;
+};
+
 // ── Control: slider (int range) ──
 class SliderWidget : public Widget {
  public:
