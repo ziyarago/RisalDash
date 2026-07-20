@@ -69,6 +69,9 @@ class RisalUI {
   void begin();
   void begin(const char* ssid, const char* pass);             // STA with given creds (fallback: portal)
   void beginAP(const char* ssid, const char* pass = nullptr);  // dashboard over a plain access point
+  // The underlying async web server — register your own routes on it (add them before begin()):
+  //   dash.server().on("/api/logs", HTTP_GET, [](AsyncWebServerRequest* r){ ... });
+  AsyncWebServer& server() { return _server; }
   RisalUI& theme(Theme t);
   RisalUI& apName(const char* name) { _apSsid = name; return *this; }  // portal AP name
   // Replace the "RisalDash · <title>" appbar wordmark with your own HTML brand (a <b> gets the accent
