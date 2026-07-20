@@ -149,6 +149,7 @@ void RisalUI::_startServer() {
 #if defined(ESP32)
             Update.begin(UPDATE_SIZE_UNKNOWN);
 #else
+            Update.runAsync(true);  // ESP8266: required for OTA under the async server, or it crashes mid-upload
             Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
 #endif
           }

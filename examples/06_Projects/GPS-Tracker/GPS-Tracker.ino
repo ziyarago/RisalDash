@@ -113,6 +113,7 @@ int   sats = 0;
 float distHome = 0;
 int   fenceRadius = 85;                     // metres; driven by the dashboard slider
 bool  fenceOn = true, alarmOn = false, homeSet = false, storageOk = false;
+uint32_t vibUntil = 0;   // "Test buzz": alert output is held on until this millis() (checked in alertTask)
 float homeLat = 0, homeLon = 0;   // float (like lat/lon) so the map's geofence overlay can bind to it
 uint8_t outsideCount = 0;                   // geofence debounce
 
@@ -377,7 +378,8 @@ void setupEndpoints() {
 // ======================= ALERT SIGNAL =======================
 void alertTask() {
 #if ALERT_MODE != 0
-  bool phase = alarmOn && (millis() % 700 < 200);
+  bool testOn = vibUntil && (int32_t)(vibUntil - millis()) > 0;   // "Test buzz" holds the output on
+  bool phase = (alarmOn && (millis() % 700 < 200)) || testOn;
   #if ALERT_MODE == 4
     static bool wasOn = false;
     if (phase && !wasOn)  tone(ALERT_PIN, BUZZER_FREQ);
@@ -438,6 +440,7 @@ void setup() {
   dash.metric("Free RAM", &freeHeapKb, "KB");     // heap-leak diagnostics
   dash.metric("Wi-Fi RSSI", &wifiRssi, "dBm");    // link quality
   dash.link("History", "Download tracks", "/tracks");  // opens the CSV/GPX track list
+  dash.button("Vibration", "Test buzz", []() { vibUntil = millis() + 500; });  // pulse the alert output
   evlog = &dash.log("Events", 6);
 
   setupEndpoints();   // register custom routes before begin() starts the server
