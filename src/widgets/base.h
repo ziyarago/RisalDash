@@ -13,8 +13,8 @@
 enum RSize : uint8_t { RSIZE_S = 0, RSIZE_M = 1, RSIZE_L = 2, RSIZE_AUTO = 255 };
 inline uint8_t rDefaultSize(const char* t) {
   if (!strcmp(t, "gauge") || !strcmp(t, "chart") || !strcmp(t, "table") || !strcmp(t, "ai") ||
-      !strcmp(t, "log") || !strcmp(t, "image"))
-    return RSIZE_L;  // need vertical room
+      !strcmp(t, "log") || !strcmp(t, "image") || !strcmp(t, "map"))
+    return RSIZE_L;  // need vertical room (or, for a map, full width)
   if (!strcmp(t, "metric") || !strcmp(t, "stat") || !strcmp(t, "badge") || !strcmp(t, "led") ||
       !strcmp(t, "label") || !strcmp(t, "toggle") || !strcmp(t, "number") || !strcmp(t, "color"))
     return RSIZE_S;  // compact single value / control
