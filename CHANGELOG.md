@@ -5,6 +5,35 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-07-20
+
+"Over-the-air, on the map." Firmware updates and Wi-Fi reset without a cable, a real-world GPS
+tracker project, and a much better map.
+
+### Added
+- **OTA firmware updates** — `dash.enableOTA()` serves `/update`, and when enabled an **"Update
+  firmware"** button appears in Settings (localized en/ru/uz/ar). Upload a `.bin` from the browser;
+  no USB.
+- **"Reset Wi-Fi"** button in Settings — confirms, erases saved credentials (`forgetWiFi()`), and
+  reboots into the captive setup portal. Built in, no sketch code.
+- **`dash.link(name, label, url)`** — a button that navigates to a URL (a custom page like `/tracks`,
+  `/update`, or another dashboard).
+- **`dash.server()`** — public accessor for the underlying `AsyncWebServer`, so sketches can register
+  their own routes (custom REST endpoints, file downloads, streaming) on the dashboard's port.
+- **`RisalDash.h`** umbrella header (equivalent to `RisalUI.h`).
+- **Map geofence overlay** — `dash.map(...).geofence(&homeLat, &homeLon, &radiusM)` draws a circle.
+- **GPS Tracker project** (`examples/06_Projects/GPS-Tracker`) — NEO-6M, home geofence with alarm,
+  day-by-day CSV logs with wear-safe writes, streaming CSV→GPX export, a `/tracks` download page,
+  NTP time assist, and a boot heartbeat on the alert output. Runs on ESP32 and ESP8266.
+
+### Fixed
+- **ESP8266 OTA** crashed mid-upload under the async server — now calls `Update.runAsync(true)`.
+- **Map** no longer draws a line from `0,0` to the first fix, filters out parked GPS drift, and spans
+  the full grid width on every screen size.
+- **Wi-Fi join** retries a few times before falling back to the portal (a single timeout after a soft
+  reset, or with a second radio sharing 2.4 GHz, no longer drops a configured device into setup).
+- **Card layout** distributes content vertically so widgets fill their height instead of clumping.
+
 ## [0.10.0] — 2026-07-10
 
 "A fake for every sensor." A big sensor + example release: build a full dashboard for almost any

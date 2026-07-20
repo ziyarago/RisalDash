@@ -22,7 +22,7 @@
 // Each widget type's CSS is emitted once (Zero-Waste). Live WebSocket updates (P3),
 // the full widget set + sensor presets (P2), and AP captive-portal provisioning (P4)
 // follow — all prototyped in dev/.
-#define RISALDASH_VERSION "0.10.0"
+#define RISALDASH_VERSION "0.11.0"
 
 // Widget slots are one pointer each, so a roomy default costs 192 bytes of RAM and spares
 // users the silent "widget didn't appear" trap (past the cap, _add() drops widgets).
