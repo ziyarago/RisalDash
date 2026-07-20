@@ -113,7 +113,7 @@ int   sats = 0;
 float distHome = 0;
 int   fenceRadius = 85;                     // metres; driven by the dashboard slider
 bool  fenceOn = true, alarmOn = false, homeSet = false, storageOk = false;
-double homeLat = 0, homeLon = 0;
+float homeLat = 0, homeLon = 0;   // float (like lat/lon) so the map's geofence overlay can bind to it
 uint8_t outsideCount = 0;                   // geofence debounce
 
 float freeHeapKb = 0, wifiRssi = 0;         // hardware telemetry
@@ -353,6 +353,25 @@ void setupEndpoints() {
       });
     r->send(resp);
   });
+
+  // A simple page to browse and download the recorded tracks (CSV or GPX). Open http://<ip>/tracks.
+  srv.on("/tracks", HTTP_GET, [](AsyncWebServerRequest* r) {
+    r->send(200, "text/html", F(
+      "<!DOCTYPE html><meta name=viewport content=\"width=device-width,initial-scale=1\">"
+      "<title>Tracks</title><body style=\"font-family:system-ui,sans-serif;background:#0b0f16;"
+      "color:#eaf0fb;padding:20px;max-width:640px;margin:auto\"><h2>Track logs</h2>"
+      "<p style=\"color:#8a93a6\">Daily CSV logs. GPX opens in Strava / OsmAnd / Google Earth.</p>"
+      "<div id=l>Loading&hellip;</div><script>"
+      "fetch('/api/logs').then(r=>r.json()).then(a=>{"
+      "if(!a.length){l.innerHTML='<p>No tracks yet &mdash; drive to record one.</p>';return;}"
+      "l.innerHTML=a.map(f=>`<div style=\"display:flex;justify-content:space-between;align-items:center;"
+      "padding:12px;margin:8px 0;background:#151b28;border-radius:12px\"><div><b>${f.file}</b><br>"
+      "<span style=color:#8a93a6>${(f.bytes/1024).toFixed(1)} KB</span></div><div>"
+      "<a href=\"/download?file=${f.file}\" style=\"color:#22d3ee;margin-right:14px\">CSV</a>"
+      "<a href=\"/gpx?file=${f.file}\" style=color:#34d399>GPX</a></div></div>`).join('');"
+      "}).catch(e=>l.textContent='Error: '+e);"
+      "</script></body>"));
+  });
 }
 
 // ======================= ALERT SIGNAL =======================
@@ -389,7 +408,7 @@ void setup() {
                 storageOk ? "OK" : "FAIL");
 
   // --- dashboard widgets ---
-  dash.map("Track", &lat, &lon);
+  dash.map("Track", &lat, &lon).geofence(&homeLat, &homeLon, &fenceRadius);  // trail + geofence circle
   dash.gauge("Speed", &speedKmh, 0, 40, "km/h");
   dash.badge("Satellites", &sats);
   dash.metric("HDOP", &hdop);
@@ -413,6 +432,7 @@ void setup() {
   setupEndpoints();   // register custom routes before begin() starts the server
 
   dash.apName("GPS-Tracker");   // SSID of the captive setup portal on first boot
+  dash.enableOTA();             // wireless firmware updates at http://<ip>/update (no USB cable)
 #if TG_ENABLED
   dash.begin(WIFI_SSID, WIFI_PASS);   // Telegram needs internet -> join home Wi-Fi (portal on failure)
 #elif USE_PORTAL
@@ -420,6 +440,10 @@ void setup() {
 #else
   dash.beginAP("GPS-Tracker", "12345678");  // standalone AP dashboard, always reachable in the field
 #endif
+
+  // Keep the STA link up on its own — if home Wi-Fi drops, rejoin automatically when it returns.
+  // (Track logging never depends on Wi-Fi; it writes to flash regardless — see the loop.)
+  if (WiFi.status() == WL_CONNECTED) WiFi.setAutoReconnect(true);
 
   // Print where to reach the dashboard.
   if (WiFi.status() == WL_CONNECTED)

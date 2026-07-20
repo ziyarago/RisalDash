@@ -76,8 +76,15 @@ el._mk=L.circleMarker([0,0],{radius:7,color:'#22d3ee',fillColor:'#22d3ee',fillOp
 el._tr=L.polyline([],{color:'#22d3ee',weight:3,opacity:.75}).addTo(m);
 el._m=m;el._first=1;setTimeout(function(){m.invalidateSize();},250);});},
 update:function(el,v){if(!el._m||!v)return;var p=(''+v).split(',');var la=parseFloat(p[0]),lo=parseFloat(p[1]);if(isNaN(la))return;
-el._mk.setLatLng([la,lo]);var t=el._tr.getLatLngs();t.push([la,lo]);if(t.length>150)t.shift();el._tr.setLatLngs(t);
-if(el._first){el._m.setView([la,lo],15);el._m.invalidateSize();el._first=0;}else{el._m.panTo([la,lo],{animate:true});}}
+if(la===0&&lo===0)return;/* skip null island (no fix yet) — no jump from 0,0 to the first fix */
+el._mk.setLatLng([la,lo]);
+var t=el._tr.getLatLngs(),last=t.length?t[t.length-1]:null;
+/* only extend the trail once moved ~5m — filters GPS drift while parked */
+if(!last||Math.abs(la-last.lat)>0.00005||Math.abs(lo-last.lng)>0.00005){t.push([la,lo]);if(t.length>200)t.shift();el._tr.setLatLngs(t);}
+/* optional geofence circle: parts 3,4,5 = home lat, home lon, radius (m) */
+if(p.length>=5){var ha=parseFloat(p[2]),ho=parseFloat(p[3]),r=parseFloat(p[4]);
+if(!isNaN(ha)&&(ha!==0||ho!==0)&&r>0){if(!el._fc){el._fc=L.circle([ha,ho],{radius:r,color:'#f59e0b',weight:1.5,fillColor:'#f59e0b',fillOpacity:.07}).addTo(el._m);}else{el._fc.setLatLng([ha,ho]);el._fc.setRadius(r);}}}
+if(el._first){el._m.setView([la,lo],16);el._m.invalidateSize();el._first=0;}else{el._m.panTo([la,lo],{animate:true});}}
 };)js";
 class MapWidget : public Widget {
  public:
@@ -85,6 +92,11 @@ class MapWidget : public Widget {
   const char* typeId() const override { return "map"; }
   const char* css() const override { return RW_MAP_CSS; }
   const char* js() const override { return RW_MAP_JS; }
+  // Draw a geofence circle on the map from a home point and a radius (metres):
+  //   dash.map("Track", &lat, &lon).geofence(&homeLat, &homeLon, &radiusM);
+  MapWidget& geofence(float* homeLat, float* homeLon, int* radiusM) {
+    _hlat = homeLat; _hlon = homeLon; _hrad = radiusM; return *this;
+  }
   void card(Print& out) override {
     cardOpen(out);
     out.print(F("<div class=\"rmap\"><div class=\"rmap-c\"></div></div>"));
@@ -93,16 +105,25 @@ class MapWidget : public Widget {
   bool hasState() const override { return true; }
   bool poll() override {
     float a = _lat ? *_lat : 0, b = _lon ? *_lon : 0;
-    if (a != _la || b != _lo) { _la = a; _lo = b; return true; }
+    float ha = _hlat ? *_hlat : 0, ho = _hlon ? *_hlon : 0; int hr = _hrad ? *_hrad : 0;
+    if (a != _la || b != _lo || ha != _hla || ho != _hlo || hr != _hr) {
+      _la = a; _lo = b; _hla = ha; _hlo = ho; _hr = hr; return true;
+    }
     return false;
   }
   void writeKV(String& out) override {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%.5f,%.5f", _lat ? *_lat : 0.0f, _lon ? *_lon : 0.0f);
+    char buf[64];
+    if (_hlat)
+      snprintf(buf, sizeof(buf), "%.5f,%.5f,%.5f,%.5f,%d", _lat ? *_lat : 0.0f, _lon ? *_lon : 0.0f,
+               *_hlat, _hlon ? *_hlon : 0.0f, _hrad ? *_hrad : 0);
+    else
+      snprintf(buf, sizeof(buf), "%.5f,%.5f", _lat ? *_lat : 0.0f, _lon ? *_lon : 0.0f);
     out += '"'; out += _key; out += "\":\""; out += buf; out += '"';
   }
  private:
   float* _lat; float* _lon; float _la = 0, _lo = 0;
+  float* _hlat = nullptr; float* _hlon = nullptr; int* _hrad = nullptr;
+  float _hla = 0, _hlo = 0; int _hr = 0;
 };
 
 // ── Display: 3D orientation cube — a CSS cube that rotates with a bound pitch/roll/yaw (IMU) ──
