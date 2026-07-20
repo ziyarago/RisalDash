@@ -110,6 +110,7 @@ LogWidget* evlog = nullptr;                // event feed on the dashboard
 
 float lat = 0, lon = 0, speedKmh = 0, altM = 0, hdop = 99;
 int   sats = 0;
+float satsF = 0;   // float mirror of `sats` for the metric widget (shows the count, 0 decimals)
 float distHome = 0;
 int   fenceRadius = 85;                     // metres; driven by the dashboard slider
 bool  fenceOn = true, alarmOn = false, homeSet = false, storageOk = false;
@@ -422,7 +423,7 @@ void setup() {
   // --- dashboard widgets ---
   dash.map("Track", &lat, &lon).geofence(&homeLat, &homeLon, &fenceRadius);  // trail + geofence circle
   dash.gauge("Speed", &speedKmh, 0, 40, "km/h");
-  dash.badge("Satellites", &sats);
+  dash.metric("Satellites", &satsF);
   dash.metric("HDOP", &hdop);
   dash.chart("Altitude", &altM, "m");
   dash.metric("Distance home", &distHome, "m");
@@ -487,6 +488,7 @@ void loop() {
     speedKmh = gps.speed.kmph();
     altM = gps.altitude.meters();
     sats = gps.satellites.value();
+    satsF = sats;
     hdop = gps.hdop.hdop();
 
     if (!homeSet && sats >= 5 && hdop < 2.5) {
