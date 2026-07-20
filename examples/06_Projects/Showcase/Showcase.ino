@@ -116,6 +116,7 @@ void setup() {
   });
   term->print("RisalDash console - type 'help'");
 
+  dash.enableOTA();   // Settings -> Update firmware (also lets you flash back over the AP)
   dash.beginAP("RisalDash-Demo", "12345678");
 }
 
