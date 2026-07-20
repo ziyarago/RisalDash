@@ -245,7 +245,7 @@ chrome is translated.
 
 ```cpp
 dash.enableMCP("risal_pat_token");   // GET /api/mcp/manifest → AI tools (see tools/risal-mcp-bridge)
-dash.enableOTA();                    // GET/POST /update → firmware update over the air
+dash.enableOTA();                    // /update page + "Update firmware" button in Settings (OTA)
 dash.mqtt("broker.local", 1883, "greenhouse");  // needs -D RISAL_ENABLE_MQTT + PubSubClient
 dash.enableHomeAssistant("greenhouse");          // Home Assistant MQTT auto-discovery (after mqtt())
 ```
@@ -262,6 +262,13 @@ dash.enableHomeAssistant("greenhouse");          // Home Assistant MQTT auto-dis
 tool (read sensors, drive controls). The companion
 [**risal-dash-mcp**](https://github.com/ziyarago/risal-dash-mcp) bridge connects a device to
 Claude Desktop / Claude Code. 📝 Walkthrough: [Control your ESP32 from an AI agent](https://dev.to/shaxzod_ahmedov_f81d92240/control-your-esp32-from-an-ai-agent-mcp-a-few-lines-of-c-2o87).
+
+**OTA** — `enableOTA()` serves `/update` and adds an **"Update firmware"** button to the Settings
+modal, so you flash a new `.bin` from the browser — no USB. It's opt-in on purpose: OTA needs a
+partition with a second app slot (Arduino's default *"4MB with spiffs"* and the ESP8266 4MB layouts
+have one; `huge_app` / single-app schemes do **not**), and `/update` lets anyone on the LAN flash the
+device — so turn it on for a trusted network. Every dashboard also has a built-in **Reset Wi-Fi**
+button in Settings (`forgetWiFi()` → back to the setup portal).
 
 **Home Assistant** — after `mqtt()`, `enableHomeAssistant()` publishes MQTT discovery configs so
 HA auto-creates entities (sensors, switches, numbers, binary sensors, buttons), all grouped under

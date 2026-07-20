@@ -38,6 +38,7 @@ void setup() {
   dash.chart("Wind · trend", &wind, "km/h");
 
   dash.apName("RisalDash-C3");
+  dash.enableOTA();   // wireless firmware updates at /update (Settings → Update firmware)
   dash.begin();
 }
 

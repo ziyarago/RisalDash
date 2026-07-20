@@ -33,6 +33,7 @@ void setup() {
   dash.chart("Wind · trend", &wind, "km/h");
 
   dash.apName("RisalDash-ESP32");
+  dash.enableOTA();   // wireless firmware updates at /update (Settings → Update firmware)
   dash.begin();
 }
 
