@@ -395,6 +395,16 @@ void setup() {
 #if ALERT_MODE != 0
   pinMode(ALERT_PIN, OUTPUT);
   digitalWrite(ALERT_PIN, LOW);
+  // Boot heartbeat: two short pulses on the alert output so you can feel/see the device power up
+  // and confirm the alert (vibration/LED/buzzer) is wired, before the rest of setup runs.
+  for (int i = 0; i < 2; i++) {
+  #if ALERT_MODE == 4
+    tone(ALERT_PIN, BUZZER_FREQ); delay(120); noTone(ALERT_PIN);
+  #else
+    digitalWrite(ALERT_PIN, HIGH); delay(120); digitalWrite(ALERT_PIN, LOW);
+  #endif
+    delay(140);
+  }
 #endif
 
 #if defined(ESP32)
