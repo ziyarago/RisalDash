@@ -474,6 +474,26 @@ void loop() {
     freeHeapKb = ESP.getFreeHeap() / 1024.0f;
     wifiRssi = WiFi.RSSI();
     lastTelemMs = millis();
+    // GPS health — chars=0 means no NMEA is arriving (check wiring / swap TX-RX); chars rising but
+    // sats=0 means it's still acquiring (give it clear sky and a minute).
+    Serial.printf("GPS: chars=%lu sats=%d fix=%s\n", gps.charsProcessed(),
+                  (int)gps.satellites.value(), gps.location.isValid() ? "yes" : "no");
+  }
+
+  // GPS status on the dashboard's Events feed, so you can tell it's alive without a serial cable:
+  // logs on every state change, repeats while searching / no-data, then goes quiet once fixed.
+  static uint32_t lastGpsLog = 0;
+  static int gpsState = -1;
+  int state = gps.charsProcessed() < 10 ? 0
+            : (gps.location.isValid() && gps.location.age() < 8000 ? 2 : 1);
+  if (state != gpsState || (state != 2 && millis() - lastGpsLog > 12000)) {
+    lastGpsLog = millis();
+    gpsState = state;
+    char m[64];
+    if (state == 0)      snprintf(m, sizeof(m), "GPS: no data - check wiring (module TX -> RX pin)");
+    else if (state == 1) snprintf(m, sizeof(m), "GPS: searching - %d sats, %lu chars", (int)gps.satellites.value(), gps.charsProcessed());
+    else                 snprintf(m, sizeof(m), "GPS: fix acquired - %d sats, HDOP %.1f", (int)gps.satellites.value(), hdop);
+    if (evlog) evlog->print(m);
   }
 
   alertTask();
