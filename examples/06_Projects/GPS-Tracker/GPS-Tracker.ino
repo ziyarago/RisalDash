@@ -36,6 +36,9 @@
 #define TG_ENABLED     0   // 1 = Telegram alerts (needs Wi-Fi with internet)
 #define USE_PORTAL     1   // 1 = join YOUR Wi-Fi via a captive setup portal (dashboard on your LAN);
                            // 0 = standalone — the tracker is its own AP "GPS-Tracker" @ 192.168.4.1
+#define GPS_AGPS       1   // 1 = sync UTC time over Wi-Fi (NTP): real log timestamps + a known clock
+                           // before the first GPS fix. (Ephemeris AssistNow — see note below — needs a
+                           // free u-blox token; NTP time aiding alone already helps a warm start.)
 
 #if TG_ENABLED
   constexpr char WIFI_SSID[] = "HomeWiFi";
@@ -69,6 +72,9 @@ constexpr uint16_t BUZZER_FREQ     = 2000;
 // ======================= LIBRARIES =======================
 #include <TinyGPSPlus.h>
 #include <RisalDash.h>
+#if GPS_AGPS
+  #include <time.h>   // NTP-synced UTC clock
+#endif
 
 #if defined(ESP32)
   #include <WiFi.h>
@@ -123,9 +129,18 @@ void isoTimestamp(char* out, size_t n) {
     snprintf(out, n, "%04d-%02d-%02dT%02d:%02d:%02dZ",
              gps.date.year(), gps.date.month(), gps.date.day(),
              gps.time.hour(), gps.time.minute(), gps.time.second());
-  } else {
-    snprintf(out, n, "boot+%lus", (unsigned long)(millis() / 1000));
+    return;
   }
+#if GPS_AGPS
+  time_t now = time(nullptr);   // NTP-synced UTC — real timestamps before the first GPS fix
+  if (now > 1700000000UL) {
+    struct tm g; gmtime_r(&now, &g);
+    snprintf(out, n, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+             g.tm_year + 1900, g.tm_mon + 1, g.tm_mday, g.tm_hour, g.tm_min, g.tm_sec);
+    return;
+  }
+#endif
+  snprintf(out, n, "boot+%lus", (unsigned long)(millis() / 1000));
 }
 
 void todayFilename(char* buf, size_t n) {
@@ -413,6 +428,14 @@ void setup() {
     Serial.printf("Setup portal: http://%s/  (join the \"GPS-Tracker\" Wi-Fi)\n",
                   WiFi.softAPIP().toString().c_str());
 
+#if GPS_AGPS
+  // NTP over Wi-Fi -> a real UTC clock even before the GPS locks (used for log timestamps).
+  // For hardware ephemeris assist that speeds the first fix, fetch u-blox AssistNow data with a free
+  // token from https://www.u-blox.com/en/assistnow and forward it as UBX-AID-* to gpsSerial — that
+  // needs open sky to verify, so it's left as a hook here.
+  if (WiFi.status() == WL_CONNECTED) configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+#endif
+
   lastMoveMs = millis();
 }
 
@@ -474,10 +497,14 @@ void loop() {
     freeHeapKb = ESP.getFreeHeap() / 1024.0f;
     wifiRssi = WiFi.RSSI();
     lastTelemMs = millis();
-    // GPS health — chars=0 means no NMEA is arriving (check wiring / swap TX-RX); chars rising but
-    // sats=0 means it's still acquiring (give it clear sky and a minute).
-    Serial.printf("GPS: chars=%lu sats=%d fix=%s\n", gps.charsProcessed(),
-                  (int)gps.satellites.value(), gps.location.isValid() ? "yes" : "no");
+    // GPS health — chars=0 means no NMEA is arriving (check wiring / swap TX-RX). ok>0 means the
+    // sentences are valid (right baud), so 0 sats then is just "needs clear sky". ok=0 with bad>0
+    // means garbled data (wrong baud / noise). date/time appear once it syncs to satellites.
+    Serial.printf("GPS: chars=%lu ok=%lu bad=%lu sats=%d  %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+                  gps.charsProcessed(), gps.passedChecksum(), gps.failedChecksum(),
+                  (int)gps.satellites.value(),
+                  gps.date.year(), gps.date.month(), gps.date.day(),
+                  gps.time.hour(), gps.time.minute(), gps.time.second());
   }
 
   // GPS status on the dashboard's Events feed, so you can tell it's alive without a serial cable:
@@ -495,6 +522,20 @@ void loop() {
     else                 snprintf(m, sizeof(m), "GPS: fix acquired - %d sats, HDOP %.1f", (int)gps.satellites.value(), hdop);
     if (evlog) evlog->print(m);
   }
+
+#if GPS_AGPS
+  // Announce the NTP clock once it locks — real date/time from Wi-Fi, before any GPS fix.
+  static bool ntpLogged = false;
+  if (!ntpLogged && time(nullptr) > 1700000000UL) {
+    ntpLogged = true;
+    time_t now = time(nullptr); struct tm g; gmtime_r(&now, &g);
+    char m[56];
+    snprintf(m, sizeof(m), "Clock synced (NTP): %04d-%02d-%02d %02d:%02d UTC",
+             g.tm_year + 1900, g.tm_mon + 1, g.tm_mday, g.tm_hour, g.tm_min);
+    if (evlog) evlog->print(m);
+    Serial.println(m);
+  }
+#endif
 
   alertTask();
   dash.update();
