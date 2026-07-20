@@ -34,6 +34,8 @@
 #define ALERT_MODE     1   // 0 off | 1 vibration | 2 LED | 3 active buzzer | 4 passive buzzer (tone)
 #define GPS_POWERSAVE  0   // 1 = UBX Power-Save when parked (~30 mA saved)
 #define TG_ENABLED     0   // 1 = Telegram alerts (needs Wi-Fi with internet)
+#define USE_PORTAL     1   // 1 = join YOUR Wi-Fi via a captive setup portal (dashboard on your LAN);
+                           // 0 = standalone — the tracker is its own AP "GPS-Tracker" @ 192.168.4.1
 
 #if TG_ENABLED
   constexpr char WIFI_SSID[] = "HomeWiFi";
@@ -395,19 +397,21 @@ void setup() {
 
   setupEndpoints();   // register custom routes before begin() starts the server
 
+  dash.apName("GPS-Tracker");   // SSID of the captive setup portal on first boot
 #if TG_ENABLED
-  // Telegram needs internet: try the home network first, fall back to our own AP.
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) delay(200);
-  if (WiFi.status() != WL_CONNECTED)
-    dash.beginAP("GPS-Tracker", "12345678");
-  else
-    dash.begin();
+  dash.begin(WIFI_SSID, WIFI_PASS);   // Telegram needs internet -> join home Wi-Fi (portal on failure)
+#elif USE_PORTAL
+  dash.begin();                        // first boot -> "GPS-Tracker" setup portal -> joins your Wi-Fi
 #else
-  dash.beginAP("GPS-Tracker", "12345678");
+  dash.beginAP("GPS-Tracker", "12345678");  // standalone AP dashboard, always reachable in the field
 #endif
+
+  // Print where to reach the dashboard.
+  if (WiFi.status() == WL_CONNECTED)
+    Serial.printf("Dashboard: http://%s/\n", WiFi.localIP().toString().c_str());
+  else
+    Serial.printf("Setup portal: http://%s/  (join the \"GPS-Tracker\" Wi-Fi)\n",
+                  WiFi.softAPIP().toString().c_str());
 
   lastMoveMs = millis();
 }
