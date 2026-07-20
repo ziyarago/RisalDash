@@ -437,6 +437,7 @@ void setup() {
   });
   dash.metric("Free RAM", &freeHeapKb, "KB");     // heap-leak diagnostics
   dash.metric("Wi-Fi RSSI", &wifiRssi, "dBm");    // link quality
+  dash.link("History", "Download tracks", "/tracks");  // opens the CSV/GPX track list
   evlog = &dash.log("Events", 6);
 
   setupEndpoints();   // register custom routes before begin() starts the server
