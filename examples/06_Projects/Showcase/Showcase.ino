@@ -1,14 +1,19 @@
-// RisalDash Showcase — EVERY widget, layout device and input on ONE live page, driven entirely by
-// fake sensors, so you can see the whole library at a glance with no hardware. Sensor presets,
-// readouts, controls, HTML form inputs, data cards and the rich visual widgets (robot face, Leaflet
-// map, 3D cube, thermal heatmap, terminal) all animate at once.
+// RisalDash Showcase — EVERY widget, layout device and input across swipeable pages, driven entirely
+// by fake sensors, so you can see the whole library at a glance with no hardware. Six pages you swipe
+// between — Sensors, Readouts, Controls, Inputs, Data, Visual — with sensor presets, readouts,
+// controls, HTML form inputs, data cards and the rich visuals (robot face, Leaflet map, 3D cube,
+// thermal heatmap, terminal), all animating at once.
 //
-// Runs on ESP32 and ESP8266. Served over a plain access point — connect to "RisalDash-Demo"
-// (password 12345678) and open http://192.168.4.1/. The map and image cards fetch remote tiles/JPEG,
-// so those two want internet on the *client*; everything else is fully offline.
+// Runs on ESP32 and ESP8266. By default it's a standalone access point — connect to "RisalDash-Demo"
+// (password 12345678) and open http://192.168.4.1/. Set USE_PORTAL 1 to join your own Wi-Fi instead
+// (then the map tiles + image load, since your phone has internet). The rest is fully offline.
 //
 // The kitchen sink needs more than the default 48 widget slots, so bump the cap before the include:
 #define RISAL_MAX_WIDGETS 96
+#ifndef USE_PORTAL
+#define USE_PORTAL 0   // 0 = standalone demo AP "RisalDash-Demo"; 1 = join YOUR Wi-Fi via a setup portal
+                       // (on your LAN the map tiles + image load, since the client has internet)
+#endif
 #include <RisalUI.h>
 #include <RisalFake.h>
 #include <math.h>
@@ -21,7 +26,6 @@ RisalFakeWeather wx;
 RisalFakePower   pwr;
 RisalFakeAir     air;
 RisalFakeIMU     imu;
-RisalFakeGPS     gps;
 
 // ── Bound values ──
 float temp = 24, hum = 55, pres = 1013, lux = 400;          // environment (BME280 preset)
@@ -55,14 +59,14 @@ void setup() {
   dash.brand("Risal<b>Dash</b>");
 
   // ── Sensors (presets expand into the right widgets automatically) ──
-  dash.separator("Sensors");
+  dash.layout("Sensors", RICON_THERMOMETER);
   dash.sensor("bme280", &temp, &hum, &pres).chart();   // temp + humidity + pressure, with trend charts
   dash.gauge("Wind", &wind, 0, 40, "km/h").variant("semi");
   dash.gauge("UV index", &uv, 0, 12, "").variant("bar");
   dash.metric("Lux", &lux, "lx").decimals(0);
 
   // ── Readouts ──
-  dash.separator("Readouts");
+  dash.layout("Readouts", RICON_GAUGE);
   dash.metric("CPU", &cpu, "%").decimals(0).zone(70, 90);
   dash.gauge("Voltage", &volts, 0, 14, "V");               // ring (default)
   dash.stat("RSSI", &rssi, "dBm").decimals(0);
@@ -72,7 +76,7 @@ void setup() {
   dash.label("Device", &devName);
 
   // ── Controls ──
-  dash.separator("Controls");
+  dash.layout("Controls", RICON_POWER);
   dash.toggle("Pump", &pump, [](bool on) { status = on ? 0 : 1; if (eventLog) eventLog->print(String("Pump ") + (on ? "on" : "off")); });
   dash.slider("Brightness", &bright, 0, 255);
   dash.number("Fan speed", &fanSpeed, 0, 5, 1);
@@ -81,7 +85,7 @@ void setup() {
   dash.button("Reboot", "Restart", []() { ESP.restart(); });
 
   // ── HTML form inputs ──
-  dash.separator("Inputs");
+  dash.layout("Inputs", RICON_HOME);
   dash.text("Hostname", &devName);
   dash.textarea("Notes", &note);
   dash.password("Wi-Fi key", &wifiKey);
@@ -90,7 +94,7 @@ void setup() {
   dash.color("LED color", &ledColor);
 
   // ── Data cards ──
-  dash.separator("Data");
+  dash.layout("Data", RICON_CLOCK);
   dash.summary("Fleet", &sumHead, &sumDetail, &sumMood);
   dash.deviceCard("Smart plug", "🔌", &plugOn, &plugOnline);
   dash.table("Live values")
@@ -102,7 +106,7 @@ void setup() {
   dash.ai("Assistant", &note);
 
   // ── Rich visual widgets ──
-  dash.separator("Visual");
+  dash.layout("Visual", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_L);
   dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);        // client needs internet (Leaflet tiles)
   dash.cube("Orientation", &pitch, &roll, &yaw).size(RSIZE_L);
@@ -117,7 +121,12 @@ void setup() {
   term->print("RisalDash console - type 'help'");
 
   dash.enableOTA();   // Settings -> Update firmware (also lets you flash back over the AP)
-  dash.beginAP("RisalDash-Demo", "12345678");
+#if USE_PORTAL
+  dash.apName("RisalDash-Demo");
+  dash.begin();                                  // first boot -> setup portal -> joins your Wi-Fi
+#else
+  dash.beginAP("RisalDash-Demo", "12345678");    // standalone demo AP, no setup
+#endif
 }
 
 uint32_t lastLog = 0, lastHeat = 0, lastSensor = 0;
@@ -127,12 +136,13 @@ void loop() {
 
   if (now - lastSensor > 200) {   // refresh every fake bundle
     lastSensor = now;
-    env.update(); wx.update(); pwr.update(); air.update(); imu.update(); gps.update();
+    env.update(); wx.update(); pwr.update(); air.update(); imu.update();
     temp = env.temperature(); hum = env.humidity(); pres = env.pressure(); lux = env.light();
     wind = wx.windSpeed(); gust = wx.gust(); uv = wx.uvIndex();
     volts = pwr.voltage(); amps = pwr.current(); watt = pwr.power(); tvoc = air.tvoc();
     pitch = imu.pitch(); roll = imu.roll(); yaw = imu.yaw();
-    gpsLat = gps.lat(); gpsLon = gps.lon();
+    gpsLat = 41.311f + 0.004f * sinf(now * 0.0003f);   // fake circle so the map marker moves
+    gpsLon = 69.279f + 0.004f * cosf(now * 0.0003f);
     cpu = 30 + (now / 200 % 55);
     ram = (int)(ESP.getFreeHeap() / 1024) % 100;
     rssi = -50 - (int)(10 * sinf(now * 0.0004f));
