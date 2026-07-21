@@ -1,27 +1,23 @@
-// RisalDash Sensor Compare — several temperature/humidity sensors on one I2C bus, side by side, each
-// with its live value AND a trend chart, so you can watch them agree (or drift) in real time. Every
-// sensor is auto-detected: plug it in and it comes online; leave it out and its card reads "offline".
+// RisalDash Sensor Compare — four temperature/humidity sensors on one I2C bus, side by side, each with
+// its live value AND a trend chart, so you can watch them agree (or drift) in real time. Every sensor
+// is auto-detected: plug it in and it comes online; leave it out and its card reads "offline".
 //
 // Sensors: BME280 (0x76, temp+humidity+pressure), BMP280 (0x77, temp+pressure), AHT20 (0x38,
-// temp+humidity), HDC1080 (0x40, temp+humidity) and a DHT11 (one-wire on a GPIO).
+// temp+humidity) and HDC1080 (0x40, temp+humidity). Compare the numbers and the curves — in a real run
+// the HDC1080 read several % higher humidity than the BME280 next to it.
 //
 // Universal: same sketch on ESP8266 and ESP32. I2C uses each board's default pins:
-//   ESP8266 (Wemos): SDA = D2 (GPIO4),  SCL = D1 (GPIO5),  DHT11 -> D6 (GPIO12)
-//   ESP32:           SDA = GPIO21,       SCL = GPIO22,       DHT11 -> GPIO12
-// All I2C parts share SDA/SCL + 3V3/GND. DHT11 DATA -> its GPIO (+10k pull-up if it's a bare sensor).
+//   ESP8266 (Wemos): SDA = D2 (GPIO4), SCL = D1 (GPIO5)   ·   ESP32: SDA = GPIO21, SCL = GPIO22
+// All parts share SDA/SCL + 3V3/GND.
 //
 // Libraries: RisalDash, Adafruit BME280, Adafruit BMP280, Adafruit AHTX0, ClosedCube HDC1080,
-// DHT sensor library, Adafruit Unified Sensor, Adafruit BusIO, Wire (built-in).
+// Adafruit Unified Sensor, Adafruit BusIO, Wire (built-in).
 #include <RisalDash.h>
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_AHTX0.h>
 #include <ClosedCube_HDC1080.h>
-#include <DHT.h>
-
-#define DHTPIN  12          // D6 on a Wemos D1 mini
-#define DHTTYPE DHT11
 
 RisalUI dash("Sensor Compare");
 
@@ -29,14 +25,12 @@ Adafruit_BME280    bme;     // 0x76
 Adafruit_BMP280    bmp;     // 0x77
 Adafruit_AHTX0     aht;     // 0x38
 ClosedCube_HDC1080 hdc;     // 0x40
-DHT dht(DHTPIN, DHTTYPE);
-bool bmeOK = false, bmpOK = false, ahtOK = false, hdcOK = false, dhtOK = false;
+bool bmeOK = false, bmpOK = false, ahtOK = false, hdcOK = false;
 
 float bmeT = 0, bmeH = 0, bmeP = 0;   // BME280
 float bmpT = 0, bmpP = 0;             // BMP280 (no humidity)
 float ahtT = 0, ahtH = 0;             // AHT20
 float hdcT = 0, hdcH = 0;             // HDC1080
-float dhtT = 0, dhtH = 0;             // DHT11
 
 bool i2cPresent(uint8_t a) { Wire.beginTransmission(a); return Wire.endTransmission() == 0; }
 
@@ -60,7 +54,6 @@ void setup() {
   i2cRecover(21, 22);   // ESP32 default I2C
 #endif
   Wire.begin();
-  dht.begin();
 
   bmeOK = bme.begin(0x76);
   bmpOK = bmp.begin(0x77);
@@ -93,12 +86,6 @@ void setup() {
   dash.chart("HDC1080 temp trend", &hdcT, "°C");
   dash.metric("HDC1080 humidity", &hdcH, "%").decimals(1);
 
-  dash.separator("DHT11 · D6");
-  dash.led("DHT11 online", &dhtOK);
-  dash.metric("DHT11 temp", &dhtT, "°C").decimals(1);
-  dash.chart("DHT11 temp trend", &dhtT, "°C");
-  dash.metric("DHT11 humidity", &dhtH, "%").decimals(1);
-
   dash.enableOTA();
   dash.apName("SensorCompare");
   dash.begin();
@@ -119,9 +106,5 @@ void loop() {
                  if (!isnan(te.temperature)) ahtT = te.temperature; if (!isnan(he.relative_humidity)) ahtH = he.relative_humidity; }
     if (hdcOK) { float t = hdc.readTemperature(), h = hdc.readHumidity();
                  if (!isnan(t) && t > -40 && t < 125) hdcT = t; if (!isnan(h) && h >= 0 && h <= 100) hdcH = h; }
-
-    float t = dht.readTemperature(), h = dht.readHumidity();   // DHT11: a valid read means it's alive
-    dhtOK = !isnan(t) && !isnan(h);
-    if (dhtOK) { dhtT = t; dhtH = h; }
   }
 }
