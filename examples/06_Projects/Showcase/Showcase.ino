@@ -141,8 +141,8 @@ void loop() {
     wind = wx.windSpeed(); gust = wx.gust(); uv = wx.uvIndex();
     volts = pwr.voltage(); amps = pwr.current(); watt = pwr.power(); tvoc = air.tvoc();
     pitch = imu.pitch(); roll = imu.roll(); yaw = imu.yaw();
-    gpsLat = 41.311f + 0.004f * sinf(now * 0.0003f);   // fake circle so the map marker moves
-    gpsLon = 69.279f + 0.004f * cosf(now * 0.0003f);
+    gpsLat = 40.7580f + 0.004f * sinf(now * 0.0003f);   // fake circle over Manhattan so the marker moves
+    gpsLon = -73.9855f + 0.004f * cosf(now * 0.0003f);
     cpu = 30 + (now / 200 % 55);
     ram = (int)(ESP.getFreeHeap() / 1024) % 100;
     rssi = -50 - (int)(10 * sinf(now * 0.0004f));
