@@ -125,6 +125,41 @@ size_t logLen = 0;
 float  lastLogLat = 0, lastLogLon = 0;
 unsigned long lastLogMs = 0, lastFlushMs = 0, lastMoveMs = 0, lastTelemMs = 0;
 
+// ======================= I18N (author strings) =======================
+// The library localizes its OWN chrome (Settings, captive portal, status bar) in en/ru/uz/ar. The
+// strings WE write — widget titles, button/link labels — are ours, so dash.translate() localizes them
+// too: switch language from the appbar Settings and the whole UI follows. One row per English source
+// string; units (km/h, m, KB, dBm) and the acronym HDOP are left universal.
+#include <string.h>
+struct Row { const char *en, *ru, *uz, *ar; };
+static const Row DICT[] = {
+  {"Track",            "Трек",               "Trek",                     "المسار"},
+  {"Speed",            "Скорость",           "Tezlik",                   "السرعة"},
+  {"Satellites",       "Спутники",           "Sputniklar",               "الأقمار"},
+  {"Altitude",         "Высота",             "Balandlik",                "الارتفاع"},
+  {"Distance home",    "Расстояние до дома", "Uygacha masofa",           "المسافة إلى المنزل"},
+  {"Geofence",         "Геозона",            "Geozona",                  "السياج الجغرافي"},
+  {"Fence radius (m)", "Радиус зоны (м)",    "Zona radiusi (m)",         "نصف قطر السياج (م)"},
+  {"Home",             "Дом",                "Uy",                       "المنزل"},
+  {"Set home here",    "Задать дом здесь",   "Uyni shu yerda belgilash", "تعيين المنزل هنا"},
+  {"Free RAM",         "Свободная память",   "Bo'sh xotira",             "الذاكرة الحرة"},
+  {"Wi-Fi RSSI",       "Сигнал Wi-Fi",       "Wi-Fi signali",            "إشارة Wi-Fi"},
+  {"History",          "История",            "Tarix",                    "السجل"},
+  {"Download tracks",  "Скачать треки",      "Treklarni yuklab olish",   "تنزيل المسارات"},
+  {"Vibration",        "Вибрация",           "Tebranish",                "الاهتزاز"},
+  {"Test buzz",        "Тест сигнала",       "Signalni sinash",          "اختبار التنبيه"},
+  {"Events",           "События",            "Hodisalar",                "الأحداث"},
+};
+// Called by the library at render time for every author string. Return the localized form, or the
+// original when the language is English or the string isn't mapped (mix-and-match is fine).
+const char* tr(const char* s, const char* lang) {
+  int col = lang[0] == 'r' ? 1 : (lang[0] == 'u' && lang[1] == 'z') ? 2 : lang[0] == 'a' ? 3 : 0;
+  if (col == 0) return s;                    // English: nothing to do
+  for (auto& r : DICT)
+    if (strcmp(r.en, s) == 0) return col == 1 ? r.ru : col == 2 ? r.uz : r.ar;
+  return s;                                  // not in the dictionary → leave as written
+}
+
 // ======================= TIME =======================
 void isoTimestamp(char* out, size_t n) {
   if (gps.date.isValid() && gps.time.isValid() && gps.date.year() > 2020) {
@@ -419,6 +454,8 @@ void setup() {
   storageOk = storageBegin();
   Serial.printf("Storage (%s): %s\n", USE_SD ? "SD" : "LittleFS",
                 storageOk ? "OK" : "FAIL");
+
+  dash.translate(tr);   // localize our widget/button/link labels for ru/uz/ar (English = source)
 
   // --- dashboard widgets ---
   dash.map("Track", &lat, &lon).geofence(&homeLat, &homeLon, &fenceRadius);  // trail + geofence circle
