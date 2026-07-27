@@ -335,7 +335,7 @@ void loop() {
     else onHold(p.x, p.y);                       // drag a slider
   }
 
-  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }
+  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 42; }
 
   // ── render ──
   if (screen != lastScreen) { drawScreenStatic(); lastScreen = screen; }

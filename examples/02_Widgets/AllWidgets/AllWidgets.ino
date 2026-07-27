@@ -21,7 +21,7 @@ String devName = "greenhouse-01", wifiKey = "", boot = "08:30", svcDay = "2026-0
 String note = "All systems nominal — no action needed.";
 String imgUrl = "https://picsum.photos/480/300";  // any URL the *client* can reach
 // Visual values
-int mood = 1;                              // robot face: 0..9
+int mood = 1;                              // robot face: 0..41 (0..9 classic, 10..41 extended)
 float gpsLat = 41.311f, gpsLon = 69.279f;  // map marker (fake circle below)
 float pitch = 0, roll = 0, yaw = 0;        // 3D cube orientation
 LogWidget* eventLog = nullptr;
@@ -78,7 +78,7 @@ void setup() {
   // ── Page 5: rich visual widgets ──
   dash.layout("Visual", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_L);
-  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood);
+  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look,Listening,Pondering,Laughing,Glee,Furious,Frustrated,Crying,Tired,Bored,Worried,Nervous,Anxious,Shocked,Scared,Awe,Skeptical,Suspicious,Focused,Squint,Annoyed,Unimpressed,Confused,Speaking,Music,Sleep,Success,Error,Notification,Loading,Heart,Dead,Battery", &mood);
   dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // client needs internet (Leaflet tiles)
   dash.cube("Orientation", &pitch, &roll, &yaw).size(RSIZE_L);
   heat = &dash.heatmap("Thermal cam", TW, TH);        // MLX90640-style, fake frames below

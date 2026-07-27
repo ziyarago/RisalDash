@@ -322,59 +322,95 @@ inline void chartValue(const float *h, int n, float mn, float mx, uint16_t accen
   _gfx->print(b);
 }
 
-// Robot face: two glowing eyes showing an emotion (0 Neutral · 1 Happy · 2 Sad · 3 Angry · 4 Surprised
-// · 5 Sleepy · 6 Love · 7 Wink · 8 Dizzy · 9 Look), or blinked (thin bars). Carves shapes with C_BG
-// circles, same idea as the web widget. Call each tick with the current mood + a blink flag.
+// One "lid" primitive shared by every emotion. shp: 0 quad (top slant ri/ro), 1 smile (carve bottom),
+// 2 sad/worried (carve top at cvx: -1 outer, 0 centre, +1 inner), 3 big round, 4 dizzy rings, 5 dead X,
+// 6 heart. Mirrors the SVG eye math in the web FaceWidget (src/widgets/visual.h).
+static inline void _lid(int cx, int cy, int w, int h, int r, int ri, int ro, int inner,
+                        int shp, int cvx, int cv, uint16_t c) {
+  switch (shp) {
+    case 3: _gfx->fillCircle(cx, cy, w / 2, c); return;
+    case 4: for (int k = w / 2; k > 4; k -= 7) _gfx->drawCircle(cx, cy, k, c); return;
+    case 5: { int q = w / 2; for (int t = -2; t <= 2; t++) {
+                _gfx->drawLine(cx - q, cy - q + t, cx + q, cy + q + t, c);
+                _gfx->drawLine(cx + q, cy - q + t, cx - q, cy + q + t, c); } return; }
+    case 6: _gfx->fillCircle(cx - w / 4, cy - h / 6, w / 4, c);
+            _gfx->fillCircle(cx + w / 4, cy - h / 6, w / 4, c);
+            _gfx->fillTriangle(cx - w / 2 + 2, cy - 2, cx + w / 2 - 2, cy - 2, cx, cy + h / 2, c); return;
+    case 1: _gfx->fillRoundRect(cx - w / 2, cy - h / 2, w, h, r, c);
+            { int cr = (int)(w * 0.6f); _gfx->fillCircle(cx, cy + h / 2 - cv + cr, cr, C_BG); } return;
+    case 2: _gfx->fillRoundRect(cx - w / 2, cy - h / 2, w, h, r, c);
+            _gfx->fillCircle(cx + cvx * inner * (w / 2), cy - h / 2, (int)(w * 0.58f), C_BG); return;
+    default:
+      if (ri == 0 && ro == 0) { _gfx->fillRoundRect(cx - w / 2, cy - h / 2, w, h, r, c); }
+      else { int top = cy - h / 2, bot = cy + h / 2, ix = cx + inner * (w / 2), ox = cx - inner * (w / 2);
+             _gfx->fillTriangle(ox, top - ro, ix, top - ri, ix, bot, c);
+             _gfx->fillTriangle(ox, top - ro, ix, bot, ox, bot, c);
+             _gfx->fillRoundRect(cx - w / 2, bot - r, w, r + 1, r, c); }
+  }
+}
+
+// Robot eyes — the full mood set (0..41), mirroring the web face widget. 0..9 keep their classic
+// meaning; 10..41 add listening/pondering/worried/shocked/skeptical/speaking/loading/error/dead/…
+// Call each tick with the current mood + a blink flag.
 inline void eyes(int mood, bool blink) {
   _gfx->fillRect(0, 96, 172, 130, C_BG);
-  const int ex[2] = {56, 116}, cy = 158;
-  uint16_t c = (mood == 6) ? C_LOVE : C_TEAL;
+  const int ex[2] = {56, 116}, cyB = 158;
+  uint16_t c = (mood == 6 || mood == 39) ? C_LOVE : C_TEAL;
+  bool shake = (mood == 15 || mood == 21 || mood == 23 || mood == 31 || mood == 40);
+  int sh = shake ? (int)(3.0f * sinf(millis() * 0.02f)) : 0;
   for (int e = 0; e < 2; e++) {
-    int cx = ex[e];
-    if (mood == 9) cx += (int)(12 * sinf(millis() * 0.005f));  // look — drift left/right
+    int inner = e ? -1 : 1, cx = ex[e] + sh, cy = cyB;
+    if (mood == 9) cx += (int)(12 * sinf(millis() * 0.005f));   // look — drift
     if (blink) { _gfx->fillRoundRect(cx - 22, cy - 4, 44, 8, 4, c); continue; }
+    int w = 44, h = 56, r = 14, ri = 0, ro = 0, off = 0, shp = 0, cvx = 0, cv = 22;
     switch (mood) {
-      case 4:  // surprised — big round
-        _gfx->fillCircle(cx, cy, 27, c);
-        break;
-      case 5:  // sleepy — half-closed bar
-        _gfx->fillRoundRect(cx - 22, cy - 5, 44, 12, 6, c);
-        break;
-      case 1:  // happy — carve the bottom into a smile
-        _gfx->fillRoundRect(cx - 22, cy - 26, 44, 52, 16, c);
-        _gfx->fillCircle(cx, cy + 30, 30, C_BG);
-        break;
-      case 2:  // sad — carve the top-outer corner
-        _gfx->fillRoundRect(cx - 20, cy - 18, 40, 46, 14, c);
-        _gfx->fillCircle(cx + (e ? 20 : -20), cy - 26, 28, C_BG);
-        break;
-      case 3:  // angry — carve the top-inner corner (brow slant)
-        _gfx->fillRoundRect(cx - 22, cy - 26, 44, 52, 16, c);
-        _gfx->fillCircle(cx + (e ? -22 : 22), cy - 32, 30, C_BG);
-        break;
-      case 6:  // love — a heart (two lobes + a point)
-        _gfx->fillCircle(cx - 9, cy - 8, 12, c);
-        _gfx->fillCircle(cx + 9, cy - 8, 12, c);
-        _gfx->fillTriangle(cx - 20, cy - 2, cx + 20, cy - 2, cx, cy + 22, c);
-        break;
-      case 7:  // wink — right eye closed, left open
-        if (e) _gfx->fillRoundRect(cx - 22, cy - 4, 44, 8, 4, c);
-        else _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);
-        break;
-      case 8:  // dizzy — hollow swirl rings
-        _gfx->drawCircle(cx, cy, 21, c);
-        _gfx->drawCircle(cx, cy, 14, c);
-        _gfx->drawCircle(cx, cy, 7, c);
-        break;
-      case 9:  // look — neutral eye, drifting (cx offset above)
-        _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);
-        break;
-      default:  // neutral — tall rounded
-        _gfx->fillRoundRect(cx - 22, cy - 28, 44, 56, 16, c);
-        break;
+      case 1:  w = 48; h = 44; r = 16; shp = 1; cv = 26; break;                     // happy
+      case 2:  w = 42; h = 26; r = 11; off = 5; shp = 2; cvx = -1; break;           // sad
+      case 3:  h = 48; r = 12; ri = 15; ro = -7; break;                             // angry
+      case 4:  w = 52; shp = 3; break;                                              // surprised
+      case 5:  h = 14; r = 7; break;                                                // sleepy
+      case 6:  w = 42; h = 40; shp = 6; break;                                      // love
+      case 8:  w = 44; shp = 4; break;                                              // dizzy
+      case 10: h = 48; break;                                                       // listening
+      case 11: h = 42; off = -3; ri = 4; break;                                     // pondering
+      case 12: w = 48; h = 22; r = 10; shp = 1; cv = 17; break;                     // laughing
+      case 13: w = 42; h = 20; r = 9; shp = 1; cv = 15; break;                      // glee
+      case 14: h = 44; r = 12; ri = 10; ro = -3; break;                             // furious
+      case 15: h = 48; r = 12; ri = 15; ro = -7; break;                             // frustrated (+shake)
+      case 16: w = 42; h = 26; r = 11; off = 5; shp = 2; cvx = -1; break;           // crying (+tear)
+      case 17: w = 48; h = 16; r = 8; ri = 3; ro = 9; off = 3; break;               // tired
+      case 18: w = 44; h = 12; r = 6; ri = 4; ro = -2; off = 2; break;              // bored
+      case 19: case 20: case 21: w = 44; h = 30; r = 11; shp = 2; cvx = 0; break;   // worried/nervous/anxious
+      case 22: w = 52; h = 58; break;                                               // shocked
+      case 23: w = 50; h = 56; r = 16; break;                                       // scared (+shake)
+      case 24: w = 50; shp = 3; break;                                              // awe
+      case 27: w = 42; h = 14; r = 7; break;                                        // focused
+      case 28: w = 38; h = 11; r = 5; break;                                        // squint
+      case 30: w = 44; h = 11; r = 5; off = 2; break;                               // unimpressed
+      case 32: w = 42; h = 48; r = 13; break;                                       // speaking
+      case 33: w = 42; h = 24; r = 11; shp = 1; cv = 19; break;                     // music
+      case 34: w = 44; h = 17; r = 8; shp = 1; cv = 14; break;                      // sleep
+      case 35: w = 44; h = 26; r = 14; shp = 1; cv = 22; break;                     // success
+      case 36: w = 42; h = 30; r = 9; ri = 14; ro = -3; break;                      // error (>< pinch)
+      case 38: w = 44; shp = 4; break;                                              // loading — rings
+      case 39: w = 44; h = 26; r = 14; shp = 1; cv = 22; break;                     // heart (love hue)
+      case 40: w = 30; shp = 5; break;                                              // dead — X
+      case 41: w = 42; h = 14; r = 7; off = 2; break;                               // battery — flat eyes
+      default: break;                                                              // 0/9/37 neutral
     }
-    if (mood == 0 || mood == 4) _gfx->fillCircle(cx - 8, cy - 14, 4, C_INK);  // catch-light shine
+    if (mood == 7)       { if (e) { w = 44; h = 8; r = 4; } else { w = 44; h = 48; r = 14; } }
+    else if (mood == 25) { if (e) { w = 38; h = 13; r = 6; off = -2; } else { w = 38; h = 30; r = 11; } }
+    else if (mood == 26) { if (e) { w = 42; h = 13; r = 6; off = 2; } else { w = 42; h = 20; r = 8; off = 2; shp = 2; cvx = -1; } }
+    else if (mood == 29) { if (e) { w = 42; h = 11; r = 5; off = 2; } else { w = 42; h = 14; r = 7; ri = 2; ro = 8; off = 2; } }
+    else if (mood == 31) { if (e) { w = 38; h = 38; r = 12; off = -3; } else { w = 42; h = 44; r = 13; } }
+    _lid(cx, cy + off, w, h, r, ri, ro, inner, shp, cvx, cv, c);
+    if ((mood == 0 || mood == 4 || mood == 22) && shp == 0)
+      _gfx->fillCircle(cx - 8, cy - 14, 4, C_INK);  // catch-light shine
   }
+  if (mood == 16) _gfx->fillCircle(ex[0] - 12, cyB + 18, 3, C_TEAL);                 // crying tear
+  if (mood == 20 || mood == 21) _gfx->fillCircle(ex[1] + 15, cyB - 20, 3, C_TEAL);   // sweat drop
+  if (mood == 41) { _gfx->drawRoundRect(66, 104, 40, 15, 3, C_TEAL);                 // low-battery glyph
+                    _gfx->fillRect(106, 108, 3, 7, C_TEAL); _gfx->fillRect(69, 107, 9, 9, C_LOVE); }
 }
 
 // Weather slide: big temperature + the sky condition, from the background weather task. Shows a

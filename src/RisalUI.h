@@ -144,8 +144,10 @@ class RisalUI {
   ProgressWidget& progress(const char* name, int* val, const char* unit = "%");
   StatWidget&   stat(const char* name, float* val, const char* unit = "");
   ChartWidget&  chart(const char* name, float* val, const char* unit = "");
-  // Animated robot face — two glowing eyes that blink and change emotion. `mood` is 0..6
-  // (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love); set it from your logic or an AI agent.
+  // Animated robot face — two glowing eyes that blink and change emotion. `mood` is 0..41: 0..9 are
+  // the classic set (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love/Wink/Dizzy/Look), 10..41 add
+  // listening, pondering, worried, speaking, loading, error, dead… (see the FaceMood enum). Set it
+  // from your logic or an AI agent — the served face and any on-device eyes() follow over WebSocket.
   FaceWidget&   face(const char* name, int* mood);
   // Live map (Leaflet) — a marker + trail following the bound lat/lon. NEEDS INTERNET on the client
   // (Leaflet + dark CARTO tiles load from a CDN), so it's an opt-in online widget.

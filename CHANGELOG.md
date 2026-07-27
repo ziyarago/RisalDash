@@ -5,6 +5,29 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-27
+
+"A face with something to say." The robot face grows from 10 moods to a full expression set (0..41),
+so it can act as the visible state machine of an on-device AI agent.
+
+### Added
+- **Rich face emotion set (0..41)** — the `dash.face()` widget and the on-device `eyes()` renderers
+  now share a compact SVG "lid" model with ~40 states: the classic ten plus listening, pondering,
+  laughing, glee, furious, frustrated, crying, tired, bored, worried, nervous, anxious, shocked,
+  scared, awe, skeptical, suspicious, focused, squint, annoyed, unimpressed, confused, speaking,
+  music, sleep, success, error, notification, loading, heart, dead and battery.
+- **`FaceMood` enum** (`FACE_NEUTRAL … FACE_BATTERY`, `FACE_COUNT`) — pass a named mood instead of a
+  magic int. Ideal for driving the face from an agent's state (`FACE_LISTENING` → `FACE_PONDERING` →
+  `FACE_SPEAKING` → `FACE_SUCCESS`/`FACE_ERROR`).
+
+### Changed
+- The web face widget now renders the eyes as inline **SVG** (drawn in JS from a spec table) instead
+  of CSS blocks — the same shapes render identically in the browser and on-device.
+- **Backward compatible:** indices **0..9 keep their previous meaning**, so existing sketches and
+  saved `mood` values are unaffected.
+- The two display examples (ESP32-S3 Touch-2.8, ESP32-C6 LCD-1.47) expose the full emotion list in
+  the "Emotion" selector and cycle all 42 in "Auto emotion".
+
 ## [0.11.0] — 2026-07-20
 
 "Over-the-air, on the map." Firmware updates and Wi-Fi reset without a cable, a real-world GPS

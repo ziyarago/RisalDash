@@ -5,35 +5,106 @@
 // thermal heatmap.
 
 // ── Display: robot face — two animated eyes that show an emotion (bound to an int) ──
-// A modern "AI companion" face: glowing accent eyes on a dark panel, idle blinking, and an emotion
-// index 0..9 (Neutral/Happy/Sad/Angry/Surprised/Sleepy/Love/Wink/Dizzy/Look) that morphs or animates
-// the eyes. Set the bound variable from your logic (or an AI agent) and it reacts over the WebSocket.
+// A modern "AI companion" face: glowing accent "lids" on a dark panel, idle blinking, and a rich
+// emotion set (0..41). 0..9 keep their classic meaning (Neutral/Happy/Sad/Angry/Surprised/Sleepy/
+// Love/Wink/Dizzy/Look) for backward compatibility; 10..41 add listening, pondering, laughing,
+// worried, nervous, shocked, skeptical, speaking, loading, error, dead, battery and more. The eyes
+// are drawn as SVG from a compact spec table in JS (see RW_FACE_JS), so the same shapes render here
+// and on-device. Set the bound int from your logic (or an AI agent) and it reacts over the WebSocket.
 static const char RW_FACE_CSS[] PROGMEM =
-  ".rface{display:flex;align-items:center;justify-content:center;gap:26px;height:132px;border-radius:14px;"
-  "background:radial-gradient(120% 130% at 50% 28%,#16203a,#080d18);overflow:hidden}"
-  ".reye{transition:transform .28s}"
-  ".eyeball{width:44px;height:62px;border-radius:16px;background:var(--acc);position:relative;overflow:hidden;"
-  "box-shadow:0 0 24px var(--acc),0 0 42px var(--acc);animation:rblink 4.6s infinite;"
-  "transition:width .28s,height .28s,border-radius .28s,background .28s,box-shadow .28s}"
-  ".eyeball::after{content:'';position:absolute;left:-30%;width:160%;height:150%;background:#0a1120;"
-  "border-radius:50%;top:150%;transition:top .28s}"
-  "@keyframes rblink{0%,90%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}}"
-  ".rface[data-emo=\"1\"] .eyeball::after{top:52%}"                                    // happy
-  ".rface[data-emo=\"2\"] .eyeball{height:46px}.rface[data-emo=\"2\"] .eyeball::after{top:56%}"
-  ".rface[data-emo=\"2\"] .reye.l{transform:rotate(-16deg)}.rface[data-emo=\"2\"] .reye.r{transform:rotate(16deg)}"  // sad
-  ".rface[data-emo=\"3\"] .eyeball::after{top:-56%}"
-  ".rface[data-emo=\"3\"] .reye.l{transform:rotate(18deg)}.rface[data-emo=\"3\"] .reye.r{transform:rotate(-18deg)}"  // angry
-  ".rface[data-emo=\"4\"] .eyeball{width:54px;height:54px;border-radius:50%}"          // surprised
-  ".rface[data-emo=\"5\"] .eyeball{height:20px;border-radius:10px}"                    // sleepy
-  ".rface[data-emo=\"6\"] .eyeball{background:#ff5c8a;box-shadow:0 0 24px #ff5c8a,0 0 44px #ff5c8a;border-radius:50% 50% 12px 12px}"  // love
-  ".rface[data-emo=\"7\"] .reye.r .eyeball{height:9px;border-radius:5px}"              // wink (right eye)
-  ".rface[data-emo=\"8\"] .eyeball{width:34px;height:34px;border-radius:50%}"
-  ".rface[data-emo=\"8\"] .reye{animation:rwob 1.1s infinite}"                          // dizzy — wobble
-  ".rface[data-emo=\"9\"] .reye{animation:rlook 2s infinite}"                           // look around
-  "@keyframes rwob{0%,100%{transform:rotate(-11deg)}50%{transform:rotate(11deg)}}"
-  "@keyframes rlook{0%,100%{transform:translateX(-9px)}50%{transform:translateX(9px)}}";
-static const char RW_FACE_JS[] PROGMEM =
-  "R.W.face={init:function(el){},update:function(el,v){var f=el.querySelector('.rface');if(f)f.setAttribute('data-emo',v);}};";
+  ".rface{height:132px;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;"
+  "background:radial-gradient(120% 130% at 50% 28%,#16203a,#080d18)}"
+  ".rface svg{width:100%;height:100%;display:block}"
+  ".rface .eye{fill:var(--acc);filter:drop-shadow(0 0 6px var(--acc))}"
+  ".rface .eye.pk{fill:#ff5c8a;filter:drop-shadow(0 0 7px #ff5c8a)}"
+  ".rface .ln{fill:none;stroke:var(--acc);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--acc))}"
+  "@keyframes rblink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}"
+  "@keyframes rshk{0%,100%{transform:translateX(0)}25%{transform:translateX(-2.5px)}75%{transform:translateX(2.5px)}}"
+  "@keyframes rspn{to{transform:rotate(360deg)}}"
+  "@keyframes rpls{0%,100%{opacity:1}50%{opacity:.5}}"
+  "@keyframes rflt{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}"
+  "@keyframes rlook{0%,100%{transform:translateX(-9px)}50%{transform:translateX(9px)}}"
+  ".rface .rbl{transform-box:fill-box;transform-origin:center;animation:rblink 4.6s infinite}"
+  ".rface .rshk{animation:rshk .5s infinite}"
+  ".rface .rspn{transform-box:view-box;transform-origin:120px 78px;animation:rspn 1.4s linear infinite}"
+  ".rface .rpls{animation:rpls 1.6s ease-in-out infinite}"
+  ".rface .rflt{transform-box:fill-box;transform-origin:center;animation:rflt 2s ease-in-out infinite}"
+  ".rface .rlook{animation:rlook 2s ease-in-out infinite}"
+  "@media(prefers-reduced-motion:reduce){.rface *{animation:none!important}}";
+static const char RW_FACE_JS[] PROGMEM = R"js(R.W.face=(function(){
+var CY=78,EXL=74;
+function n(x){return Math.round(x*10)/10}
+function P(a){return n(a[0])+','+n(a[1])}
+function sb(a,b){return[a[0]-b[0],a[1]-b[1]]}
+function ad(a,b){return[a[0]+b[0],a[1]+b[1]]}
+function ml(a,s){return[a[0]*s,a[1]*s]}
+function L(a){return Math.hypot(a[0],a[1])||1e-6}
+function nm(a){return ml(a,1/L(a))}
+function ds(a,b){return L(sb(a,b))}
+function rpoly(p,r){var d='',N=p.length,i;for(i=0;i<N;i++){var p0=p[(i-1+N)%N],p1=p[i],p2=p[(i+1)%N],v1=nm(sb(p0,p1)),v2=nm(sb(p2,p1)),rr=Math.min(r,ds(p0,p1)/2,ds(p2,p1)/2),a=ad(p1,ml(v1,rr)),b=ad(p1,ml(v2,rr));d+=(i?'L':'M')+P(a)+'Q'+P(p1)+' '+P(b)}return d+'Z'}
+function ep(cx,cy,e){cy+=e.off||0;var w=e.w,h=e.h,ri=e.ri||0,ro=e.ro||0,s=e.shape||'q',r=e.r||0;
+if(s=='circle'){var R=w/2;return{p:'M'+P([cx+R,cy])+'a'+n(R)+','+n(R)+' 0 1,0 '+n(-w)+',0 a'+n(R)+','+n(R)+' 0 1,0 '+n(w)+',0Z'}}
+if(s=='spiral'){var d='M'+P([cx,cy]),T=2.6,rm=w/2,a;for(a=0;a<T*6.283;a+=0.25){var q=rm*a/(T*6.283);d+=' L'+P([cx+q*Math.cos(a),cy+q*Math.sin(a)])}return{p:d,st:1}}
+if(s=='x'){var q=w/2;return{p:'M'+P([cx-q,cy-q])+'L'+P([cx+q,cy+q])+'M'+P([cx+q,cy-q])+'L'+P([cx-q,cy+q]),st:1}}
+if(s=='heart'){var u=w/2;return{p:'M'+P([cx,cy+u*0.3])+'C'+P([cx,cy-u*0.3])+' '+P([cx-u,cy-u*0.3])+' '+P([cx-u,cy+u*0.15])+'C'+P([cx-u,cy+u*0.6])+' '+P([cx,cy+u*0.8])+' '+P([cx,cy+u])+'C'+P([cx,cy+u*0.8])+' '+P([cx+u,cy+u*0.6])+' '+P([cx+u,cy+u*0.15])+'C'+P([cx+u,cy-u*0.3])+' '+P([cx,cy-u*0.3])+' '+P([cx,cy+u*0.3])+'Z'}}
+if(s=='happy'){var rr=Math.min(r,w/2,h/2),cv=e.curve!=null?e.curve:h*0.9,d='M'+P([cx-w/2,cy-h/2+rr]);d+='Q'+P([cx-w/2,cy-h/2])+' '+P([cx-w/2+rr,cy-h/2])+'L'+P([cx+w/2-rr,cy-h/2])+'Q'+P([cx+w/2,cy-h/2])+' '+P([cx+w/2,cy-h/2+rr])+'L'+P([cx+w/2,cy+h/2-rr*0.6])+'Q'+P([cx,cy+h/2-cv])+' '+P([cx-w/2,cy+h/2-rr*0.6]);return{p:d+'Z'}}
+var tI=[cx+w/2,cy-h/2-ri],tO=[cx-w/2,cy-h/2-ro],bO=[cx-w/2,cy+h/2],bI=[cx+w/2,cy+h/2];return{p:rpoly([tO,tI,bI,bO],r)}}
+function es(e,side,pk){var o=ep(EXL,CY,e),cl=o.st?'ln':('eye'+(pk?' pk':'')),g='<path class="'+cl+'" d="'+o.p+'"'+(o.st?' fill="none"':'')+'/>';return side=='L'?g:'<g transform="translate(240,0) scale(-1,1)">'+g+'</g>'}
+function dr(x,y,s){return'<path class="eye" d="M'+x+','+(y-s)+' C'+(x+s*0.9)+','+(y+s*0.1)+' '+(x+s*0.7)+','+(y+s)+' '+x+','+(y+s)+' C'+(x-s*0.7)+','+(y+s)+' '+(x-s*0.9)+','+(y+s*0.1)+' '+x+','+(y-s)+'Z"/>'}
+function str(x,y,s){return'<path class="eye" d="M'+x+','+(y-s)+' L'+(x+s*0.28)+','+(y-s*0.28)+' L'+(x+s)+','+y+' L'+(x+s*0.28)+','+(y+s*0.28)+' L'+x+','+(y+s)+' L'+(x-s*0.28)+','+(y+s*0.28)+' L'+(x-s)+','+y+' L'+(x-s*0.28)+','+(y-s*0.28)+'Z"/>'}
+function hp(x,y,s){return'<path class="rflt" fill="#ff5c8a" d="M'+x+','+(y+s*0.3)+' C'+x+','+(y-s*0.3)+' '+(x-s)+','+(y-s*0.3)+' '+(x-s)+','+(y+s*0.15)+' C'+(x-s)+','+(y+s*0.6)+' '+x+','+(y+s*0.8)+' '+x+','+(y+s)+' C'+x+','+(y+s*0.8)+' '+(x+s)+','+(y+s*0.6)+' '+(x+s)+','+(y+s*0.15)+' C'+(x+s)+','+(y-s*0.3)+' '+x+','+(y-s*0.3)+' '+x+','+(y+s*0.3)+'Z"/>'}
+function FX(f){
+if(f=='tear')return dr(60,104,5);
+if(f=='sweat')return dr(196,42,6);
+if(f=='hearts')return hp(44,34,8)+hp(198,34,7);
+if(f=='zzz')return'<text class="eye" x="184" y="46" font-size="17" font-weight="800">z</text><text class="eye" x="198" y="34" font-size="13" font-weight="800">z</text>';
+if(f=='sparkles')return str(150,44,9)+str(96,50,6);
+if(f=='bell')return'<path class="ln" d="M120,32 C109,32 105,41 105,52 C105,63 99,65 99,69 L141,69 C141,65 135,63 135,52 C135,41 131,32 120,32Z"/><circle class="eye" cx="120" cy="28" r="3.5"/><path class="ln" d="M114,73 a6,6 0 0,0 12,0"/>';
+if(f=='wave')return'<path class="ln" d="M56,116 q10,-9 20,0 t20,0 t20,0 t20,0 t20,0 t20,0"/>';
+if(f=='notes')return'<text class="eye" x="40" y="52" font-size="20">&#9834;</text><text class="eye" x="188" y="46" font-size="16">&#9834;</text>';
+if(f=='battery')return'<g transform="translate(120,38)"><rect class="ln" x="-26" y="-9" width="48" height="18" rx="4"/><rect class="eye" x="22" y="-4" width="4" height="8" rx="2"/><rect fill="#ff5f57" x="-23" y="-6" width="9" height="12" rx="2"/></g>';
+if(f=='wavymouth')return'<path class="ln" d="M104,110 q8,-8 16,0 t16,0"/>';
+return''}
+function GL(g){
+if(g=='error')return'<g class="ln"><path d="M78,60 L100,75 L78,90"/><path d="M162,60 L140,75 L162,90"/><path d="M108,100 L132,100"/></g>';
+if(g=='loading'){var d='',i;for(i=0;i<12;i++){var a=i/12*6.283,x=120+22*Math.cos(a),y=75+22*Math.sin(a);d+='<circle class="eye" cx="'+n(x)+'" cy="'+n(y)+'" r="3" opacity="'+(i/12*0.85+0.15).toFixed(2)+'"/>'}return'<g class="rspn">'+d+'</g>'}
+return''}
+var F=[
+{e:{w:50,h:56,r:16}},{e:{w:54,h:42,r:18,shape:'happy',curve:34}},{e:{w:50,h:22,r:11,ri:2,ro:12,off:6,shape:'happy',curve:-14}},
+{e:{w:52,h:40,r:9,ri:16,ro:-8}},{e:{w:56,h:58,r:16}},{e:{w:52,h:15,r:7,ri:1,ro:5,off:3}},
+{pk:1,e:{w:46,h:46,shape:'heart'}},{e:{w:50,h:56,r:16},r:{w:52,h:12,r:6}},{anim:'spin',nb:1,e:{w:44,h:44,shape:'spiral'}},
+{anim:'look',e:{w:50,h:56,r:16}},{anim:'pulse',e:{w:50,h:50,r:16}},{e:{w:50,h:44,r:14,off:-3,ri:4}},
+{e:{w:54,h:24,r:12,shape:'happy',curve:20}},{e:{w:46,h:22,r:11,shape:'happy',curve:18}},{e:{w:52,h:38,r:11,ri:11,ro:-4}},
+{anim:'shake',e:{w:52,h:40,r:9,ri:16,ro:-8}},{fx:['tear'],e:{w:50,h:22,r:11,ri:2,ro:12,off:6,shape:'happy',curve:-14}},
+{e:{w:56,h:17,r:8,ri:2,ro:8,off:3}},{e:{w:50,h:13,r:6,ri:4,ro:-1,off:2}},{e:{w:50,h:30,r:12,ri:-7,ro:3}},
+{fx:['sweat'],e:{w:50,h:30,r:12,ri:-7,ro:3}},{fx:['sweat'],anim:'shake',e:{w:50,h:30,r:12,ri:-9,ro:4}},{e:{w:62,h:64,r:16}},
+{anim:'shake',e:{w:58,h:62,r:18}},{e:{w:58,h:58,shape:'circle'}},{e:{w:44,h:34,r:13},r:{w:44,h:15,r:7,off:-2}},
+{e:{w:48,h:22,r:9,ri:4,ro:10,off:2,shape:'happy',curve:-10},r:{w:48,h:15,r:7,ro:6,off:2}},{e:{w:48,h:15,r:7}},{e:{w:42,h:13,r:6}},
+{e:{w:50,h:16,r:8,ri:2,ro:9,off:2},r:{w:50,h:13,r:6,off:2}},{e:{w:50,h:13,r:6,off:2},r:{w:50,h:13,r:6,ri:4}},
+{anim:'shake',e:{w:48,h:50,r:15},r:{w:44,h:44,r:14,off:-3}},{fx:['wave'],e:{w:46,h:50,r:15}},
+{fx:['notes'],e:{w:46,h:26,r:13,shape:'happy',curve:22}},{fx:['zzz'],e:{w:52,h:18,r:9,shape:'happy',curve:16}},
+{fx:['sparkles'],e:{w:50,h:30,r:16,shape:'happy',curve:26}},{g:'error'},{anim:'pulse',fx:['bell'],e:{w:46,h:20,r:10,off:34}},
+{g:'loading'},{fx:['hearts'],e:{w:50,h:30,r:16,shape:'happy',curve:26}},{fx:['wavymouth'],nb:1,e:{w:34,h:34,shape:'x'}},
+{fx:['battery'],e:{w:48,h:16,r:8,off:30}}];
+function build(v){var s=F[v]||F[0],inner;
+if(s.g){inner=GL(s.g)}else{var pk=s.pk?1:0,blink=!s.anim&&!s.nb,ec='ey'+(blink?' rbl':'');inner='<g class="'+ec+'">'+es(s.e,'L',pk)+es(s.r||s.e,'R',pk)+'</g>';(s.fx||[]).forEach(function(f){inner+=FX(f)})}
+var g=inner,a=s.anim;
+if(a=='shake')g='<g class="rshk">'+g+'</g>';else if(a=='spin')g='<g class="rspn">'+g+'</g>';else if(a=='pulse')g='<g class="rpls">'+g+'</g>';else if(a=='look')g='<g class="rlook">'+g+'</g>';
+return'<svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet">'+g+'</svg>'}
+function render(f,v){v=+v||0;f.innerHTML=build(v);f.setAttribute('data-emo',v)}
+return{init:function(el){var f=el.querySelector('.rface');if(f)render(f,f.getAttribute('data-emo')||0)},update:function(el,v){var f=el.querySelector('.rface');if(f)render(f,v)}}
+})();)js";
+// Named mood indices for face() — pass any of these (or a raw int) to the bound mood variable.
+// 0..9 are the classic set (backward-compatible); 10..41 are the extended set. Mirrors the JS table.
+enum FaceMood {
+  FACE_NEUTRAL = 0, FACE_HAPPY, FACE_SAD, FACE_ANGRY, FACE_SURPRISED, FACE_SLEEPY, FACE_LOVE, FACE_WINK,
+  FACE_DIZZY, FACE_LOOK, FACE_LISTENING, FACE_PONDERING, FACE_LAUGHING, FACE_GLEE, FACE_FURIOUS,
+  FACE_FRUSTRATED, FACE_CRYING, FACE_TIRED, FACE_BORED, FACE_WORRIED, FACE_NERVOUS, FACE_ANXIOUS,
+  FACE_SHOCKED, FACE_SCARED, FACE_AWE, FACE_SKEPTICAL, FACE_SUSPICIOUS, FACE_FOCUSED, FACE_SQUINT,
+  FACE_ANNOYED, FACE_UNIMPRESSED, FACE_CONFUSED, FACE_SPEAKING, FACE_MUSIC, FACE_SLEEP, FACE_SUCCESS,
+  FACE_ERROR, FACE_NOTIFICATION, FACE_LOADING, FACE_HEART, FACE_DEAD, FACE_BATTERY, FACE_COUNT
+};
+
 class FaceWidget : public Widget {
  public:
   FaceWidget(const char* key, const char* title, int* mood) : Widget(key, title), _mood(mood) {}
@@ -44,8 +115,7 @@ class FaceWidget : public Widget {
     cardOpen(out);
     out.print(F("<div class=\"rface\" data-emo=\""));
     out.print(_mood ? *_mood : 0);
-    out.print(F("\"><div class=\"reye l\"><div class=\"eyeball\"></div></div>"
-                "<div class=\"reye r\"><div class=\"eyeball\"></div></div></div>"));
+    out.print(F("\"></div>"));  // JS (R.W.face) draws the SVG eyes from the mood index
     cardClose(out);
   }
   bool hasState() const override { return true; }

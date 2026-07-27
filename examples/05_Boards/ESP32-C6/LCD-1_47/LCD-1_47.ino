@@ -40,7 +40,7 @@ int slideSec = 4;       // Slide sec between widgets in auto-slide
 int backlight = 43;     // Backlight % (keep <=50 — heat)
 int ledMode = 2;        // LED:   0 Off · 1 Manual · 2 Per-widget · 3 Gradient
 String ledColor = "#22d3ee";
-int mood = 1;           // Robot face: 0 Neutral · 1 Happy · … · 9 Look
+int mood = 1;           // Robot face: 0..41 (0..9 classic Neutral…Look, 10..41 extended)
 bool autoEmo = false;   // Auto emotion: cycle through all moods (web face + LCD eyes follow)
 
 // Fake Zigbee coordinator — a few paired smart-home devices (real path: the esp-zigbee stack on C6).
@@ -143,7 +143,7 @@ void setup() {
 
   dash.layout("Robot", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_L);  // big, full-width face
-  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
+  dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look,Listening,Pondering,Laughing,Glee,Furious,Frustrated,Crying,Tired,Bored,Worried,Nervous,Anxious,Shocked,Scared,Awe,Skeptical,Suspicious,Focused,Squint,Annoyed,Unimpressed,Confused,Speaking,Music,Sleep,Success,Error,Notification,Loading,Heart,Dead,Battery", &mood, [](int i) { (void)i; prefs.putInt("mood", mood); });
   // Auto emotion: cycle through all moods on a timer (the LCD "Robot" slide shows the same).
   dash.toggle("Auto emotion", &autoEmo, [](bool on) { (void)on; prefs.putInt("aemo", autoEmo); });
 
@@ -199,7 +199,8 @@ void drawSlideValue() {
     case 7: if (millis() - lastChart > 500) { lastChart = millis(); lcd::chartValue(&thist[THN - thCount], thCount, 18, 30, lcd::C_TEAL); } break;
     case 8: {  // robot eyes — redraw on mood change, blink edge, or each frame of Look
       bool blink = (millis() % 3800) < 130;
-      bool anim = (mood == 9);  // "Look" drifts, so it needs continuous redraw
+      // moods that self-animate (drift/wobble/shake/spin) need a continuous redraw
+      bool anim = (mood == 8 || mood == 9 || mood == 15 || mood == 21 || mood == 23 || mood == 31 || mood == 38 || mood == 40);
       if (mood != lastMood || blink != lastBlink || (anim && millis() - lastChart > 180)) {
         lcd::eyes(mood, blink);
         lastMood = mood;
@@ -248,7 +249,7 @@ void loop() {
   bleScan::updateLog(bleLog);  // rebuild "Nearby" from the live BLE scan (2.5 s inside)
   wx::sync();                  // copy the weather task's latest result (1 s inside)
 
-  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 10; }  // cycle emotions
+  if (autoEmo && millis() - lastEmo > 1500) { lastEmo = millis(); mood = (mood + 1) % 42; }  // cycle emotions
   if (millis() - lastZb > 3000) {  // fake Zigbee sensor events
     lastZb = millis();
     zbDoor = (millis() / 15000) % 2;                  // door opens/closes
