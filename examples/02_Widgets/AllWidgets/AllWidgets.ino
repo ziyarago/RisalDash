@@ -22,6 +22,7 @@ String note = "All systems nominal — no action needed.";
 String imgUrl = "https://picsum.photos/480/300";  // any URL the *client* can reach
 // Visual values
 int mood = 1;                              // robot face: 0..41 (0..9 classic, 10..41 extended)
+int wx = 0;                                // weather icon: 0 Sun · 1 Cloudy · 2 Rain · … · 9 Night
 float gpsLat = 41.311f, gpsLon = 69.279f;  // map marker (fake circle below)
 float pitch = 0, roll = 0, yaw = 0;        // 3D cube orientation
 LogWidget* eventLog = nullptr;
@@ -79,6 +80,8 @@ void setup() {
   dash.layout("Visual", RICON_MOTION);
   dash.face("Robot", &mood).size(RSIZE_L);
   dash.select("Emotion", "Neutral,Happy,Sad,Angry,Surprised,Sleepy,Love,Wink,Dizzy,Look,Listening,Pondering,Laughing,Glee,Furious,Frustrated,Crying,Tired,Bored,Worried,Nervous,Anxious,Shocked,Scared,Awe,Skeptical,Suspicious,Focused,Squint,Annoyed,Unimpressed,Confused,Speaking,Music,Sleep,Success,Error,Notification,Loading,Heart,Dead,Battery", &mood);
+  dash.weather("Weather", &wx);
+  dash.select("Sky", "Sun,Cloudy,Rain,Snow,Thunder,Fog,Wind,Storm,Partly cloudy,Night", &wx);
   dash.map("Track", &gpsLat, &gpsLon).size(RSIZE_L);  // client needs internet (Leaflet tiles)
   dash.cube("Orientation", &pitch, &roll, &yaw).size(RSIZE_L);
   heat = &dash.heatmap("Thermal cam", TW, TH);        // MLX90640-style, fake frames below

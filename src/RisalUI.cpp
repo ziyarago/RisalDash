@@ -62,6 +62,7 @@ BadgeWidget& RisalUI::badge(const char* name, int* val) { return _make<BadgeWidg
 LedWidget& RisalUI::led(const char* name, bool* val) { return _make<LedWidget>(name, name, val); }
 ProgressWidget& RisalUI::progress(const char* name, int* val, const char* unit) { return _make<ProgressWidget>(name, name, val, unit); }
 FaceWidget& RisalUI::face(const char* name, int* mood) { return _make<FaceWidget>(name, name, mood); }
+WeatherWidget& RisalUI::weather(const char* name, int* code) { return _make<WeatherWidget>(name, name, code); }
 MapWidget& RisalUI::map(const char* name, float* lat, float* lon) { return _make<MapWidget>(name, name, lat, lon); }
 CubeWidget& RisalUI::cube(const char* name, float* pitch, float* roll, float* yaw) { return _make<CubeWidget>(name, name, pitch, roll, yaw); }
 TerminalWidget& RisalUI::terminal(const char* name, TerminalWidget::Cb cb) { return _make<TerminalWidget>(name, name, cb); }

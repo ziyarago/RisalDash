@@ -149,6 +149,9 @@ class RisalUI {
   // listening, pondering, worried, speaking, loading, error, dead… (see the FaceMood enum). Set it
   // from your logic or an AI agent — the served face and any on-device eyes() follow over WebSocket.
   FaceWidget&   face(const char* name, int* mood);
+  // Weather icon — a bound int (0..9) picks a glyph: 0 Sun · 1 Cloudy · 2 Rain · 3 Snow · 4 Thunder ·
+  // 5 Fog · 6 Wind · 7 Storm · 8 Partly cloudy · 9 Night. Set it from a forecast/API and it updates live.
+  WeatherWidget& weather(const char* name, int* code);
   // Live map (Leaflet) — a marker + trail following the bound lat/lon. NEEDS INTERNET on the client
   // (Leaflet + dark CARTO tiles load from a CDN), so it's an opt-in online widget.
   MapWidget&    map(const char* name, float* lat, float* lon);

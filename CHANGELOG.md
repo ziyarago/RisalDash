@@ -5,6 +5,13 @@ All notable changes to RisalDash are documented here. The format loosely follows
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-27
+
+### Added
+- **`dash.weather(name, &code)`** — a weather-icon widget alongside the face. A bound int (0..9) picks
+  a glyph: Sun · Cloudy · Rain · Snow · Thunder · Fog · Wind · Storm · Partly cloudy · Night, drawn as
+  SVG and updated live over the WebSocket. The AllWidgets example gains a `Weather` card + `Sky` selector.
+
 ## [0.12.0] — 2026-07-27
 
 "A face with something to say." The robot face grows from 10 moods to a full expression set (0..41),

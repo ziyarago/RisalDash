@@ -125,6 +125,60 @@ class FaceWidget : public Widget {
   int* _mood; RwTracked<int> _trk;
 };
 
+// ── Display: weather icon — a bound int (0..9) picks a weather glyph, drawn as SVG ──
+// A companion to the face: same idea, a compact icon set. 0 Sun · 1 Cloudy · 2 Rain · 3 Snow ·
+// 4 Thunder · 5 Fog · 6 Wind · 7 Storm · 8 Partly cloudy · 9 Night. Bind an int (e.g. from a weather
+// API or a forecast state) and the icon updates over the WebSocket.
+static const char RW_WX_CSS[] PROGMEM =
+  ".rwx{height:132px;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;"
+  "background:radial-gradient(120% 130% at 50% 24%,#1a2436,#0b0f18)}"
+  ".rwx svg{width:100%;height:100%;display:block}"
+  ".rwx .ic{fill:var(--acc)}.rwx .sun{fill:#ffce57}.rwx .cloud{fill:#c7d0dc}.rwx .snow{fill:#eaf2f8}"
+  ".rwx .amber{fill:none;stroke:#ffce57}.rwx .rain{stroke:#5c9bef}"
+  ".rwx .ln{fill:none;stroke:#c7d0dc;stroke-linecap:round;stroke-linejoin:round}"
+  "@keyframes rwspin{to{transform:rotate(360deg)}}"
+  ".rwx .spin{transform-box:view-box;transform-origin:120px 75px;animation:rwspin 3s linear infinite}"
+  "@media(prefers-reduced-motion:reduce){.rwx *{animation:none!important}}";
+static const char RW_WX_JS[] PROGMEM = R"js(R.W.weather=(function(){
+var n=function(x){return Math.round(x*10)/10};
+function cloud(cx,cy,sc){return '<path class="cloud" transform="translate('+cx+','+cy+') scale('+sc+')" d="M-34,10 a17,17 0 0,1 4,-33 a22,22 0 0,1 42,4 a15,15 0 0,1 -2,29 Z"/>'}
+function sun(cx,cy,r,cnt){var s='<circle class="sun" cx="'+cx+'" cy="'+cy+'" r="'+r+'"/>',i;for(i=0;i<cnt;i++){var a=i/cnt*6.283;s+='<line stroke="#ffce57" stroke-width="4.5" stroke-linecap="round" x1="'+n(cx+(r+7)*Math.cos(a))+'" y1="'+n(cy+(r+7)*Math.sin(a))+'" x2="'+n(cx+(r+16)*Math.cos(a))+'" y2="'+n(cy+(r+16)*Math.sin(a))+'"/>'}return s}
+var G=[
+function(){return sun(120,75,24,8)},
+function(){return cloud(122,80,1.6)},
+function(){return cloud(122,60,1.4)+'<g class="rain" stroke-width="4.5" stroke-linecap="round">'+[-30,-8,14].map(function(dx){return '<line x1="'+(120+dx)+'" y1="98" x2="'+(112+dx)+'" y2="118"/>'}).join('')+'</g>'},
+function(){return cloud(122,60,1.4)+'<g class="snow">'+[-26,-4,18].map(function(dx){return '<circle cx="'+(114+dx)+'" cy="112" r="3.5"/>'}).join('')+'</g>'},
+function(){return cloud(122,60,1.4)+'<path class="amber" stroke-width="5" d="M118,94 L106,114 L118,114 L110,132"/>'},
+function(){return '<g class="ln" stroke-width="5">'+[54,72,90,108].map(function(y,i){return '<line x1="'+(62+(i%2)*6)+'" y1="'+y+'" x2="'+(178-(i%2)*6)+'" y2="'+y+'"/>'}).join('')+'</g>'},
+function(){return '<g class="ln" stroke-width="5"><path d="M56,60 h60 a10,10 0 1,0 -10,-10"/><path d="M56,82 h84 a11,11 0 1,1 -11,11"/><path d="M56,104 h48 a9,9 0 1,0 -9,9"/></g>'},
+function(){var d='',i;for(i=0;i<40;i++){var a=i*0.5,r=3+i*0.9,x=120+r*Math.cos(a),y=75+r*Math.sin(a);d+='<circle cx="'+n(x)+'" cy="'+n(y)+'" r="1.7" class="cloud" opacity="'+(1-i/44).toFixed(2)+'"/>'}return '<g class="spin">'+d+'</g>'},
+function(){return sun(96,60,15,6)+cloud(134,84,1.3)},
+function(){return '<path class="ic" d="M138,54 a26,26 0 1,0 8,44 a20,20 0 0,1 -8,-44Z"/><circle class="snow" cx="92" cy="62" r="2.5"/><circle class="snow" cx="80" cy="92" r="2"/><circle class="snow" cx="106" cy="100" r="1.6"/>'}
+];
+function build(v){var f=G[v]||G[0];return '<svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet">'+f()+'</svg>'}
+function render(el,v){var f=el.querySelector('.rwx');if(f){f.innerHTML=build(+v||0);f.setAttribute('data-wx',v)}}
+return{init:function(el){var f=el.querySelector('.rwx');if(f)render(el,f.getAttribute('data-wx')||0)},update:function(el,v){render(el,v)}}
+})();)js";
+class WeatherWidget : public Widget {
+ public:
+  WeatherWidget(const char* key, const char* title, int* code) : Widget(key, title), _code(code) {}
+  const char* typeId() const override { return "weather"; }
+  const char* css() const override { return RW_WX_CSS; }
+  const char* js() const override { return RW_WX_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<div class=\"rwx\" data-wx=\""));
+    out.print(_code ? *_code : 0);
+    out.print(F("\"></div>"));  // JS (R.W.weather) draws the SVG icon from the code
+    cardClose(out);
+  }
+  bool hasState() const override { return true; }
+  bool poll() override { return _trk.changed(_code ? *_code : 0); }
+  void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += String(_code ? *_code : 0); }
+ private:
+  int* _code; RwTracked<int> _trk;
+};
+
 // ── Display: live map (Leaflet) — a marker + trail that follow a bound lat/lon ──
 // NEEDS INTERNET on the client (Leaflet + dark CARTO tiles load from a CDN), so it's an opt-in online
 // widget, unlike the offline-first core. Dark basemap to match the theme. Bind two floats; the marker
