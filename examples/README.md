@@ -35,6 +35,7 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 | **AirQuality** | SEN55 preset (PM1/2.5/4/10 + VOC + NOx + T/H) + CO₂/HCHO — driven by `RisalFakeAir`. |
 | **PowerMeter** | PZEM-004T preset (V/A/W/kWh + PF/Hz) — `RisalFakePower` cycles a household load. |
 | **WeatherStation** | Wind / gust / direction / rain + UV + ambient — `RisalFakeWeather`. |
+| **LiveWeather** | Real conditions for any city from Open-Meteo (no key) — `RisalWeather` in a background task, web *City* field re-geocodes. ESP32-only for live data. |
 | **MotionIMU** | 3D orientation cube + accel/gyro (mpu6050) + compass — `RisalFakeIMU`. |
 | **WeightScale** | HX711 load cell in kg/g — `RisalFakeWeight` settles onto swapped items. |
 | **WaterQuality** | TDS / pH / turbidity / soil / tank level — generic fakes. |

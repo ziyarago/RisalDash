@@ -231,6 +231,30 @@ When the real sensor arrives, swap the reads for your driver's — same variable
 sketch is unchanged. Opt-in and Zero-Waste: nothing is compiled unless you include it. Works on
 ESP8266 and ESP32. The **ESP32-C6-LCD-1.47** example ships with it.
 
+## Live weather — no API key
+
+`#include <RisalWeather.h>` pulls the current conditions from **Open-Meteo** (free, no key) and turns
+a city name into coordinates for you. Both calls block on an HTTPS request, so run them from a
+background FreeRTOS task — never `loop()`. ESP32-only (TLS); a graceful no-op elsewhere.
+
+```cpp
+#include <RisalWeather.h>
+RisalWeather wx;
+float wxTemp; int wxCode; String city = "Tashkent";
+
+// …inside a FreeRTOS task, off loop():
+wx.geocode(city);                 // city name -> lat/lon (auto-detected)
+if (wx.poll()) {                  // fetch current weather for that location
+  wxTemp = wx.temperature();      // °C
+  wxCode = wx.code();             // WMO code -> RisalWeather::codeText()
+}
+```
+
+Bind the city to a text field and it re-geocodes whenever the user types a new one; the
+`dash.weather("Sky", &wxCode)` widget shows a matching sky icon next to a `dash.stat("Outside",
+&wxTemp, "C")`. The **ESP32-C6-LCD-1.47** example wires the task, a persisted *City* field and an
+LCD slide end-to-end.
+
 ## Languages
 
 ```cpp
@@ -288,6 +312,8 @@ one device. No YAML.
 - **FakeSensors** — the whole `<RisalFake.h>` toolbox: drifting values, the day/night
   greenhouse, GPS route playback, a fake BLE scan and record-&-replay — no hardware attached.
 - **SensorTemplates** — `dash.sensor("bme280", …)` presets, tuned with `.chart()` / `.size()`.
+- **LiveWeather** — real conditions for any city from Open-Meteo (no key), fetched in a background
+  task; the web *City* field re-geocodes as you type. `<RisalWeather.h>`, ESP32-only for live data.
 - **UiKit** — the interface skeleton: pages, groups, separators, sizes, icons, `.gear()`, chrome.
 - **Multilingual** — `dash.translate()`: the whole UI (your titles included) switches EN/RU/UZ/AR.
 - **ESP32-C6-LCD-1.47** — the big showcase: web dashboard + a 13-slide LCD carousel, real BLE
