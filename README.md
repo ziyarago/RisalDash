@@ -298,6 +298,34 @@ button in Settings (`forgetWiFi()` → back to the setup portal).
 HA auto-creates entities (sensors, switches, numbers, binary sensors, buttons), all grouped under
 one device. No YAML.
 
+## How it compares
+
+RisalDash isn't the only way to put a UI on an ESP — and the others are good tools. They optimize for
+different things; here's an honest read of where each fits.
+
+| | RisalDash | ESPUI | ESP-DASH | Blynk |
+|---|---|---|---|---|
+| **Hosting** | on-device, self-hosted | on-device, self-hosted | on-device, self-hosted | cloud (Blynk.Cloud) |
+| **Runs fully offline** | ✅ AP, no internet | ✅ AP mode | ✅ local only | needs the cloud ¹ |
+| **License / cost** | MIT, free | MIT, free | Lite MIT · **Pro paid** | freemium (free: 5 devices) ² |
+| **Wi-Fi provisioning** | ✅ captive portal + NVS | do it yourself | do it yourself | via the app |
+| **Widgets / presets** | 36 controls + 71 sensor presets | focused set (slider, switch, graph, pad…) | cards + charts · more in Pro | rich app widgets ² |
+| **Multi-language + RTL** | ✅ EN / RU / UZ / AR, RTL | — | — | app locales |
+| **AI / MCP control** | ✅ every widget is an MCP tool | — | — | HTTP API · automations |
+| **Build with no hardware** | ✅ built-in fake sensors | — | — | — |
+| **Mobile app** | responsive web UI | web UI | web UI | ✅ native iOS / Android |
+| **Cloud fleet & alerts** | — (single device, LAN) | — | — | ✅ fleet, OTA, notifications |
+
+<sub>¹ Blynk 2.0 is cloud-first; a legacy self-hosted server exists but is community-maintained. &nbsp; ² Blynk's free plan allows up to 5 devices / 1 user; more needs a paid plan.</sub>
+
+**Choose Blynk** for a polished mobile app, push notifications and cloud fleet management, if depending
+on a hosted service is fine. **Choose ESP-DASH** for a fast, clean on-device dashboard (its Pro tier
+adds tabs and premium widgets). **Choose ESPUI** for a simple, proven, minimal UI. **RisalDash** leans
+into self-hosted + offline-first with a broad built-in widget/sensor set, i18n/RTL, AI (MCP) control
+and hardware-free prototyping — all MIT.
+
+<sub>Sources: [s00500/ESPUI](https://github.com/s00500/ESPUI) · [ayushsharma82/ESP-DASH](https://github.com/ayushsharma82/ESP-DASH), [espdash.pro](https://espdash.pro/) · [blynk.io/pricing](https://www.blynk.io/pricing), [docs.blynk.io limits](https://docs.blynk.io/en/blynk.console/limits). Facts checked 2026-07; correct anything that has since changed via a PR.</sub>
+
 ## Examples
 
 - **Minimal** — a few widgets over an access point.
