@@ -46,8 +46,8 @@ void loop() {
   (system fonts, everything served from flash).
 - **Real-time** — values are pushed over WebSocket only when they change; controls send commands
   back to your callbacks.
-- **Widgets for everything** — 26 types: displays, controls, layout (tabs/groups/span), plus
-  one-line **sensor presets**.
+- **Widgets for everything** — 36 controls: displays, inputs, layout (tabs/groups), map, terminal,
+  3D cube, robot face…, plus one-line **sensor presets** for 71 sensors.
 - **Multi-page + native chrome** — `dash.layout()` splits the UI into pages switched by a
   swipe-up sheet of icon tiles; an iOS-style status bar (clock, Wi-Fi, battery) sits on top.
 - **Settings on the device** — a gear in the appbar opens **Language / Theme / Accent**, applied
@@ -195,10 +195,11 @@ dash.sensor("bme280", &temp, &hum, &pres);  // gauge °C + metric % + chart hPa
 dash.sensor("ina219", &volts, &cur, &pwr);  // V / A / W
 ```
 
-Built-in: `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`, `ccs811`,
-`scd40`, `ina219`, `acs712`, `pzem004t`, `hcsr04`, `vl53l0x`, `mq135`, `soil`, `ld2410`,
-`ld2450`, `mpu6050`, `mpu9250`, `neo-m10`, `inmp441`.
-The widget is chosen by the **quantity**, not the sensor model.
+**71 presets built in** — `bme280`, `bmp280`, `dht11`, `dht22`, `sht3x`, `ds18b20`, `bh1750`,
+`scd40`, `ina219`, `acs712`, `pzem004t`, `hcsr04`, `vl53l0x`, `mq2`, `mq135`, `soil`, `ld2410`,
+`ld2450`, `mpu6050`, `bno055`, `neo-m10`, `max30102`, `hx711`, `sen55`, `inmp441` and many more
+(see the [catalog](https://dash.risal.io/catalog)). The widget is chosen by the **quantity**, not
+the sensor model.
 
 ## Fake sensors — build with no hardware
 
