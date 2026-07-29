@@ -42,6 +42,9 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 | **WaterMeter** | Flow rate + litres total + pulse (YF-S201) — `RisalFakeFlow`. |
 | **TrashBin** | Smart-city bin fill level (HC-SR04, inverted tank maths) — 3 bins, status badges, pickup alerts, event log. |
 | **RoomMonitor** | All-in-one room panel — DHT22 + PIR + MQ-2 + 2ch relay, priority alarm chain with auto-venting. |
+| **Oscilloscope** | Pocket signal analyser — Vpp / Vrms / zero-cross frequency from a burst-sampled ADC. |
+| **PostureMonitor** | Wearable slouch coach — MPU6050 lean angle, grace timer, buzzer nag, slouch stats. |
+| **WifiSurvey** | Walk-and-map site survey — real `WiFi.RSSI()` + map marker, weak-zone log with coordinates. |
 | **BatteryBMS** | SoC / pack V / current / temp / cell (Daly-style) — `RisalFakeBattery`. |
 | **HealthMonitor** | Heart rate + SpO₂ (MAX30102) — `RisalFakeHealth`. |
 | **GasSafety** | Smoke + CO alarms (MQ-2/MQ-7) with trip LEDs — `RisalFakeGas`. |
@@ -57,6 +60,8 @@ driver with the variable names unchanged.
 ## 05_Boards — board showcases (specific hardware)
 | Sketch | Board | What it shows |
 |---|---|---|
+| **CamTrap** | AI-Thinker ESP32-CAM | Time-lapse & PIR camera trap in one sketch — JPEG to SD, shot counter + capture log. |
+| **LoRaLink** | 2× ESP32 + SX1278 | Two-node LoRa P2P beacon — RSSI/SNR live, CRC, peer-online. |
 | **ESP32-C6-LCD-1_47** | Waveshare ESP32-C6-LCD-1.47 | Web dashboard + a 13-slide LCD carousel, real BLE scan, live weather, robot eyes. Split into `display.h` / `led.h` / `i18n.h` / `sensors.h` / `weather.h` / `ble.h`. |
 | **ESP32-S3-DualCore** | Any dual-core ESP32 | A heavy worker on core 0 while the dashboard stays smooth on core 1. |
 | **Wemos-D1-Mini** | Wemos/LOLIN D1 mini (ESP8266) | All-real-hardware: onboard LED toggle + blink, A0 gauge, live heap/RSSI — the streaming renderer at home on 80 KB of RAM. |
