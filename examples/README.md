@@ -41,6 +41,7 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 | **WaterQuality** | TDS / pH / turbidity / soil / tank level — generic fakes. |
 | **WaterMeter** | Flow rate + litres total + pulse (YF-S201) — `RisalFakeFlow`. |
 | **TrashBin** | Smart-city bin fill level (HC-SR04, inverted tank maths) — 3 bins, status badges, pickup alerts, event log. |
+| **RoomMonitor** | All-in-one room panel — DHT22 + PIR + MQ-2 + 2ch relay, priority alarm chain with auto-venting. |
 | **BatteryBMS** | SoC / pack V / current / temp / cell (Daly-style) — `RisalFakeBattery`. |
 | **HealthMonitor** | Heart rate + SpO₂ (MAX30102) — `RisalFakeHealth`. |
 | **GasSafety** | Smoke + CO alarms (MQ-2/MQ-7) with trip LEDs — `RisalFakeGas`. |
