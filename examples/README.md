@@ -45,6 +45,7 @@ plain access point (connect to `RisalDash-Demo`, password `12345678`, open
 | **Oscilloscope** | Pocket signal analyser — Vpp / Vrms / zero-cross frequency from a burst-sampled ADC. |
 | **PostureMonitor** | Wearable slouch coach — MPU6050 lean angle, grace timer, buzzer nag, slouch stats. |
 | **WifiSurvey** | Walk-and-map site survey — real `WiFi.RSSI()` + map marker, weak-zone log with coordinates. |
+| **GasCylinder** | Weigh an LPG bottle (HX711 load cell) — net kg + % left, low-gas LED/buzzer alert. |
 | **BatteryBMS** | SoC / pack V / current / temp / cell (Daly-style) — `RisalFakeBattery`. |
 | **HealthMonitor** | Heart rate + SpO₂ (MAX30102) — `RisalFakeHealth`. |
 | **GasSafety** | Smoke + CO alarms (MQ-2/MQ-7) with trip LEDs — `RisalFakeGas`. |
