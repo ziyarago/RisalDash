@@ -57,6 +57,7 @@ GaugeWidget& RisalUI::gauge(const char* name, float* val, float mn, float mx, co
 ToggleWidget& RisalUI::toggle(const char* name, bool* val, ToggleWidget::Cb cb) { return _make<ToggleWidget>(name, name, val, cb); }
 SliderWidget& RisalUI::slider(const char* name, int* val, int mn, int mx, SliderWidget::Cb cb) { return _make<SliderWidget>(name, name, val, mn, mx, cb); }
 ButtonWidget& RisalUI::button(const char* name, const char* label, ButtonWidget::Cb cb) { return _make<ButtonWidget>(name, name, label, cb); }
+PushWidget& RisalUI::push(const char* name, const char* label, PushWidget::Cb cb) { return _make<PushWidget>(name, name, label, cb); }
 LinkWidget& RisalUI::link(const char* name, const char* label, const char* url) { return _make<LinkWidget>(name, name, label, url); }
 BadgeWidget& RisalUI::badge(const char* name, int* val) { return _make<BadgeWidget>(name, name, val); }
 LedWidget& RisalUI::led(const char* name, bool* val) { return _make<LedWidget>(name, name, val); }

@@ -4,20 +4,19 @@
 // Interactive controls (write over the WebSocket): toggle, slider, button, number,
 // select, radio, terminal.
 
+// ── Control: toggle (clickable over the WebSocket) ──
 static const char RW_TOGGLE_CSS[] PROGMEM =
   ".tg{display:flex;align-items:center;justify-content:space-between}"
   ".tg span{font-size:15px;color:var(--ink2)}"
   ".sw{width:46px;height:26px;border-radius:99px;background:var(--bg3);border:1px solid var(--line2);position:relative;cursor:pointer}"
   ".sw::after{content:'';position:absolute;top:2px;inset-inline-start:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .25s}"
   ".sw.on{background:var(--grad);border-color:transparent}.sw.on::after{transform:translateX(20px)}";
-
 static const char RW_TOGGLE_JS[] PROGMEM =
   "R.W.toggle={init:function(el){var s=el.querySelector('.sw');"
   "if(s)s.addEventListener('click',function(){R.send(el.dataset.key,!s.classList.contains('on'));});},"
   "update:function(el,v){var s=el.querySelector('.sw');if(s)s.classList.toggle('on',!!v);"
   "var t=el.querySelector('.tg span');if(t)t.textContent=v?R.L.on:R.L.off;}};";
 
-// ── Control: toggle (clickable over the WebSocket) ──
 class ToggleWidget : public Widget {
  public:
   using Cb = std::function<void(bool)>;
@@ -26,7 +25,6 @@ class ToggleWidget : public Widget {
   const char* typeId() const override { return "toggle"; }
   const char* css() const override { return RW_TOGGLE_CSS; }
   const char* js() const override { return RW_TOGGLE_JS; }
-
   void card(Print& out) override {
     cardOpen(out);
     bool on = _val ? *_val : false;
@@ -37,7 +35,6 @@ class ToggleWidget : public Widget {
     out.print(F("\"></div></div>"));
     cardClose(out);
   }
-
   bool hasState() const override { return true; }
   bool poll() override { return _trk.changed(_val && *_val); }
   void writeKV(String& out) override { out += '"'; out += _key; out += "\":"; out += ((_val && *_val) ? "true" : "false"); }
@@ -52,34 +49,16 @@ class ToggleWidget : public Widget {
     out.print(F("\",\"t\":\"toggle\"}"));
     return true;
   }
-
  private:
-  bool* _val;
-  Cb _cb;
-  RwTracked<bool> _trk;
+  bool* _val;  Cb _cb;  RwTracked<bool> _trk;
 };
-
-static const char RW_SLIDER_CSS[] PROGMEM =
-  "input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:99px;background:var(--bg3);outline:none}"
-  "input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--acc);cursor:pointer;border:3px solid var(--bg2)}"
-  "input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--acc);border:3px solid var(--bg2);cursor:pointer}";
-static const char RW_BUTTON_CSS[] PROGMEM =
-  ".act{height:46px;border:none;border-radius:13px;background:var(--grad);color:var(--acc-ink);font:700 15px var(--font);cursor:pointer;width:100%}"
-  ".act:active{transform:scale(.97)}";
-
-static const char RW_SLIDER_JS[] PROGMEM =
-  "R.W.slider={init:function(el){var i=el.querySelector('input');if(!i)return;"
-  "i.addEventListener('input',function(){var b=el.querySelector('.big');if(b)b.textContent=i.value;});"
-  "i.addEventListener('change',function(){R.send(el.dataset.key,+i.value);});},"
-  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;var b=el.querySelector('.big');if(b)b.textContent=v;}};";
-static const char RW_BUTTON_JS[] PROGMEM =
-  "R.W.button={init:function(el){var b=el.querySelector('.act');if(b)b.addEventListener('click',function(){R.send(el.dataset.key,true);});}};";
 
 // ── Control: link — a button that navigates to a URL (a custom page like /tracks, /update, or any
 //    other dashboard). Client-side navigation, no server round-trip. ──
 static const char RW_LINK_CSS[] PROGMEM =
   ".lnk{height:46px;border-radius:13px;background:var(--grad);color:var(--acc-ink);font:700 15px var(--font);"
   "width:100%;display:grid;place-items:center;text-decoration:none;box-sizing:border-box}";
+
 class LinkWidget : public Widget {
  public:
   LinkWidget(const char* key, const char* title, const char* label, const char* url)
@@ -100,6 +79,16 @@ class LinkWidget : public Widget {
 };
 
 // ── Control: slider (int range) ──
+static const char RW_SLIDER_CSS[] PROGMEM =
+  "input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:99px;background:var(--bg3);outline:none}"
+  "input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--acc);cursor:pointer;border:3px solid var(--bg2)}"
+  "input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--acc);border:3px solid var(--bg2);cursor:pointer}";
+static const char RW_SLIDER_JS[] PROGMEM =
+  "R.W.slider={init:function(el){var i=el.querySelector('input');if(!i)return;"
+  "i.addEventListener('input',function(){var b=el.querySelector('.big');if(b)b.textContent=i.value;});"
+  "i.addEventListener('change',function(){R.send(el.dataset.key,+i.value);});},"
+  "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;var b=el.querySelector('.big');if(b)b.textContent=v;}};";
+
 class SliderWidget : public Widget {
  public:
   using Cb = std::function<void(int)>;
@@ -138,6 +127,12 @@ class SliderWidget : public Widget {
 };
 
 // ── Control: button (momentary action) ──
+static const char RW_BUTTON_CSS[] PROGMEM =
+  ".act{height:46px;border:none;border-radius:13px;background:var(--grad);color:var(--acc-ink);font:700 15px var(--font);cursor:pointer;width:100%}"
+  ".act:active{transform:scale(.97)}";
+static const char RW_BUTTON_JS[] PROGMEM =
+  "R.W.button={init:function(el){var b=el.querySelector('.act');if(b)b.addEventListener('click',function(){R.send(el.dataset.key,true);});}};";
+
 class ButtonWidget : public Widget {
  public:
   using Cb = std::function<void()>;
@@ -158,51 +153,50 @@ class ButtonWidget : public Widget {
   const char* _label; Cb _cb;
 };
 
+// ── Control: push (momentary state: true while pressed, false on release) ──
+static const char RW_PUSH_CSS[] PROGMEM =
+  ".push{height:46px;border:1px solid var(--acc);border-radius:13px;"
+  "background:transparent;color:var(--acc);font:700 15px var(--font);"
+  "cursor:pointer;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}"
+  ".push:active,.push.down{background:var(--grad);color:var(--acc-ink);transform:scale(.97)}";
+static const char RW_PUSH_JS[] PROGMEM =
+  "R.W.push={init:function(el){var b=el.querySelector('.push');if(!b)return;var down=false;"
+  "function send(v){if(down===v)return;down=v;b.classList.toggle('down',v);R.send(el.dataset.key,v);}"
+  "b.addEventListener('pointerdown',function(e){e.preventDefault();if(b.setPointerCapture)b.setPointerCapture(e.pointerId);send(true);});"
+  "b.addEventListener('pointerup',function(e){e.preventDefault();send(false);});"
+  "b.addEventListener('pointercancel',function(){send(false);});"
+  "b.addEventListener('lostpointercapture',function(){send(false);});}};";
+
+class PushWidget : public Widget {
+ public:
+  using Cb = std::function<void(bool)>;
+  PushWidget(const char* key, const char* title, const char* label, Cb cb)
+      : Widget(key, title), _label(label), _cb(cb) {}
+  const char* typeId() const override { return "push"; }
+  const char* css() const override { return RW_PUSH_CSS; }
+  const char* js() const override { return RW_PUSH_JS; }
+  void card(Print& out) override {
+    cardOpen(out);
+    out.print(F("<button class=\"push\" type=\"button\">"));
+    out.print(rI18n(_label ? _label : _title));
+    out.print(F("</button>"));
+    cardClose(out);
+  }
+  void applyCommand(const String& v) override {
+    bool pressed = (v == "true" || v == "1");
+    if (_cb) _cb(pressed);
+  }
+ private:
+  const char* _label;  Cb _cb;
+};
+
+// ── Control: number input (int) ──
 static const char RW_NUMBER_CSS[] PROGMEM =
   ".ninp{width:100%;height:42px;border-radius:12px;border:1px solid var(--line2);background:var(--field);color:var(--ink1);font:16px var(--font);padding:0 12px}";
-static const char RW_SELECT_CSS[] PROGMEM =
-  // Fully custom dropdown so the option list matches the theme (a native <select> popup can't be
-  // styled). .rsel is the trigger; .rsel-list overlays on .open. Chevron rotates; RTL flips sides.
-  ".rsel{position:relative;min-height:42px;border-radius:12px;border:1px solid var(--line2);"
-  "background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 40px 0 13px;display:flex;"
-  "align-items:center;cursor:pointer;user-select:none;outline:none}"
-  ".rsel:focus,.rsel.open{border-color:var(--acc)}"
-  ".rsel-cur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
-  ".rsel-chev{position:absolute;right:13px;top:50%;margin-top:-9px;width:18px;height:18px;fill:none;"
-  "stroke:#7c8699;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;"
-  "pointer-events:none}"
-  ".rsel.open .rsel-chev{transform:rotate(180deg)}"
-  ".rsel-list{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;margin:0;padding:5px;"
-  "list-style:none;background:oklch(0.23 0.025 255);border:1px solid var(--line2);border-radius:12px;"
-  "box-shadow:0 18px 44px oklch(0 0 0 / .5);max-height:min(320px,62vh);overflow:auto;display:none}"
-  ".rsel.open .rsel-list{display:block}"
-  ".rsel-opt{padding:9px 12px;border-radius:8px;font:14.5px var(--font);color:var(--ink1);"
-  "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}"
-  ".rsel-opt:hover{background:oklch(0.7 0.03 255 / .14)}"
-  ".rsel-opt.on{background:var(--grad);color:var(--acc-ink);font-weight:700}"
-  ".light .rsel-list{background:oklch(0.99 0.004 255)}"
-  "[dir=rtl] .rsel{padding:0 13px 0 40px}"
-  "[dir=rtl] .rsel-chev{right:auto;left:13px}";
 static const char RW_NUMBER_JS[] PROGMEM =
   "R.W.number={init:function(el){var i=el.querySelector('input');if(i)i.addEventListener('change',function(){R.send(el.dataset.key,+i.value);});},"
   "update:function(el,v){var i=el.querySelector('input');if(i)i.value=v;}};";
-static const char RW_SELECT_JS[] PROGMEM =
-  "R.W.select={init:function(el){var box=el.querySelector('.rsel');if(!box)return;"
-  "var cur=box.querySelector('.rsel-cur'),opts=box.querySelectorAll('.rsel-opt');"
-  // Cards have backdrop-filter -> each is its own stacking context, so the popup can't paint over
-  // sibling cards from inside. Lift the whole card while open (46: above the fixed footer, below the
-  // sticky appbar so it never bleeds over the header on scroll).
-  "function open(o){box.classList.toggle('open',o);el.style.zIndex=o?'46':'';}"
-  "box.addEventListener('click',function(e){var o=e.target.closest('.rsel-opt');"
-  "if(o){opts.forEach(function(x){x.classList.remove('on');});o.classList.add('on');"
-  "cur.textContent=o.textContent;open(false);R.send(el.dataset.key,+o.dataset.i);}"
-  "else{var o=!box.classList.contains('open');document.body.click();open(o);}});"
-  "document.addEventListener('click',function(e){if(!box.contains(e.target))open(false);});},"
-  "update:function(el,v){var box=el.querySelector('.rsel');if(!box)return;"
-  "box.querySelectorAll('.rsel-opt').forEach(function(o){var on=+o.dataset.i===+v;o.classList.toggle('on',on);"
-  "if(on)box.querySelector('.rsel-cur').textContent=o.textContent;});}};";
 
-// ── Control: number input (int) ──
 class NumberWidget : public Widget {
  public:
   using Cb = std::function<void(int)>;
@@ -238,6 +232,45 @@ class NumberWidget : public Widget {
 };
 
 // ── Control: select / dropdown (CSV options, bound to a selected index) ──
+static const char RW_SELECT_CSS[] PROGMEM =
+  // Fully custom dropdown so the option list matches the theme (a native <select> popup can't be
+  // styled). .rsel is the trigger; .rsel-list overlays on .open. Chevron rotates; RTL flips sides.
+  ".rsel{position:relative;min-height:42px;border-radius:12px;border:1px solid var(--line2);"
+  "background:var(--field);color:var(--ink1);font:15px var(--font);padding:0 40px 0 13px;display:flex;"
+  "align-items:center;cursor:pointer;user-select:none;outline:none}"
+  ".rsel:focus,.rsel.open{border-color:var(--acc)}"
+  ".rsel-cur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+  ".rsel-chev{position:absolute;right:13px;top:50%;margin-top:-9px;width:18px;height:18px;fill:none;"
+  "stroke:#7c8699;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;"
+  "pointer-events:none}"
+  ".rsel.open .rsel-chev{transform:rotate(180deg)}"
+  ".rsel-list{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;margin:0;padding:5px;"
+  "list-style:none;background:oklch(0.23 0.025 255);border:1px solid var(--line2);border-radius:12px;"
+  "box-shadow:0 18px 44px oklch(0 0 0 / .5);max-height:min(320px,62vh);overflow:auto;display:none}"
+  ".rsel.open .rsel-list{display:block}"
+  ".rsel-opt{padding:9px 12px;border-radius:8px;font:14.5px var(--font);color:var(--ink1);"
+  "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}"
+  ".rsel-opt:hover{background:oklch(0.7 0.03 255 / .14)}"
+  ".rsel-opt.on{background:var(--grad);color:var(--acc-ink);font-weight:700}"
+  ".light .rsel-list{background:oklch(0.99 0.004 255)}"
+  "[dir=rtl] .rsel{padding:0 13px 0 40px}"
+  "[dir=rtl] .rsel-chev{right:auto;left:13px}";
+static const char RW_SELECT_JS[] PROGMEM =
+  "R.W.select={init:function(el){var box=el.querySelector('.rsel');if(!box)return;"
+  "var cur=box.querySelector('.rsel-cur'),opts=box.querySelectorAll('.rsel-opt');"
+  // Cards have backdrop-filter -> each is its own stacking context, so the popup can't paint over
+  // sibling cards from inside. Lift the whole card while open (46: above the fixed footer, below the
+  // sticky appbar so it never bleeds over the header on scroll).
+  "function open(o){box.classList.toggle('open',o);el.style.zIndex=o?'46':'';}"
+  "box.addEventListener('click',function(e){var o=e.target.closest('.rsel-opt');"
+  "if(o){opts.forEach(function(x){x.classList.remove('on');});o.classList.add('on');"
+  "cur.textContent=o.textContent;open(false);R.send(el.dataset.key,+o.dataset.i);}"
+  "else{var o=!box.classList.contains('open');document.body.click();open(o);}});"
+  "document.addEventListener('click',function(e){if(!box.contains(e.target))open(false);});},"
+  "update:function(el,v){var box=el.querySelector('.rsel');if(!box)return;"
+  "box.querySelectorAll('.rsel-opt').forEach(function(o){var on=+o.dataset.i===+v;o.classList.toggle('on',on);"
+  "if(on)box.querySelector('.rsel-cur').textContent=o.textContent;});}};";
+
 class SelectWidget : public Widget {
  public:
   using Cb = std::function<void(int)>;
@@ -284,17 +317,16 @@ class SelectWidget : public Widget {
   const char* _opts; int* _idx; Cb _cb; RwTracked<int> _trk;
 };
 
+// ── Control: segmented radio (CSV options → bound index) ──
 static const char RW_RADIO_CSS[] PROGMEM =
   ".seg{display:flex;gap:4px;background:var(--bg3);border-radius:12px;padding:4px}"
   ".seg button{flex:1;height:34px;border:none;border-radius:9px;background:transparent;color:var(--ink2);font:600 13px var(--font);cursor:pointer}"
   ".seg button.on{background:var(--grad);color:var(--acc-ink)}";
-
 static const char RW_RADIO_JS[] PROGMEM =
   "R.W.radio={init:function(el){var b=el.querySelectorAll('button');for(var i=0;i<b.length;i++)(function(j){"
   "b[j].addEventListener('click',function(){R.send(el.dataset.key,j);});})(i);},"
   "update:function(el,v){var b=el.querySelectorAll('button');for(var i=0;i<b.length;i++)b[i].classList.toggle('on',i==v);}};";
 
-// ── Control: segmented radio (CSV options → bound index) ──
 class RadioWidget : public Widget {
  public:
   using Cb = std::function<void(int)>;
