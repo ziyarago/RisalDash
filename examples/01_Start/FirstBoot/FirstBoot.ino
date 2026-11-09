@@ -15,6 +15,7 @@ void setup() {
   dash.toggle("Pump", &pump, [](bool on) { (void)on; /* digitalWrite(PUMP_PIN, on) */ });
 
   dash.apName("Greenhouse-Setup");  // captive-portal AP name (optional)
+  dash.apPass("12345678");          // captive-portal AP password (optional)
   dash.timezone(180);               // default timezone offered in the portal (+03:00)
   dash.begin();                     // saved Wi-Fi -> STA; otherwise -> setup portal
 }

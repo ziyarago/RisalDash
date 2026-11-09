@@ -143,7 +143,7 @@ void RisalUI::_startPortal() {
   WiFi.mode(WIFI_AP_STA);
   IPAddress apIP(192, 168, 4, 1);
   WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-  WiFi.softAP(_apSsid ? _apSsid : "RisalDash-Setup");
+  WiFi.softAP(_apSsid ? _apSsid : "RisalDash-Setup", _apPass);
   _scanN = WiFi.scanNetworks();  // cached; results persist (never scanDelete'd) for the portal
   _dns.start(53, "*", apIP);  // resolve every domain to us -> captive portal
 
