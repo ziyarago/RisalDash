@@ -58,6 +58,7 @@ ToggleWidget& RisalUI::toggle(const char* name, bool* val, ToggleWidget::Cb cb) 
 SliderWidget& RisalUI::slider(const char* name, int* val, int mn, int mx, SliderWidget::Cb cb) { return _make<SliderWidget>(name, name, val, mn, mx, cb); }
 ButtonWidget& RisalUI::button(const char* name, const char* label, ButtonWidget::Cb cb) { return _make<ButtonWidget>(name, name, label, cb); }
 PushWidget& RisalUI::push(const char* name, const char* label, PushWidget::Cb cb) { return _make<PushWidget>(name, name, label, cb); }
+JoystickWidget& RisalUI::joystick(const char* name, JoystickWidget::Cb cb) { return _make<JoystickWidget>(name, name, cb); }
 LinkWidget& RisalUI::link(const char* name, const char* label, const char* url) { return _make<LinkWidget>(name, name, label, url); }
 BadgeWidget& RisalUI::badge(const char* name, int* val) { return _make<BadgeWidget>(name, name, val); }
 LedWidget& RisalUI::led(const char* name, bool* val) { return _make<LedWidget>(name, name, val); }
@@ -73,11 +74,7 @@ ChartWidget& RisalUI::chart(const char* name, float* val, const char* unit) { re
 NumberWidget& RisalUI::number(const char* name, int* val, int mn, int mx, int step, NumberWidget::Cb cb) { return _make<NumberWidget>(name, name, val, mn, mx, step, cb); }
 SelectWidget& RisalUI::select(const char* name, const char* csvOptions, int* idx, SelectWidget::Cb cb) { return _make<SelectWidget>(name, name, csvOptions, idx, cb); }
 GroupWidget& RisalUI::group(const char* title) { return _make<GroupWidget>(title); }
-LayoutWidget& RisalUI::layout(const char* name, const char* icon) {
-  LayoutWidget& w = _make<LayoutWidget>(name);
-  if (icon) w.icon(icon);
-  return w;
-}
+LayoutWidget& RisalUI::layout(const char* name, const char* icon) { LayoutWidget& w = _make<LayoutWidget>(name); if (icon) w.icon(icon); return w; }
 LabelWidget& RisalUI::label(const char* name, String* val) { return _make<LabelWidget>(name, name, val); }
 TextWidget& RisalUI::text(const char* name, String* val, TextWidget::Cb cb) { return _make<TextWidget>(name, name, val, cb); }
 TextareaWidget& RisalUI::textarea(const char* name, String* val, TextareaWidget::Cb cb) { return _make<TextareaWidget>(name, name, val, cb); }

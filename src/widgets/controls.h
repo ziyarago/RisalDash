@@ -183,11 +183,86 @@ class PushWidget : public Widget {
     cardClose(out);
   }
   void applyCommand(const String& v) override {
-    bool pressed = (v == "true" || v == "1");
-    if (_cb) _cb(pressed);
+    if (_cb) _cb(v == "true" || v == "1");
   }
  private:
   const char* _label;  Cb _cb;
+};
+
+// ── Control: joystick (float, float) ──
+static const char RW_JOYSTICK_CSS[] PROGMEM =
+  ".joy{width:100%;display:flex;justify-content:center;align-items:center;padding:4px 0 2px;}"
+  ".joy-pad{position:relative;width:min(170px,100%);aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:50%;"
+  "border:1px solid var(--line2);background:var(--field);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);overflow:hidden;}"
+  ".joy-pad svg{display:block;width:100%;height:100%;}"
+  ".joy-ring{fill:none;stroke:var(--line2);stroke-width:1;}"
+  ".joy-axis{stroke:var(--line2);stroke-width:1;stroke-dasharray:3 5;opacity:.55;}"
+  ".joy-arrow{fill:var(--ink3);transition:fill .12s,opacity .12s;opacity:.9;}"
+  ".joy-pad.active .joy-arrow{fill:var(--acc);}"
+  ".joy-pad.active .joy-center{fill:var(--acc);}"
+  ".joy-center{fill:var(--bg3);transition:fill .12s;}"
+  ".joy-x .joy-y{display:none}"
+  ".joy-y .joy-x{display:none}";
+static const char RW_JOYSTICK_JS[] PROGMEM = R"js(R.W.joystick={init:function(el){
+  var pad=el.querySelector('.joy-pad'); if(!pad)return; var variant=pad.dataset.variant||'xy';
+  var threshold=+pad.dataset.threshold||0; var active=false; var lastX=0,lastY=0; function clamp(v){ return v<-1?-1:v>1?1:v; }
+  function send(x,y,force){ if(!force && Math.abs(x-lastX)<=threshold && Math.abs(y-lastY)<=threshold)return;
+  lastX=x; lastY=y; pad.classList.toggle('active',x!==0||y!==0); R.send(el.dataset.key,x+':'+y); }
+  function position(e){ var r=pad.getBoundingClientRect(); var cX=r.width/2; var cY=r.height/2;var x=variant==='y'?0:(e.clientX-(r.left+cX))/cX;
+  var y=variant==='x'?0:-(e.clientY-(r.top+cY))/cY; if(variant==='xy'){ var d=Math.hypot(x,y); if(d>1){ x/=d; y/=d; }}return[clamp(x),clamp(y)]; }
+  function release(e){ if(!active)return; active=false; pad.classList.remove('active');
+  if(pad.releasePointerCapture&&e) try{pad.releasePointerCapture(e.pointerId);}catch(_){} send(0,0,true); }
+  pad.addEventListener('pointerdown',function(e){ e.preventDefault(); active=true;
+  if(pad.setPointerCapture)pad.setPointerCapture(e.pointerId); var p=position(e); send(p[0],p[1],true);});
+  pad.addEventListener('pointermove',function(e){ if(!active)return; e.preventDefault(); var p=position(e); send(p[0],p[1],false); });
+  pad.addEventListener('pointerup',function(e){ e.preventDefault(); release(e); });
+  pad.addEventListener('pointercancel',function(e){ release(e); });
+  pad.addEventListener('lostpointercapture',function(){ if(active){ active=false; pad.classList.remove('active'); send(0,0,true); } });
+}};)js";
+class JoystickWidget : public Widget {
+ public:
+  using Cb = std::function<void(float, float)>;
+  JoystickWidget(const char* key, const char* title, Cb cb)
+      : Widget(key, title), _cb(cb) {}
+  const char* typeId() const override { return "joystick"; }
+  const char* css() const override { return RW_JOYSTICK_CSS; }
+  const char* js() const override { return RW_JOYSTICK_JS; }
+  JoystickWidget& variant(const char* v) { if (v && (!strcmp(v, "x") || !strcmp(v, "y") || !strcmp(v, "xy"))) { _variant = v; } return *this; }
+  JoystickWidget& threshold(float t) { _threshold = t < 0 ? 0 : (t > 1 ? 1 : t); return *this; }
+  void card(Print& out) override {
+    cardOpen(out);
+    const char* v = _variant ? _variant : "xy";
+    out.print(F("<div class=\"joy\"><div class=\"joy-pad joy-"));
+    out.print(v);
+    out.print(F("\" data-variant=\""));
+    out.print(v);
+    out.print(F("\" data-threshold=\""));
+    out.print(_threshold, 3);
+    out.print(F("\">"));
+    out.print(F(
+      "<svg viewBox=\"0 0 200 200\" preserveAspectRatio=\"xMidYMid meet\">"
+      "<circle class=\"joy-ring\" cx=\"100\" cy=\"100\" r=\"88\"/>"
+      "<path class=\"joy-axis joy-x\" d=\"M20 100H180\"/>"
+      "<path class=\"joy-axis joy-y\" d=\"M100 20V180\"/>"
+      "<path class=\"joy-arrow joy-x\" d=\"M31 100l14-9v7h12v4H45v7z\"/>"
+      "<path class=\"joy-arrow joy-x\" d=\"M169 100l-14-9v7h-12v4h12v7z\"/>"
+      "<path class=\"joy-arrow joy-y\" d=\"M100 31l-9 14h7v12h4V45h7z\"/>"
+      "<path class=\"joy-arrow joy-y\" d=\"M100 169l-9-14h7v-12h4v12h7z\"/>"
+      "<circle class=\"joy-center\" cx=\"100\" cy=\"100\" r=\"5\"/>"
+      "</svg>"
+    ));
+    out.print(F("</div></div>"));
+    cardClose(out);
+  }
+  void applyCommand(const String& v) override {
+    int splitIndex = v.indexOf(':');
+    if (splitIndex < 0) return;
+    float x = v.substring(0, splitIndex).toFloat();
+    float y = v.substring(splitIndex + 1).toFloat();
+    if (_cb) _cb(x, y);
+  }
+ private:
+  const char* _variant = "xy";  float _threshold = 0.1f;  Cb _cb;
 };
 
 // ── Control: number input (int) ──
